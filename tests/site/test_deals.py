@@ -544,6 +544,43 @@ def test_rows_with_missing_names_and_foreign_links(client, site_root):
     assert "b-9" in html
 
 
+def test_the_ring_is_the_deals_own_previous_ad_and_falls_back_for_old_files():
+    base = {
+        "listing_id": "31",
+        "url": "https://streeteasy.com/rental/31",
+        "building": "b-1",
+        "ask": 3000.0,
+        "model_median": 3600.0,
+        "model_lo80": 3300.0,
+        "model_hi80": 3900.0,
+        "below_share": 0.05,
+        "unit_ads": 1,
+    }
+    own = base | {"prev_ask": 2800.0, "prev_day": "2026-05-01"}
+    # A deal whose unit has no previous ad in its fit draws no ring, whatever the
+    # diagnostics say.
+    none = base | {"listing_id": "32", "prev_ask": None, "prev_day": None}
+    # A deals.json written before the deals carried their own previous ad.
+    old = base | {"listing_id": "33"}
+    diag = {
+        lid: {"prev_ask": 9999.0, "prev_day": "2025-01-01"} for lid in ("31", "32")
+    } | {"33": {"prev_ask": 3100.0, "prev_day": "2026-04-01"}}
+    rows = {r["listing_id"]: r for r in deals.load_rows([own, none, old], diag=diag)}
+    assert {k: (r["prev_ask"], r["prev_day"]) for k, r in rows.items()} == {
+        "31": (2800.0, "2026-05-01"),
+        "32": (None, None),
+        "33": (3100.0, "2026-04-01"),
+    }
+    assert "Previous ad $2,800 on 2026-05-01" in rows["31"]["range_bar"]
+    assert 'class="prev"' not in rows["32"]["range_bar"]
+    assert "Previous" not in rows["32"]["range_bar"]
+    assert "Previous ad $3,100 on 2026-04-01" in rows["33"]["range_bar"]
+    # Without diagnostics the deal's own ring still shows.
+    alone = deals.load_rows([own, old])
+    assert 'class="prev"' in alone[0]["range_bar"]
+    assert 'class="prev"' not in alone[1]["range_bar"]
+
+
 def test_bad_query_strings_replaced_files_and_backtest_gate(client, site_root):
     publish(site_root)
     response = client.get(

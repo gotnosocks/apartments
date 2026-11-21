@@ -6,7 +6,9 @@ run, scoring day, convergence gates and held-out scores) and `validation.json`
 (what happened to last year's ads by where their first ask sat in the model's
 range). When `<root>/diagnostics/` is also published, `facts.py` adds each ad's
 basis (`unit`, `building` or `area`), building training ad count, floor and
-detector flags.
+detector flags. The ring on each range bar is the deal's own `prev_ask` and `prev_day`, the
+unit's previous ad in the fit Deals publishes; only a `deals.json` written before they were
+added reads them from the diagnostics.
 
 By default the list orders ads by cautious saving, `(model_lo80 - ask) / model_lo80`,
 which measures how far the ask sits below the model's 10th percentile and penalizes
@@ -367,6 +369,7 @@ def range_svg(
     median: float,
     intervals: list[tuple[int, float, float]],
     prev_ask: float | None = None,
+    prev_day: str | None = None,
 ) -> Markup:
     """Compact inline SVG range bar (50/80/95 bands, middle tick, ask dot).
 
@@ -374,7 +377,8 @@ def range_svg(
     RANGE_LOW to RANGE_HIGH, so that the middle tick is at the same place in every
     row, a wide band shows an uncertain estimate, and the dot's distance from the
     tick shows the size of the gap. Values beyond the scale are drawn at its edge.
-    A hollow ring marks `prev_ask`, the ask of the unit's previous ad.
+    A hollow ring marks `prev_ask`, the ask of the unit's previous ad, and the tooltip
+    gives its day `prev_day` when known.
     """
     width, height = 170, 18
     left, right, top, band_h = 5, 5, 4, 10
@@ -389,7 +393,8 @@ def range_svg(
     for level, lo, hi in sorted(intervals, key=lambda item: item[0]):
         tip_parts.append(f"{level}% {_usd(lo)} to {_usd(hi)}")
     if prev_ask:
-        tip_parts.append(f"Previous ad {_usd(prev_ask)}")
+        on = f" on {prev_day}" if prev_day else ""
+        tip_parts.append(f"Previous ad {_usd(prev_ask)}{on}")
     tip = " · ".join(tip_parts)
 
     parts = [f"<title>{escape(tip)}</title>"]
@@ -487,6 +492,12 @@ def load_rows(
             if bounds[f"lo{lvl}"] is not None and bounds[f"hi{lvl}"] is not None
         ]
 
+        # The unit's previous ad, from the deals table's own fit since `prev_ask` was
+        # added to it (2026-11-20); an older deals.json falls back to the diagnostics.
+        prev = raw if "prev_ask" in raw else extra
+        prev_ask = _pos_number(prev.get("prev_ask"))
+        prev_day = _name(prev.get("prev_day")) if prev_ask is not None else None
+
         gap_pct = 100.0 * (mid - ask) / mid
         u_raw = _nonneg_number(extra.get("unit_ads"))
         if u_raw is None:
@@ -565,9 +576,9 @@ def load_rows(
                 "lower_words": lower_words(100.0 * (1.0 - share)),
                 "gap_pct": gap_pct,
                 "under_words": under_words(gap_pct),
-                "range_bar": range_svg(
-                    ask, mid, intervals, _pos_number(extra.get("prev_ask"))
-                ),
+                "range_bar": range_svg(ask, mid, intervals, prev_ask, prev_day),
+                "prev_ask": prev_ask,
+                "prev_day": prev_day,
                 "url": listing_url(raw),
                 "neighbourhood": hood,
                 "hood_label": hood_label(hood),

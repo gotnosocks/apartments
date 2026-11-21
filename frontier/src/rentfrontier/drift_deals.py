@@ -16,6 +16,10 @@ predictive cdf, `rentfrontier.drift_quantiles`; `--sampled` draws them as before
   so for an ad with a concession the page shows more than the ask;
 - `unit_ads`: the unit's ads in the training rows. A unit with earlier ads carries its own
   level, so its range is narrower than a new unit's;
+- `prev_ask`, `prev_day`: the ask and day of the unit's previous ad in the run's own dataset,
+  the latest training row of the same building and unit_id dated strictly before the ad
+  (`rentfrontier.drift_diagnostics.previous`). Missing where the unit has none. The page
+  draws it as a ring on the ad's range;
 - `cautions`: reasons the ask may be low that the model does not know, as the codes of
   `rentfrontier.cautions`. They change no score. The ones read from an ad's text need
   `--texts`, the table `texts` writes: each ad's own description from the pipeline's
@@ -299,6 +303,10 @@ def deals(
     unit_key = frame.building.astype(str) + "|" + frame.unit_id.astype(str)
     train_units = unit_key[~held & frame.unit_id.notna().to_numpy()].value_counts()
     codes, with_text = _run_cautions(run_dir, frame, h, held, a, ads, texts)
+    # Imported here: drift_diagnostics imports this module and drift_estimates.
+    from . import drift_diagnostics
+
+    prev = drift_diagnostics.previous_columns(frame, held)
     out = pd.DataFrame(
         {
             "listing_id": h.listing_id.astype(str),
@@ -319,6 +327,8 @@ def deals(
             "months_free": a.months_free.to_numpy(float),
             "first_day": a.first_day.astype(str).to_numpy(),
             "days_on_market": a.days_on_market.to_numpy(float),
+            "prev_ask": prev["prev_ask"],
+            "prev_day": prev["prev_day"],
             "model_median": median.round(0),
             "model_lo50": q[:, 3].round(0),
             "model_hi50": q[:, 4].round(0),

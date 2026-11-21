@@ -19,7 +19,8 @@ the market split ([leak-free scoring](leak-free-scoring.md)).
   ranked by how low each ask sits in the served model's predictive range for that apartment
   (`apartments.site.deals`). The page reads the `deals/` folder that
   `python -m rentfrontier.drift_deals publish` last wrote (`deals.json`, `meta.json`,
-  `validation.json`), so it shows the last complete publish. Ads with a caution
+  `validation.json`), so it shows the last complete publish. The ring on each range bar is
+  the deal's own `prev_ask`, the unit's previous ad in that fit's dataset. Ads with a caution
   (`rentfrontier.cautions`) are left out unless asked for. With `diagnostics/` published, the
   page runs the peer check: `facts.Table.peers` reads, in one query over `history.parquet`,
   the other apartments' ads of each ad's building with the same bedroom count in the 365 days
