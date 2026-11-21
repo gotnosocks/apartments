@@ -355,6 +355,7 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   the build's NJ registry, and a held-scales market fit at about $2. `ops/deals-refresh`
   runs the datasets, the fit and the publish; each refresh still needs its note with
   predictions on master before the fit.
+  The next is planned for Nov 23 (`docs/notes/market-refresh-2026-11-23.md`, `range-m4`).
 - [ ] Rewrite the text flags the model reads (`features.DESCRIPTION_FLAGS`, copied in
   `b0data.TEXT_FLAGS`). `income_restricted` missed 33 of the 55 income-restricted ads on the
   market of 2026-11-09 (a hyphen in "income-restricted", "income requirements", "HPD",
