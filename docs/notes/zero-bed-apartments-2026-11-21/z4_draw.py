@@ -41,17 +41,9 @@ def fields(r) -> str:
     return f"label {r.label!r}, {bed}, {r.full_baths} full and {r.half_baths} half baths{sq}"
 
 
-if __name__ == "__main__":
-    m = pd.read_parquet(OUT / "marked.parquet")
-    rng = np.random.default_rng(SEED)
-    picks = []
-    for s in STRATA:
-        for h in "AB":
-            g = m[(m.stratum == s) & (m.half == h)]
-            picks.append(g.iloc[rng.choice(len(g), PER, replace=False)])
-    D = pd.concat(picks)
-    D = D.iloc[rng.permutation(len(D))].reset_index(drop=True)
-    D["read_id"] = [f"Z{i + 1:02d}" for i in range(len(D))]
+def build(D: pd.DataFrame) -> list[str]:
+    """Reader blocks for the ads of `D` (read_id, listing_id, unit_id, building, first_day,
+    rooms), in its order."""
     c = duckdb.connect()
     c.execute("set memory_limit='2GB'")
     A = c.execute(
@@ -90,6 +82,21 @@ if __name__ == "__main__":
                 f"Text start: {txt or '(empty)'}"
             )
         blocks.append("\n".join(lines))
+    return blocks
+
+
+if __name__ == "__main__":
+    m = pd.read_parquet(OUT / "marked.parquet")
+    rng = np.random.default_rng(SEED)
+    picks = []
+    for s in STRATA:
+        for h in "AB":
+            g = m[(m.stratum == s) & (m.half == h)]
+            picks.append(g.iloc[rng.choice(len(g), PER, replace=False)])
+    D = pd.concat(picks)
+    D = D.iloc[rng.permutation(len(D))].reset_index(drop=True)
+    D["read_id"] = [f"Z{i + 1:02d}" for i in range(len(D))]
+    blocks = build(D)
     for k, part in enumerate(np.array_split(np.arange(len(D)), 4)):
         p = OUT / f"batch_{k + 1}.md"
         p.write_text("\n\n".join(blocks[i] for i in part) + "\n")

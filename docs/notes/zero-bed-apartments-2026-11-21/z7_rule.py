@@ -1,8 +1,11 @@
-"""Question 4: the count the recommended rule would change.
+"""Question 4: the ads that meet both marks, the scope a pipeline rule would have had.
 
-Rule form, chosen on half A of buildings by the reads and checked on half B: an ad coded 0 bed
-whose text states 2 or more bedrooms for the unit itself (`T`) and whose unit has another
-typed ad coded 2 or more (`U_any`) takes the text's count. Ledger-named ads are left out.
+The first draft's rule, chosen on half A of buildings by the reads and checked on half B: an
+ad coded 0 bed whose text states 2 or more bedrooms for the unit itself (`T`) and whose unit
+has another typed ad coded 2 or more (`U_any`) takes the text's count. Ledger-named ads are
+left out. The review round replaced the rule with ledger sets (`z8_full_draw.py`,
+`z9_candidates.py`); this count shows that a rule would cover only one ad beyond the training
+rows.
 """
 
 from pathlib import Path

@@ -90,7 +90,7 @@ if __name__ == "__main__":
     R["U_any"] = zero & u2
     R["U_clean"] = zero & u2 & (R.u1.fillna(0) == 0)
     R["U_strict"] = R.U_clean & (R.u0.fillna(0) == 0)
-    R["led"] = R.in_ledger.fillna(False).astype(bool)
+    R["led"] = R.in_ledger.astype("boolean").fillna(False).astype(bool)
     print(
         "held-out",
         len(R),
@@ -116,6 +116,11 @@ if __name__ == "__main__":
         ("both halves, not in ledger", ~R.led),
         ("half A", ~R.led & (R.half == "A")),
         ("half B", ~R.led & (R.half == "B")),
+        # The 2026-11-12 sprint chose its ads partly by their gap, so leaving the ledger's
+        # ads out conditions the groups above on a set chosen by rent. These keep them in.
+        ("both halves, ledger-named ads kept in", R.index == R.index),
+        ("half A, ledger-named ads kept in", R.half == "A"),
+        ("half B, ledger-named ads kept in", R.half == "B"),
     ]:
         t = pd.DataFrame({k: summary(R[v & sub]) for k, v in groups.items()}).T
         print(f"\n== {name}\n" + t.to_string())

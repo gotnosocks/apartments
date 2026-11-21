@@ -12,7 +12,9 @@ other ads. The TODO item asked four things:
 3. Does the miscoding move the model's held-out errors?
 4. Ledger bedroom sets from reads, a pipeline rule, or nothing?
 
-No fit was run, no money was spent and nothing went into the ledger. Scripts and logs are in
+No fit was run, no money was spent and nothing went into the ledger. A review of the first
+draft asked for the rent-chosen ledger groups to be flagged, a count of rows whose unit's
+other ads mostly agree, and a full read of the rows that meet both marks (sections 3 to 6). Scripts and logs are in
 `docs/notes/zero-bed-apartments-2026-11-21/`.
 
 ## Data
@@ -36,7 +38,7 @@ No fit was run, no money was spent and nothing went into the ledger. Scripts and
 
 No ask picks or codes any row below. The ratio read's own selection did use the ask (a ratio
 over three times the area median), so the 53 serve only for question 1 and play no part in
-the mark or the rule.
+the marks or the drafted rows' choice.
 
 ## 1. The 53 are mostly a different kind from the blank forms
 
@@ -139,39 +141,79 @@ ads), with 11% and 13% above the 97.5% quantile. `U_any` has +0.008 on A and +0.
 Only 6 held-out ads meet `T` and `U_any`.
 
 The 126 held-out ads coded 0 that the ledger has named since have a mean gap of +0.157 (SE
-0.028), 25% above the 97.5% quantile and 72% coverage. The 2026-11-12 work took the 0 bed
-codes that moved the model most. What remains moves it little: a few dozen held-out ads with
-a raised upper tail.
+0.028), 25% above the 97.5% quantile and 72% coverage. That figure is not blind to rent: the
+2026-11-12 sprint picked its ads partly by their gap, so the large gap follows from how the
+set was chosen and argues in a circle. For the same reason the table above, which leaves
+those ads out, is conditioned on a set chosen by rent: it shows the mark's ads after the
+largest misses among them were taken away. With the ledger-named ads kept in:
 
-## 4. Recommendation: a narrow pipeline rule, for Data improvements
+| held-out ads, all | ads | mean gap | SE | SD | over 97.5% | under 2.5% | 95% coverage |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| all | 189,647 | -0.004 | 0.000 | 0.079 | 0.024 | 0.030 | 0.944 |
+| all coded 0 | 33,814 | -0.004 | 0.000 | 0.072 | 0.021 | 0.029 | 0.949 |
+| `T` | 21 | +0.097 | 0.038 | 0.153 | 0.286 | 0.000 | 0.714 |
+| `U_strict` | 12 | +0.143 | 0.066 | 0.213 | 0.167 | 0.000 | 0.833 |
+| `U_any` | 1,223 | +0.016 | 0.004 | 0.121 | 0.061 | 0.028 | 0.912 |
+| the mark | 1,234 | +0.015 | 0.004 | 0.121 | 0.060 | 0.028 | 0.912 |
 
-The rule's form was chosen on half A: on the reads `T` with `U_any` was right on 5 of 5, `T`
-alone on 8 of 10 and the unit forms on 0 of 10. Half B gives 5 of 5, 9 of 10 and 1 of 10.
+`T` has +0.122 (SE 0.065, 10 ads) on half A and +0.075 (SE 0.047, 11 ads) on half B. Neither
+table is a clean test: one drops a set chosen by rent, the other mixes it back in. Both say
+the same small thing: the text mark's ads are priced low by the model and few in number, and
+the unit mark's excess is slight.
 
-The rule: an ad coded 0 bed whose text states 2 or more bedrooms for the unit itself (the
-`b0bedtext` reading, `bed_text_more` with `bed_text` >= 2) and whose unit has another typed ad
-coded 2 or more takes the text's count. It reads no ask. `z7_rule.py` counts what it would
-change: 196 ads, 195 training rows and 1 open Deals ad, over 190 units, 178 buildings and 102
-listers. The counts set are 2 on 125, 3 on 57, 4 on 10 and 5 on 3, and they equal the unit's
-lowest count of 2 or more on 151. The rule needs the strict text parser in the pipeline, or
-it can run where the frontier dataset gains `bed_text`.
+## 4. Agreement with the unit's other ads
+
+Ben's rule of 2026-10-04 (ad text never overrides coded fields) backs a correction only where
+the unit's other ads mostly agree. The 195 rows that meet both marks need just one other ad
+at 2 or more, and on 44 of them the text's count differs from the unit's lowest count of 2 or
+more. `z8_full_draw.py` counts, for each row, the unit's other ads with a typed count
+(ledger-set ads left out) and how many code the text's count. On 122 of the 195 (67 of 105 on
+half A, 55 of 90 on B) more than half of them do: all of them on 89, more than half on 33.
+On 40 rows some agree but no more than half, and on 33 none does.
+
+## 5. A full blind read of the 195
+
+`z8_full_draw.py`, `z9_candidates.py`, `full_reads.csv`. All 195 were read by Sonnet readers
+in the blocks and brief of section 2 (`reader_prompt.txt`), under new ids Y001 to Y195, 15 to
+a batch, with dollar figures masked and no ask. The best counts: 2 on 119, 3 on 55, 4 on 7,
+5 or more on 2, 0 on 3 and unclear on 9. The read gives the text mark's count on 181 of 195
+(97 of 105 on half A, 84 of 90 on B); the 14 others are 9 unclear, 3 studios and 2 reads of 3
+(against text counts of 2 and 4). The 10 rows read in section 2 got the same count again.
+
+| | unit's other ads mostly agree | they do not |
+|---|---:|---:|
+| read gives the text's count | 120 | 61 |
+| read differs | 2 | 12 |
+
+## 6. Recommendation: ledger bedroom sets from the read
+
+Both routes need a refit, and ledger sets need no new parser, where a pipeline rule would
+catch about one new ad (one open Deals ad meets both marks, `z7_rule.py`). So the recommendation is ledger
+sets. A row is kept where the read gives the text mark's count and the unit's other ads
+mostly agree: 120 rows (65 on half A, 55 on B), set to 2 bedrooms on 84, 3 on 32 and 4 on 4.
+101 of the 120 reads judge the unit's other ads the same apartment and 19 mixed.
+
+`candidate_rows.ndjson` holds the 120 as `bedrooms` set rows in the format of the sweep's
+file (`decided`, `source`, `when` with the row's 0 bed and month). Each gives the ad's own
+words (`ad_text`), the unit's agreeing ads (`other_ad`, the backing kind) and the read. No ask
+appears in any of them. The ledger reader parses all 120 (`review_led.py`, a copy of the
+sweep's). None of them is in the sweep's or the building-level read's candidate file. Nothing
+is imported: they go in with the next base refit.
 
 Left as they are:
 
-- the 443 text-only rows: at 7 of 10 a rule would code about 130 of them wrongly. If Data
-  improvements takes them up, a blind read of all 443 can draft ledger sets;
+- the 61 rows the read confirms but whose unit's other ads do not mostly agree, by Ben's rule;
+- the 443 text-only rows: 7 of 10 right in section 2, and no other ad of the unit backs them;
 - the 12,451 unit-only rows: the unit's other ads describe another apartment far more often
   than the same one. That points to unit identity (labels reused across layouts) as the
   problem to study there, before any bedroom change;
-- the 53 of the ratio read: chosen on the ask, so no rows are drafted from them; 15 of them
-  meet `T`, and the 9 of those that also meet `U_any` fall under the rule.
-
-No `candidate_rows.ndjson` was drafted.
+- the 53 of the ratio read play no part in the choice. 9 of them meet both marks on their
+  own and 6 of those are among the 120.
 
 ## What was not checked
 
-- Precision rests on 10 reads per stratum, one reader each, and no hand check of the reads.
-  The rule's 10 of 10 has a Wilson lower bound of 0.72.
-- The effect of the rule on a fit's elpd is not estimated; 195 rows of 1.9 million and 6
-  held-out ads suggest a small one.
+- Each of the 195 has one blind read and no hand check. Section 2's 10 of 10 has a Wilson
+  lower bound of 0.72.
+- The effect of the sets on a fit's elpd is not estimated; 120 rows of 1.9 million and 6
+  held-out ads meeting both marks suggest a small one.
 - Reasons for the unit-label reuse (lister, building type, years) were not studied.

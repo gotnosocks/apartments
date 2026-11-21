@@ -441,13 +441,14 @@ No fit was run for these.
   Done in `docs/notes/zero-bed-apartments-2026-11-21.md`: 30 of the 53 are filled forms
   outside every 2026-11-12 class and 23 failed its rules' conditions. The text mark (638
   training rows) reads right on 0.79, the unit's-other-ads mark (12,646) on 0.04, since
-  those ads mostly describe another apartment. Held-out excess is small (17 text-marked ads,
-  mean gap +0.048).
-- [ ] Data improvements: a pipeline rule giving ads coded 0 bed the count their text states
-  for the unit (`b0bedtext`, `bed_text_more` with `bed_text` >= 2) when the unit has another
-  typed ad coded 2 or more. It changes 196 ads (195 training rows, 1 open Deals ad) and reads
-  right on 10 of 10 (Wilson 0.72 to 1.00). Section 4 of
-  `docs/notes/zero-bed-apartments-2026-11-21.md`.
+  those ads mostly describe another apartment. Held-out excess is small (21 text-marked ads,
+  mean gap +0.097 with ledger-named ads kept in). A blind read of all 195 rows that meet both
+  marks agrees with the text on 181; 120 of those also have most of the unit's other counted
+  ads agreeing and are drafted as ledger bedroom sets.
+- [ ] Import the 120 drafted bedroom sets in
+  `docs/notes/zero-bed-apartments-2026-11-21/candidate_rows.ndjson` with the next base refit
+  (section 6 of `docs/notes/zero-bed-apartments-2026-11-21.md`). They overlap neither the
+  commercial sweep's nor the building-level read's candidate files.
 - [ ] Study unit labels reused across layouts: in 9 of 10 reads of 0 bed ads whose unit's
   other ads all code 2 or more, those ads describe a different apartment
   (`docs/notes/zero-bed-apartments-2026-11-21.md`, section 2).
