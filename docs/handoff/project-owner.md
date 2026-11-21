@@ -214,6 +214,11 @@ subagent's model and effort to be picked by its task.
 - Flex and studio wording (no fit, `docs/notes/flex-wording-2026-11-21.md`). No caution.
   A studio reading on an ad coded 1 bedroom or more is still 12.5% and 17.5% low under the
   bedroom-text term. Queued in TODO as a term with reader fixes for the next base refit.
+- Four traits from the top read on held-out history (no fit,
+  `docs/notes/four-traits-2026-11-21.md`). Walk-ups, the virtual doorman and garden wording
+  are closed. Floor 1 runs low on both halves (8.3% and 8.0% low, about 1% below the median),
+  garden flag or not. Queued in TODO: a `unit:floor1` step outside the floor curve for the
+  next base refit.
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
 

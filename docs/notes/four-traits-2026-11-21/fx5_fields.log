@@ -1,0 +1,70 @@
+regions sample [array(['brooklyn-north-crown-heights'], dtype=object), array(['manhattan-59th-110th'], dtype=object), array(['manhattan-page-crawl-areas'], dtype=object)]
+elevator by borough
+                         borough  elevator half      n    gap     se    low   high
+0   brooklyn-north-crown-heights     False    A    790 -0.004  0.003  0.039  0.046
+1   brooklyn-north-crown-heights     False    B    802 -0.011  0.003  0.050  0.031
+2   brooklyn-north-crown-heights      True    A   6931 -0.005  0.001  0.070  0.060
+3   brooklyn-north-crown-heights      True    B   6788 -0.006  0.001  0.061  0.054
+4   brooklyn-north-crown-heights      <NA>    A  17047 -0.006  0.001  0.055  0.045
+5   brooklyn-north-crown-heights      <NA>    B  17209 -0.006  0.001  0.052  0.048
+6         brooklyn-prospect-park     False    A    664 -0.011  0.003  0.059  0.045
+7         brooklyn-prospect-park     False    B    661 -0.012  0.003  0.054  0.027
+8         brooklyn-prospect-park      True    A   4555 -0.006  0.001  0.058  0.049
+9         brooklyn-prospect-park      True    B   5313 -0.005  0.001  0.062  0.046
+10        brooklyn-prospect-park      <NA>    A   5515 -0.002  0.001  0.054  0.053
+11        brooklyn-prospect-park      <NA>    B   5568 -0.002  0.001  0.060  0.056
+12          manhattan-59th-110th     False    A   1926 -0.007  0.002  0.057  0.037
+13          manhattan-59th-110th     False    B   1756 -0.005  0.002  0.041  0.043
+14          manhattan-59th-110th      True    A  11542 -0.003  0.001  0.063  0.048
+15          manhattan-59th-110th      True    B  12495 -0.003  0.001  0.061  0.049
+16          manhattan-59th-110th      <NA>    A   6960 -0.005  0.001  0.053  0.042
+17          manhattan-59th-110th      <NA>    B   6870 -0.005  0.001  0.054  0.043
+18          manhattan-below-59th     False    A   1030 -0.012  0.003  0.085  0.032
+19          manhattan-below-59th     False    B   1078 -0.010  0.002  0.065  0.051
+20          manhattan-below-59th      True    A  13507 -0.003  0.001  0.063  0.055
+21          manhattan-below-59th      True    B  14892 -0.001  0.001  0.056  0.056
+22          manhattan-below-59th      <NA>    A   3311 -0.006  0.001  0.067  0.053
+23          manhattan-below-59th      <NA>    B   3204 -0.006  0.002  0.075  0.053
+24    manhattan-page-crawl-areas     False    A   1746 -0.005  0.002  0.065  0.055
+25    manhattan-page-crawl-areas     False    B   1911 -0.006  0.002  0.059  0.042
+26    manhattan-page-crawl-areas      True    A  12493 -0.003  0.001  0.056  0.051
+27    manhattan-page-crawl-areas      True    B  10678 -0.002  0.001  0.053  0.050
+28    manhattan-page-crawl-areas      <NA>    A   6163 -0.005  0.001  0.068  0.050
+29    manhattan-page-crawl-areas      <NA>    B   6224 -0.005  0.001  0.070  0.049
+doorman type
+  doorman_type half      n    gap     se    low   high
+0    full_time    A  16760 -0.004  0.001  0.065  0.056
+1    full_time    B  17012 -0.003  0.001  0.064  0.051
+2    part_time    A   1257 -0.001  0.002  0.060  0.059
+3    part_time    B   1154 -0.006  0.002  0.063  0.040
+4  unspecified    A  15089 -0.002  0.001  0.054  0.048
+5  unspecified    B  14646 -0.001  0.001  0.048  0.049
+6      virtual    A  12929 -0.004  0.001  0.056  0.050
+7      virtual    B  13270 -0.004  0.001  0.059  0.058
+8          NaN    A  48125 -0.005  0.000  0.061  0.048
+9          NaN    B  49347 -0.005  0.000  0.058  0.048
+condo text and owner text
+   condo  owner half      n    gap     se    low   high
+0  False  False    A  82977 -0.004  0.000  0.059  0.049
+1  False  False    B  84743 -0.004  0.000  0.057  0.050
+2  False   True    A   2620 -0.003  0.001  0.046  0.042
+3  False   True    B   2242 -0.002  0.001  0.042  0.038
+4   True  False    A   8121 -0.007  0.001  0.070  0.056
+5   True  False    B   8010 -0.005  0.001  0.070  0.054
+6   True   True    A    462 -0.008  0.004  0.076  0.071
+7   True   True    B    454 -0.005  0.004  0.077  0.059
+garden text by floor
+    garden floor half      n    gap     se    low   high
+0    False     1    A   6328 -0.012  0.001  0.083  0.055
+1    False     1    B   6471 -0.011  0.001  0.080  0.052
+2    False   2-3    A  20123 -0.004  0.001  0.053  0.045
+3    False   2-3    B  20138 -0.004  0.001  0.052  0.048
+4    False    4+    A  40167 -0.003  0.000  0.056  0.049
+5    False    4+    B  41738 -0.003  0.000  0.054  0.048
+6    False   NaN    A  26677 -0.004  0.001  0.066  0.053
+7    False   NaN    B  26176 -0.004  0.001  0.063  0.054
+8     True     1    A    134 -0.004  0.007  0.052  0.060
+9     True     1    B    102 -0.004  0.009  0.069  0.049
+10    True    4+    B     93 -0.014  0.005  0.043  0.011
+11    True   NaN    A    727 -0.003  0.004  0.067  0.072
+12    True   NaN    B    706 -0.003  0.004  0.072  0.067

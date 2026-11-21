@@ -499,10 +499,17 @@ first.
   - 2026-11-21: no fill. `deposit_net` already hides these ads from the default view and its
     chip says why. A gross figure would add a number beside a ranking that stays on the page
     price, the model's target.
-- [ ] Test on held-out history, on two halves of the buildings: the elevator field by zone
+- [x] Test on held-out history, on two halves of the buildings: the elevator field by zone
   (7 text walkups in the top 60 against 1 in the middle), the virtual doorman against
   full-time (16 against 7), a text mark for a condo or co-op unit an owner rents out
   (7 against 1), and garden or ground-floor wording against the floor field (18 against 11).
+  - 2026-11-21: walk-ups, the virtual doorman and garden wording hold no steady excess.
+    Condo or co-op text holds a small two-sided one. Coded floor 1 runs low on both halves
+    (8.3% and 8.0% low, gap -0.012 and -0.011), garden flag or not
+    (`docs/notes/four-traits-2026-11-21.md`).
+- [ ] For the next base refit: a `unit:floor1` step outside the floor curve's Gaussian
+  process, as one change with its own note and predictions. A floor-1 scale term is the
+  second candidate if the step leaves the low tail wide.
 
 **A latest split that holds still across builds** (2026-10-23). `splits.latest_split` draws its
 held-out units with `rng.choice` over the sorted audit ids of every candidate unit, so a build
