@@ -100,9 +100,9 @@ cross-fitted; scales and shifts are fitted on half A, then on B, against 2024.
   2022 on, beside the gap bins and counts, the same ratio is 0.971 and 0.974, about 3%: the
   year-flat scale is too wide for 2026 ads mostly because of the years before 2022. The
   Deals model has no year or phase scale and its backtest covers 0.792 at 80%
-  (`docs/model/drift.md`), so these figures do not say its intervals are too wide. A common factor on the row noise
-  would keep the order of Deals ads by `below_share` nearly as it is, since the parameter
-  spread in each predictive does not scale with it.
+  (`docs/model/drift.md`), so these figures do not say its intervals are too wide. A common
+  factor on the row noise would keep the order of Deals ads by `below_share` nearly as it
+  is, since the parameter spread in each predictive does not scale with it.
 
 ## Predictions scored
 
