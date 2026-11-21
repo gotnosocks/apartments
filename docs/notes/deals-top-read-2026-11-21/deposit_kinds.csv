@@ -1,0 +1,320 @@
+listing_id,building,place,ratio,fit,kind
+5197660,60-east-7-street-new_york,3.0,1.0397,0.5/13,deposit=first ask (cut)
+5187579,162-west-80-street-new_york,,1.0527,1/20,net fit
+5192010,115-east-62-street-manhattan,,1.0864,1.5/19,deposit=first ask (cut)
+5203643,the-cedar-tower,,1.1335,2/17,deposit=first ask (cut)
+5205833,the-lightwell-dumbo,,1.15,2.5/19,net fit
+5205143,622-11-avenue,,1.0554,1/19,net fit
+5195463,911-nostrand-avenue-brooklyn,,1.1333,2/17,deposit=first ask (cut)
+5179020,2246-fulton-street-brooklyn,,1.0746,1.5/22,deposit=first ask (cut)
+5197834,69-mother-gaston-boulevard-brooklyn,,1.3237,,other
+5208069,modavie-residences,,1.1604,2.5/18,net fit
+5207394,the-lightwell-dumbo,,1.1429,1.5/12,net fit
+5198962,28-starr-street-brooklyn,,1.1335,2/17,net fit
+5149993,gilsey-house,12.0,1.0382,0.5/13,net fit
+5163432,1390-madison-street-brooklyn,,1.0377,0.5/14,net fit
+5196372,1368-herkimer-street-brooklyn,,1.1332,2/17,net fit
+5207298,34-8-avenue-new_york,29.0,1.0714,1/15,net fit
+5153934,350-east-84-street-new_york,15.0,1.1715,2.5/17,deposit=first ask (cut)
+5069762,trump-world-tower,,1.1304,1.5/13,net fit
+5198138,372-2nd-street-brooklyn,,1.1305,1.5/13,deposit=first ask (cut)
+5199132,1209-dekalb,,1.05,1/21,deposit=first ask (cut)
+5202236,the-lightwell-dumbo,,1.1528,2/15,net fit
+5207588,733-lincoln,52.0,1.1981,2/12,net fit
+5206262,299-throop-avenue-brooklyn,,1.0476,1/22,net fit
+5207581,733-lincoln,59.0,1.2,2/12,net fit
+5207589,733-lincoln,64.0,1.1979,2/12,net fit
+5189613,600-myrtle-avenue-brooklyn,50.0,1.1334,2/17,net fit
+5178646,1085-park-avenue-new_york,,1.1404,,deposit=first ask (cut)
+5198007,312-park-avenue-brooklyn,,1.1253,2/18,deposit=first ask (cut)
+5192519,504-east-88-street-new_york,81.0,1.1073,2/21,deposit=first ask (cut)
+5181442,5-alice-court-brooklyn,,1.0715,1/15,deposit=first ask (cut)
+5197838,30-lefferts-place-brooklyn,,1.1334,2/17,deposit=first ask (cut)
+5189610,418-suydam-street-brooklyn,,1.1334,2/17,net fit
+5186412,145-henry-street-brooklyn,90.0,1.039,0.5/13,deposit=first ask (cut)
+5206942,139-albany-avenue-brooklyn,,1.091,1/12,net fit
+5156284,239-banker-street-brooklyn,72.0,1.0222,0.5/22,deposit=first ask (cut)
+5125861,m-at-beekman,,1.0842,1/13,deposit=first ask (cut)
+5201253,653-9-avenue-new_york,100.0,1.0858,1.5/19,deposit=first ask (cut)
+5207583,733-lincoln,88.0,1.2,2/12,net fit
+5207291,110-9-avenue-new_york,108.0,1.0325,0.5/15,deposit=first ask (cut)
+5198200,240-east-82-street-new_york,,1.0227,0.5/21,deposit=first ask (cut)
+5207727,201-east-35th-street-new_york,,1.1411,1.5/12,deposit=first ask (cut)
+5188594,661-meeker-avenue-brooklyn,,1.0323,0.5/16,deposit=first ask (cut)
+5140377,35-west-65-street-new_york,,1.022,0.5/22,deposit=first ask (cut)
+5161503,240-east-46-street-new_york,,1.5,,other
+5197831,42-pilling-street-brooklyn,,1.091,1/12,net fit
+5195062,35-eastern-parkway-brooklyn,,1.089,1/12,net fit
+5194919,594-driggs-avenue-brooklyn,129.0,1.0922,1/12,deposit=first ask (cut)
+5202115,the-cedar-tower,,1.1335,2/17,deposit=first ask (cut)
+5207553,733-lincoln,,1.1981,2/12,net fit
+5189598,157-5-avenue-brooklyn,132.0,1.1333,2/17,net fit
+5198957,82-clinton-avenue-brooklyn,147.0,1.1334,2/17,net fit
+5199513,110-9-avenue-new_york,,1.125,2/18,deposit=first ask (cut)
+5170886,57-west-10-street-new_york,155.0,1.0484,1/21,deposit=first ask (cut)
+5191859,the-jefferson,160.0,1.041,0.5/13,deposit=first ask (cut)
+5205400,212-east-29-street-new_york,,1.1186,1.5/14,deposit=first ask (cut)
+5197819,185-utica-avenue-brooklyn,173.0,1.091,1/12,net fit
+5208142,212-east-29-street-new_york,,1.1262,2/18,net fit
+5205775,the-lightwell-dumbo,,1.1429,1.5/12,net fit
+5203849,257-brooklyn-avenue-brooklyn,244.0,1.036,0.5/14,deposit=first ask (cut)
+5167335,20-beekman-place-new_york,,1.025,0.5/19,deposit=first ask (cut)
+5196215,315-lewis-avenue-brooklyn,212.0,1.0851,1/13,net fit
+5205836,258-6-avenue-brooklyn,225.0,1.1112,1.5/15,deposit=first ask (cut)
+5188346,512-east-119-street-new_york,273.0,1.0323,0.5/16,deposit=first ask (cut)
+5189601,705-lafayette-avenue-brooklyn,288.0,1.1333,2/17,net fit
+5163297,the-mayfair-145-4th-avenue-new_york,248.0,1.0316,0.5/16,deposit=first ask (cut)
+5193218,100-bank-street-new_york,390.0,1.0588,1/18,deposit=first ask (cut)
+5165028,235-lafayette-street-new_york,383.0,1.2222,,deposit=first ask (cut)
+5097671,454-west-58-street-new_york,,1.0843,1/13,deposit=first ask (cut)
+5182137,1255-jefferson-avenue-brooklyn,,1.0365,0.5/14,net fit
+5208151,212-east-29-street-new_york,,1.1262,2/18,net fit
+5101517,333-east-119-street-new_york,591.0,1.2167,2.5/14,deposit=first ask (cut)
+5193265,568-9-avenue-new_york,,1.0526,1/20,deposit=first ask (cut)
+5194865,65-atlantic-avenue-brooklyn,440.0,1.0526,1/20,net fit
+5193403,murray-hill-terrace,391.0,1.0909,1/12,deposit=first ask (cut)
+5071091,88-fulton,517.0,1.35,,deposit=first ask (cut)
+5165105,district-condominium,,1.0505,1/21,deposit=first ask (cut)
+5196610,819-halsey-street-brooklyn,,1.0714,1/15,deposit=first ask (cut)
+5190237,88-herkimer-street-brooklyn,636.0,1.0333,0.5/15,deposit=first ask (cut)
+5200715,233-east-86-street-new_york,392.0,1.0625,1/17,deposit=first ask (cut)
+5179978,249-broome-street-new_york,434.0,1.0377,0.5/14,net fit
+5174194,the-berkeley-house,,1.0769,1/14,net fit
+5192708,646-chauncey-street-brooklyn,951.0,1.2002,2/12,net fit
+5089188,platinum-condominium,468.0,1.0504,1/21,net fit
+5143566,244-madison-avenue-new_york,689.0,1.1001,2/22,deposit=first ask (cut)
+5100149,63-west-104-street-new_york,499.0,1.1042,1.5/16,deposit=first ask (cut)
+5171768,sloane-chelsea,,1.0244,0.5/20,deposit=first ask (cut)
+5205740,the-lightwell-dumbo,,1.0909,1/12,net fit
+5205144,1178-bushwick-avenue-brooklyn,676.0,1.0323,0.5/16,deposit=first ask (cut)
+5131286,428-lorimer-street-brooklyn,,1.08,1.5/20,net fit
+5185082,292-powers-street-brooklyn,784.0,1.032,0.5/16,deposit=first ask (cut)
+5204027,888-eighth-avenue-new_york,484.0,1.0625,1/17,deposit=first ask (cut)
+5203698,190-grand-street-house,,1.0582,1/18,deposit=first ask (cut)
+5028422,two-worldwide-plaza,1011.0,1.0959,1.5/17,deposit=first ask (cut)
+5197314,atelier-condominium,606.0,1.0222,0.5/22,deposit=first ask (cut)
+5180770,723-11-avenue-new_york,1004.0,1.0231,0.5/21,deposit=first ask (cut)
+5191535,156-5-avenue-brooklyn,968.0,1.1334,2/17,net fit
+5146239,369-columbia-street-brooklyn,,1.14,,deposit=first ask (cut)
+5137855,420-kent-avenue-brooklyn,683.0,1.03,0.5/17,deposit=first ask (cut)
+5203502,24-st-marks-place-new_york,,1.1111,1.5/15,deposit=first ask (cut)
+5173375,124-east-118-street-new_york,1445.0,1.098,1.5/17,deposit=first ask (cut)
+5189606,352-weirfield-street-brooklyn,1182.0,1.0968,1.5/17,net fit
+5201523,zeckendorf-towers,,1.0333,0.5/15,deposit=first ask (cut)
+5164832,98-front,,1.0299,0.5/17,deposit=first ask (cut)
+5206104,16-st-marks-place-new_york,,1.0389,0.5/13,deposit=first ask (cut)
+5174296,the-lewis,1091.0,1.051,1/20,deposit=first ask (cut)
+5093602,107-west-86-street-new_york,1616.0,1.0833,1/13,deposit=first ask (cut)
+5192616,11-hoyt,627.0,1.0268,0.5/18,deposit=first ask (cut)
+5120745,396-7th-avenue--brooklyn,1208.0,1.0906,1/12,net fit
+5153100,433-west-34-street-new_york,,1.0238,0.5/20,net fit
+5115251,15-union-square-west-new_york,1557.0,1.383,,deposit=first ask (cut)
+5180114,the-julian,,1.0908,1/12,deposit=first ask (cut)
+5178849,393-west-broadway-new_york,,1.25,3/15,net fit
+5188361,155-perry-street-new_york,1919.0,1.16,2.5/18,deposit=first ask (cut)
+5186112,1390-madison-street-brooklyn,1541.0,1.0417,0.5/12,deposit=first ask (cut)
+5127420,157-havemeyer-street-brooklyn,,1.0902,1/12,net fit
+5175979,453-west-46-street-new_york,,1.0302,0.5/17,deposit=first ask (cut)
+5180151,85-4-avenue-new_york,644.0,1.0244,0.5/20,deposit=first ask (cut)
+5163070,1008-decatur-street-brooklyn,,1.0323,0.5/16,deposit=first ask (cut)
+5148425,220-east-116-street-new_york,,1.0263,0.5/19,deposit=first ask (cut)
+5179166,241-east-38-street-new_york,,1.0224,0.5/21,deposit=first ask (cut)
+5205016,the-greystone,,1.0909,1/12,net fit
+5032149,50-united-nations-plaza,,1.1046,1.5/16,deposit=first ask (cut)
+5195349,140-east-52-street-new_york,1250.0,1.0684,1/16,deposit=first ask (cut)
+5087749,184-lexington-avenue-new_york,,1.0417,0.5/12,net fit
+5195995,114-east-40-street-new_york,1185.0,1.0377,0.5/14,deposit=first ask (cut)
+5144577,111-3-avenue-new_york,902.0,1.0625,1/17,deposit=first ask (cut)
+5208032,190-grand-street-house,,1.0651,1/16,net fit
+5058460,328-east-14-street-new_york,,1.1011,2/22,deposit=first ask (cut)
+5178326,wimbledon-tower,,1.0731,1/15,net fit
+5171977,317-4-avenue-brooklyn,1271.0,1.0763,1/14,net fit
+5207670,851-willoughby-avenue-brooklyn,,1.0597,1/18,deposit=first ask (cut)
+5189004,277-fifth-ave-nomad,1532.0,1.0615,1/17,deposit=first ask (cut)
+5201279,912-metropolitan-avenue-brooklyn,,1.1429,1.5/12,net fit
+5197804,560-court-street-brooklyn,2087.0,1.0908,1/12,net fit
+5189034,pascal-condominium,1056.0,1.0955,1.5/17,deposit=first ask (cut)
+5196426,bloom-on-forty-fifth,1142.0,1.0513,1/20,deposit=first ask (cut)
+5201395,305-tompkins-avenue-brooklyn,,1.0909,1/12,deposit=first ask (cut)
+5172543,eight80-880-atlantic-avenue-brooklyn,1764.0,1.0231,0.5/21,deposit=first ask (cut)
+5187962,241-rockaway-avenue-brooklyn,2078.0,1.1004,2/22,deposit=first ask (cut)
+5200311,538-2-street-brooklyn,1867.0,1.0442,0.5/12,net fit
+5156554,251-pacific-street-brooklyn,1987.0,1.04,0.5/13,deposit=first ask (cut)
+5150531,47-orchard-street-new_york,672.0,1.0345,0.5/15,deposit=first ask (cut)
+5190273,1065-manhattan-avenue-brooklyn,2060.0,1.0751,1/14,deposit=first ask (cut)
+5204031,the-baltic-canal,,1.1251,2/18,net fit
+5202125,51-willow-place-brooklyn,,1.069,1.5/23,deposit=first ask (cut)
+5198532,1-watts-street-new_york,,1.0676,1/16,deposit=first ask (cut)
+5108988,400-east-89th-street-yorkville,2251.0,1.1,2/22,net fit
+5158415,the-magellan,831.0,1.0377,0.5/14,deposit=first ask (cut)
+5207547,228-west-18-street-new_york,,1.1259,2/18,net fit
+5200073,414-west-45-street-new_york,2569.0,1.1264,2/18,deposit=first ask (cut)
+5192319,the-cereza,1982.0,2.0,,other
+5198142,306-prospect-avenue-brooklyn,,1.0435,0.5/12,deposit=first ask (cut)
+5187574,216-east-61-street-new_york,,1.1111,1.5/15,deposit=first ask (cut)
+5168981,162-west-80-street-new_york,,1.0587,1/18,deposit=first ask (cut)
+5196515,540-west,1650.0,1.027,0.5/18,deposit=first ask (cut)
+5171006,100-15-street-brooklyn,,1.0731,1/15,net fit
+5206333,630-grand-street-brooklyn,,1.0588,1/18,net fit
+5181515,chelsea-house,1634.0,1.05,1/21,deposit=first ask (cut)
+5190744,594-amsterdam-avenue-new_york,2379.0,1.0323,0.5/16,net fit
+5179984,249-cumberland-street-brooklyn,997.0,1.0798,1.5/20,deposit=first ask (cut)
+5172393,723-mac-donough-street-brooklyn,,1.0333,0.5/15,deposit=first ask (cut)
+5201676,348-baltic-street-brooklyn,737.0,1.0222,0.5/22,deposit=first ask (cut)
+5128209,75-woodbine-street-brooklyn,,1.0833,1/13,net fit
+5156087,144-north-8-street-brooklyn,2194.0,1.05,1/21,net fit
+5193931,two-sutton-place-north,,1.05,1/21,deposit=first ask (cut)
+5164281,106-franklin-street-new_york,1799.0,1.0455,0.5/12,deposit=first ask (cut)
+5139859,152-east-35-street-new_york,1563.0,1.1,2/22,deposit=first ask (cut)
+5200048,497-3-avenue-brooklyn,,1.0208,0.5/23,deposit=first ask (cut)
+5147946,the-reserve,1705.0,1.3333,3/12,net fit
+5196164,292-nassau-avenue-brooklyn,2095.0,1.0909,1/12,net fit
+5178965,374-8-street-brooklyn,1806.0,1.0588,1/18,deposit=first ask (cut)
+5183648,81-carlton-avenue-brooklyn,2005.0,1.0968,1.5/17,deposit=first ask (cut)
+5191780,espoir-154-hope-street-brooklyn,,1.0385,0.5/13,deposit=first ask (cut)
+5183129,the-west-residence-club,1213.0,1.1102,1.5/15,deposit=first ask (cut)
+5194513,912-metropolitan-avenue-brooklyn,1491.0,1.1429,1.5/12,deposit=first ask (cut)
+5171882,167-perry-street-new_york,2659.0,1.1077,,deposit=first ask (cut)
+5194972,756-9-avenue-new_york,1646.0,1.0684,1/16,deposit=first ask (cut)
+5076996,twelve-twelve-fifth-avenue,2724.0,1.0626,1/17,deposit=first ask (cut)
+5199421,916-bergen-street-brooklyn,,1.0237,0.5/20,deposit=first ask (cut)
+5208161,225-east-14-street-new_york,936.0,1.1066,2/21,net fit
+5198913,368-weirfield-street-brooklyn,,1.091,1/12,net fit
+5171711,the-west-residence-club,2511.0,1.037,0.5/14,deposit=first ask (cut)
+5197440,the-eastmore,,1.0405,0.5/13,deposit=first ask (cut)
+5207445,233-stuyvesant-avenue-brooklyn,,1.0589,1/18,net fit
+5203021,45-carmine-street-new_york,1427.0,1.0218,0.5/22,deposit=first ask (cut)
+5187623,77-delancey-street-new_york,1345.0,1.0233,0.5/21,deposit=first ask (cut)
+5189386,the-monarch-200-east-89-street-new_york,1546.0,1.0211,0.5/23,deposit=first ask (cut)
+5203272,235-east-46-street-new_york,2057.0,1.047,1/22,deposit=first ask (cut)
+5181105,135-west-95-street-new_york,2471.0,1.099,2/22,deposit=first ask (cut)
+5099075,416-west-52nd-street-new_york,,1.0612,1/17,deposit=first ask (cut)
+5200080,1382-1-avenue-new_york,1731.0,1.0476,1/22,deposit=first ask (cut)
+5192606,201-east-35th-street-new_york,,1.0607,1/17,deposit=first ask (cut)
+5177826,38nine-condominium,2068.0,1.05,1/21,deposit=first ask (cut)
+5200306,24-fayette-street-brooklyn,,1.0286,0.5/17,deposit=first ask (cut)
+5163463,112-washington-avenue-brooklyn,2860.0,1.0211,0.5/23,deposit=first ask (cut)
+5182183,388-court-street-brooklyn,,1.0909,1/12,net fit
+5195305,the-baltic-canal,,1.091,1/12,net fit
+5131872,311-warren-street-brooklyn,,1.25,3/15,deposit=first ask (cut)
+5198147,38-dodworth-street-brooklyn,1270.0,1.0476,1/22,deposit=first ask (cut)
+5170294,468-greenwich-street-new_york,2858.0,1.0833,1/13,deposit=first ask (cut)
+5174985,38-dodworth-street-brooklyn,,1.0476,1/22,net fit
+5197822,530-4-avenue-brooklyn,2793.0,1.0488,1/21,deposit=first ask (cut)
+5203143,state-renaissance-court,,1.0484,1/21,deposit=first ask (cut)
+5141368,111-west-16-street-new_york,1627.0,1.0516,1/20,deposit=first ask (cut)
+5193984,washington-irving-house,,1.0571,1/18,deposit=first ask (cut)
+5202492,168-state-street-brooklyn,,1.091,1/12,deposit=first ask (cut)
+5197121,888-eighth-avenue-new_york,2046.0,1.0309,0.5/16,net fit
+5190978,twenty9th-park-madison,1912.0,1.0241,0.5/20,deposit=first ask (cut)
+5203326,the-lightwell-dumbo,,1.1819,2/13,net fit
+5205344,the-baltic-canal,,1.091,1/12,net fit
+5187870,457-west-46-street-new_york,3109.0,1.0667,1/16,deposit=first ask (cut)
+5139027,the-milan,1922.0,1.0378,0.5/14,deposit=first ask (cut)
+5205420,the-henson-ii,1465.0,1.0911,1/12,net fit
+5195793,400-east-74th-street-new_york,1709.0,1.0263,0.5/19,deposit=first ask (cut)
+5200052,311-east-60-street-new_york,2431.0,1.0442,0.5/12,deposit=first ask (cut)
+5200020,savannah-250-west-89-street-new_york,2208.0,1.5,,other
+5208173,195-east-4-street-new_york,,1.1257,2/18,net fit
+5185377,1760-1-avenue-new_york,2308.0,1.087,1.5/19,deposit=first ask (cut)
+5188761,50-54-east-8-street,,1.05,1/21,deposit=first ask (cut)
+5206382,86-clinton-street-new_york,1781.0,1.091,1/12,net fit
+5186775,orion-condominium,,1.036,0.5/14,net fit
+5156603,250-west-74-street-new_york,,1.0375,0.5/14,deposit=first ask (cut)
+5150925,the-mayfair-145-4th-avenue-new_york,,1.1469,,deposit=first ask (cut)
+5195616,200-east-90-street-new_york,,1.0333,0.5/15,net fit
+5183037,539-clinton-street-brooklyn,,1.3333,3/12,deposit=first ask (cut)
+5199083,251-west-26-street-new_york,2040.0,1.0449,0.5/12,deposit=first ask (cut)
+5184645,chatham-in-chelsea,3099.0,1.0351,0.5/14,deposit=first ask (cut)
+5179677,central-park-tower,3430.0,1.0714,1/15,deposit=first ask (cut)
+5187445,77-commercial-street-brooklyn,3055.0,1.1671,2/14,net fit
+5208168,86-clinton-street-new_york,,1.0911,1/12,net fit
+5193460,56-morton-street-new_york,2683.0,1.0273,0.5/18,deposit=first ask (cut)
+5202022,71-cooper-street-brooklyn,3107.0,1.0309,0.5/16,deposit=first ask (cut)
+5165257,175-w-95th,2397.0,1.0375,0.5/14,deposit=first ask (cut)
+5193521,160-huron-street-brooklyn,,1.0857,1.5/19,deposit=first ask (cut)
+5192652,twenty9th-park-madison,2785.0,1.0294,0.5/17,deposit=first ask (cut)
+5197606,1-astor-place-new_york,1934.0,1.0684,1/16,deposit=first ask (cut)
+5175699,1244-pacific-street-brooklyn,2787.0,1.0488,1/21,deposit=first ask (cut)
+5146746,141-east-55-street-new_york,,1.0732,1/15,net fit
+5205052,21-judge-street-brooklyn,,1.0465,1/22,net fit
+5195804,the-bryant,2816.0,1.04,0.5/13,deposit=first ask (cut)
+5152069,oxford-east,,1.0221,0.5/22,net fit
+5175107,the-briarcliffe,3394.0,1.066,1/16,deposit=first ask (cut)
+5194946,336-east-61-street-new_york,2727.0,1.0345,0.5/15,deposit=first ask (cut)
+5161942,404-east-66-street-new_york,3086.0,1.0561,1/19,deposit=first ask (cut)
+5129497,88-fulton,2202.0,1.0405,0.5/13,deposit=first ask (cut)
+5154528,443-17-street-brooklyn,3032.0,1.0411,0.5/13,net fit
+5195925,317-west-30-street-new_york,3311.0,1.0296,0.5/17,net fit
+5037035,trump-world-tower,2596.0,1.0645,1/17,deposit=first ask (cut)
+5148978,the-westmore,,1.1176,2/19,deposit=first ask (cut)
+5189468,washington-irving-house,,1.0278,0.5/18,deposit=first ask (cut)
+5153704,400-east-89th-street-yorkville,3471.0,1.0247,0.5/20,deposit=first ask (cut)
+5076571,315-west-30-street-new_york,3062.0,1.0229,0.5/21,net fit
+5186003,the-noma,3548.0,1.0435,0.5/12,deposit=first ask (cut)
+5178486,133-charles-street-new_york,,1.0246,0.5/20,deposit=first ask (cut)
+5160186,286-5-avenue-brooklyn,2594.0,1.0584,1/18,deposit=first ask (cut)
+5152993,331-east-108-street-new_york,3118.0,1.0317,0.5/16,deposit=first ask (cut)
+5102237,405-east-63-street-new_york,3679.0,1.3158,,other
+5197080,425-east-85-street-new_york,3642.0,1.0543,1/19,deposit=first ask (cut)
+5070768,106-fulton-street-new_york,3805.0,1.3793,,deposit=first ask (cut)
+5170440,the-milan,2786.0,1.0331,0.5/15,deposit=first ask (cut)
+5196487,6-stanhope-street-brooklyn,3348.0,1.0211,0.5/23,deposit=first ask (cut)
+5090698,the-ashford,3408.0,1.0676,1/16,deposit=first ask (cut)
+5180974,31-wooster-street-new_york,,1.2503,3/15,deposit=first ask (cut)
+5201392,305-tompkins-avenue-brooklyn,,1.0955,1.5/17,deposit=first ask (cut)
+5206216,407-west-40-street-new_york,,1.0278,0.5/18,net fit
+5201976,213-east-25-street-new_york,3310.0,1.0363,0.5/14,deposit=first ask (cut)
+5199894,38-woodbine-street-brooklyn,3666.0,1.0606,1/17,net fit
+5183635,the-oneill-building,3714.0,1.0377,0.5/14,deposit=first ask (cut)
+5147443,130-william,3640.0,1.0652,1/16,deposit=first ask (cut)
+5182715,467-grand-street-brooklyn,,1.0417,0.5/12,deposit=first ask (cut)
+5205093,bridgeview-dumbo,,1.2161,2.5/14,net fit
+5207568,733-lincoln,3736.0,1.2,2/12,net fit
+5205865,fulton-greene,,1.0436,0.5/12,deposit=first ask (cut)
+5201370,305-tompkins-avenue-brooklyn,,1.0891,1/12,net fit
+5200965,523-east-85-street-new_york,3777.0,1.05,1/21,deposit=first ask (cut)
+5199287,175-rochester-avenue-brooklyn,3683.0,1.0938,2/23,deposit=first ask (cut)
+5203969,137-east-28-street-new_york,,1.04,0.5/13,deposit=first ask (cut)
+5172937,660-lexington,,1.0537,1/19,deposit=first ask (cut)
+5183896,200-east-69-street-new_york,3528.0,1.1512,2.5/19,deposit=first ask (cut)
+5190379,louie-17,,1.1143,2.5/24,deposit=first ask (cut)
+5189546,73-75-sullivan-street,3767.0,1.0533,1/20,deposit=first ask (cut)
+5183814,oxford-east,2740.0,1.0247,0.5/20,deposit=first ask (cut)
+5189394,105-east-37-street-new_york,3924.0,1.0417,0.5/12,deposit=first ask (cut)
+5197435,372-myrtle-avenue-brooklyn,,1.0909,1/12,deposit=first ask (cut)
+5196210,69-buffalo-avenue-brooklyn,3896.0,1.1111,1.5/15,deposit=first ask (cut)
+5197656,99-fleet-place-brooklyn,,1.0834,1/13,deposit=first ask (cut)
+5206872,bridgeview-dumbo,,1.1936,,other
+5197562,the-cove-club,3429.0,1.0348,0.5/15,deposit=first ask (cut)
+5179353,126-east-86th-street-new_york,3966.0,1.15,2.5/19,deposit=first ask (cut)
+5202583,274-mott-street-new_york,3637.0,1.0325,0.5/15,deposit=first ask (cut)
+5189317,1470-1-avenue-new_york,3448.0,1.0607,1/17,deposit=first ask (cut)
+5176934,the-olmsted,,1.0511,1/20,deposit=first ask (cut)
+5156346,100-barclay,3835.0,1.0296,0.5/17,deposit=first ask (cut)
+5196235,315-lewis-avenue-brooklyn,,1.0639,1/17,net fit
+5175709,5-tudor-city-place-new_york,,1.25,3/15,deposit=first ask (cut)
+5107373,16-russell-street-brooklyn,,1.2264,,deposit=first ask (cut)
+5141495,the-ashford,3560.0,1.071,1/15,deposit=first ask (cut)
+5189803,127-green-street-brooklyn,3697.0,1.0377,0.5/14,deposit=first ask (cut)
+5196366,162-west-56-street-new_york,3912.0,1.0538,1/19,deposit=first ask (cut)
+5202633,127-west-82-street-new_york,3892.0,1.037,0.5/14,deposit=first ask (cut)
+5158745,the-nash,,1.0677,1/16,deposit=first ask (cut)
+5129200,one-williamsburg-wharf,3965.0,1.1333,2/17,deposit=first ask (cut)
+5192073,305-east-91-street-new_york,4030.0,1.0526,1/20,deposit=first ask (cut)
+5180807,398-lorimer-street-brooklyn,,1.125,2/18,deposit=first ask (cut)
+5195951,515-east-72,3622.0,1.0345,0.5/15,deposit=first ask (cut)
+5168928,135-west-82-street-new_york,3918.0,1.0909,1/12,deposit=first ask (cut)
+5185333,the-rushmore,3809.0,1.04,0.5/13,deposit=first ask (cut)
+5175487,991-carroll-street-brooklyn,4005.0,1.0833,1/13,deposit=first ask (cut)
+5196079,gregory-towers,4028.0,1.1429,1.5/12,net fit
+5181938,160-east-91-street-new_york,3956.0,1.1364,2.5/21,deposit=first ask (cut)
+5203425,67-mott-street-new_york,4001.0,1.0526,1/20,net fit
+5140507,253-halsey-street-brooklyn,4018.0,1.231,3/16,deposit=first ask (cut)
+5170136,trump-parc-east,4037.0,1.1667,2/14,deposit=first ask (cut)
+5175916,55-withers-street-brooklyn,,1.1053,1.5/16,deposit=first ask (cut)
+5162891,449a-mac-donough-street-brooklyn,,1.0476,1/22,deposit=first ask (cut)
+5178228,118-kane-street-brooklyn,4022.0,1.0516,1/20,deposit=first ask (cut)
+5130585,the-corinthian,4036.0,1.0667,1/16,net fit
+5126405,element-condominium,4062.0,1.25,3/15,deposit=first ask (cut)
+5132581,150-columbus-avenue-new_york,4067.0,1.0442,0.5/12,deposit=first ask (cut)

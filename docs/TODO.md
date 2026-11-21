@@ -463,6 +463,27 @@ No fit was run for these.
   the fit's units. No rule or ledger draft. Later marks from a unit's other ads should group by
   `split_unit`.
 
+**From the broker read of the top 60 Deals of 2026-11-21** (`docs/notes/deals-top-read-2026-11-21.md`).
+No fit was run for these. The readers saw the asks, so each item is coded without rent first.
+
+- [ ] A `deposit_net` Deals caution: a flat security deposit at least 2% above the page
+  price, no coded free months, a deposit other than the first ask, and a deposit that fits
+  the page price as a net rent over a 12 to 24 month lease. It would mark 94 of 6,502 live
+  ads, 5 in the first 60 and 12 in the first 300. The deposit is in the records file the
+  publish already reads for texts. Decide whether to require a ratio of 1.05 or more.
+- [ ] A short-lease Deals caution for text that prices a lease under 12 months (one case
+  in the first 60, "$17,500 for a 6-month lease").
+- [ ] Extend the `beds` caution or the bedroom text reader to "convertible", "alcove
+  studio" and "wall not yet installed" on ads coded one bedroom or more.
+- [ ] A data rule, written with no ask in view, that takes the gross rent from the deposit
+  where the deposit fits a whole number of free months exactly (733 Lincoln, The Lightwell
+  Dumbo). Count it over the records file first. Records start about 2026-10, so it covers
+  only recent ads.
+- [ ] Test on held-out history, on two halves of the buildings: the elevator field by zone
+  (7 text walkups in the top 60 against 1 in the middle), the virtual doorman against
+  full-time (16 against 7), a text mark for a condo or co-op unit an owner rents out
+  (7 against 1), and garden or ground-floor wording against the floor field (18 against 11).
+
 **A latest split that holds still across builds** (2026-10-23). `splits.latest_split` draws its
 held-out units with `rng.choice` over the sorted audit ids of every candidate unit, so a build
 that drops a handful of rows shifts the position of every later id and reshuffles the draw.
