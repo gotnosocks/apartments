@@ -397,7 +397,10 @@ units, an office suite, an apartment open only to the building's owners, and oth
 `income`, `not_home`, `owners_only` and `takeover` from the ad's own text, `beds` when the apartment's
 ads carry more than one bedroom count, `rooms_up` when the ad codes more bedrooms or baths than
 the apartment's previous ad, `net_ask` when the page price is a round first ask less free
-months the record does not code, `raised` when the building has another ad
+months the record does not code, `deposit_net` when the record's flat security deposit is
+1.05 or more times the page price, differs from the first ask and is the page price grossed
+up for free months the record does not code (`docs/notes/deals-top-read-2026-11-21.md`),
+`raised` when the building has another ad
 opened in the past year that stands 15% or more above its first ask, an earlier ad of the
 same apartment included (`docs/notes/raise-caution-2026-11-18.md`), `thin_level` when the
 posterior mean of the building's level is over 0.3 and the building has 5 or fewer ads among
@@ -436,7 +439,8 @@ full table, so each row is the uncautioned part of the full table's row. On the 
 of the 604 carry no caution, and 24.7% of those were raised. The `raised` caution reads
 only what was knowable on the backtest day: an open ad counts at its first ask. The backtest
 is published without its ads' texts, so the cautions read from a text (`income` by wording,
-`not_home`, `owners_only`, `takeover`) are not made there and `texts_read` is false. Two
+`not_home`, `owners_only`, `takeover`) are not made there and `texts_read` is false.
+Nor is `deposit_net`, which reads the deposit the texts table keeps. Two
 cautions are not as of the day: `net_ask` reads the ad's final page price, which was not
 knowable then (3 ads), and `off_market` cannot be made on a backtest (0 ads). `thin_level`
 reads the backtest fit's own levels and training rows, so it is as of the day (12 ads). The
