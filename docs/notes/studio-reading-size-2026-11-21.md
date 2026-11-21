@@ -72,10 +72,9 @@ reference and 0.735 with the mark; other ads stay at 0.800.
 ## What follows
 
 The studio reading leans low on both halves, but by little: its mean residual sits 0.011
-below other ads', and the tails beyond that are too thin
-across 185 ads for a mark fitted on one half to help the other. Under the rule written
-above, the term is dropped from the refit's list. The reader fixes for amenity names and
-"the size of a ... studio" remain worth making, since they correct the column the served
-term reads, but they need no fit of their own and can go with any later change to
-`b0bedtext`. The pooled check agrees with the flex-wording note: the served term prices
-`bed_text_smaller` as a whole.
+below other ads', and the tails beyond that are too thin across 185 ads for a mark fitted on
+one half to help the other. Under the rule written above, the term is dropped from the
+refit's list. The reader fixes for amenity names and "the size of a ... studio" remain worth
+making, since they correct the column the served term reads, but they need no fit of their
+own and can go with any later change to `b0bedtext`. The pooled check agrees with the
+flex-wording note: the served term prices `bed_text_smaller` as a whole.
