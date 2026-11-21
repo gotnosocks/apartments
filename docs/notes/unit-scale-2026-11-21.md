@@ -56,3 +56,33 @@ marks):
 4. From 2022 on, U1's marks over U4 gain +20 to +150, with a scale slope on `L` of 0.2 to
    0.6 (the scale at 2,000 sq ft 1.15 to 1.5 times that at 1,000).
 5. On all years, U4's marks gain +100 to +400.
+
+## Amendment, written before any reading
+
+The script's first lines found no new unit among l2bt's 189,647 held-out ads: the latest
+split holds out the latest ad of re-listed units only (`docs/leak-free-scoring.md`). The run
+was stopped there, so no mark was fitted. Predictions 1, 2, 3 and 5 cannot be read on the
+latest split, and the check is split in two:
+
+- **A, the latest split (l2bt, units with earlier ads).** The bedroom marks for every ad
+  (`2 bd`, `3+ bd`) and U1's `L`, each over the reference, from 2022 on and on all years.
+- **B, the backtest of the served Deals design** (`drift-building-bedtext-layout-range-b0-
+  market-d9028c57-range-j`: final asks of the 9,346 ads open on 2025-11-10). Its stored
+  predictive is scored by `drift_score.score_run` (exact), and the same Student-t reading is
+  taken from its quartiles, with the degrees of freedom picked on its elpd. A new unit is one
+  with no row in the run's training rows (as `drift_deals.deals` marks it). The reference is
+  an intercept and `new`; then U4's marks, the bedroom marks for every ad beside them, and
+  U1's two marks beside U4's. The halves are buildings split by the parity of a CRC32 of the
+  building id. This is the served design, which differs from l2bt (no lease phase, no
+  Student-t unit level), and the ads are few, so its SEs are wide.
+
+Predictions for the amended check:
+
+6. B: U4's marks gain +10 to +80 over the reference, positive on both halves, with the
+   new-unit scale 1.10 to 1.40 for 2 bedrooms and 1.20 to 1.60 for 3 or more.
+7. B: 80% coverage of new units with 2 or more bedrooms is under 0.76 before U4's marks
+   and between 0.77 and 0.82 after.
+8. B: the `new` mark's own scale is over 1.05, and U1's marks gain under 20 beside U4's.
+9. A: from 2022 on, the bedroom marks for every ad gain under 40.
+10. A: from 2022 on, U1's `L` gains +20 to +150 with a scale slope of 0.2 to 0.6; on all
+    years +50 to +300. This replaces prediction 4, whose U4 marks are all zero there.

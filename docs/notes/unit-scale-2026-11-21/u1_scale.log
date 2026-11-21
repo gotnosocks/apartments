@@ -1,0 +1,7 @@
+text flags 31
+dataset ads 1896471 ; no flags row: 2671
+held-out ads 189647 ; new units 0 ; with a size 97586
+new-unit share by year: {2014: 0.0, 2015: 0.0, 2016: 0.0, 2017: 0.0, 2018: 0.0, 2019: 0.0, 2020: 0.0, 2021: 0.0, 2022: 0.0, 2023: 0.0, 2024: 0.0, 2025: 0.0, 2026: 0.0}
+ads with L > 0: 22720 ; mean L there 0.322
+
+t df, picked on ads from 2022: 7
