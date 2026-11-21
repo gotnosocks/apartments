@@ -1,0 +1,32 @@
+ads 2229067 with a record 2229067
+        mark    all  train  live  ledger  rule  train_bld
+     m_ratio   1140   1004     4     128     4        536
+  m_text_raw 239263 207040  1196     155 30872      28836
+      m_text  73999  61186   294     100 12419      16546
+    t_retail  37353  33282   262      43  3766       2985
+    n_retail   3426   3039    33      20   334        266
+t_storefront   1484    923    40      14   507        227
+    t_office 199866 172176   957     114 26619      27511
+    n_office  64200  52816   221      71 11092      16050
+    t_per_sf    136    111     1       1    23         74
+ t_warehouse   5882   5177    12       1   692        405
+     m_short  62377  53347    24    1285  7721       8583
+         any 137236 115311   321    1460 20144      22758
+
+overlaps among train rows
+m_short           False  True 
+m_ratio m_text                
+False   False   1779455  53318
+        True      60989      0
+True    False       778     29
+        True        197      0
+
+ledger reasons of marked ads
+m_ratio {'bedrooms_unknown': 69, 'nonresidential': 46, 'malformed_ask': 5, 'explicit_short_term_offer': 4, 'product_scope': 3, 'price_basis': 1}
+m_text {'nonresidential': 77, 'location_conflict': 10, 'explicit_short_term_offer': 4, 'brooklyn_misjoin': 4, 'bedrooms_unknown': 2, 'product_scope': 2, 'price_basis': 1}
+m_short {'bedrooms_unknown': 1283, 'malformed_ask': 1, 'product_scope': 1}
+
+short train rows by coded beds {0.0: 8340, 1.0: 18600, 2.0: 16004, 3.0: 7866, 4.0: 2218, 5.0: 319}
+short train rows by text length {0: 10876, 1: 26557, 2: 1271, 3: 10093, 4: 2176, 5: 2365, 6: 9}
+ratio train rows by coded beds {1.0: 583, 0.0: 421}
+train rows by half {'B': 954499, 'A': 940267}

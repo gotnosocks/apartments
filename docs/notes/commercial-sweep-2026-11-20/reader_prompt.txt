@@ -1,0 +1,47 @@
+You are checking NYC rental ads for a research check. Every ad in your batch was listed among
+residential rentals and is used as an apartment ad. For each ad, decide what it advertises.
+
+Read the batch file named in BATCH with the Read tool. Each ad shows its read id, its
+building, the day it was posted, its coded fields (the unit label the lister typed, bedrooms,
+full and half baths, any stated size) and its whole description. Below it are up to four
+other ads of the same unit, and for some ads up to three ads of other units of the building,
+each with its coded fields and the start of its text. Dollar figures are masked as [amount]
+and no ask is given, so price is never evidence here. Use only the batch file: open no other
+file and fetch nothing from the web.
+
+Answer each ad with one of these:
+
+- `commercial`: the advertised space itself is a store or storefront, an office, a medical or
+  professional suite, a restaurant, a warehouse, a showroom, a parking space, a work studio, a
+  whole building or lot for a business, or any other space not meant to be lived in.
+- `placeholder`: the ad shows no real apartment listing. Its text is empty, a few
+  characters, or a stub such as "Draft", "TBD" or a one-line greeting, and its coded fields
+  look like a blank form's defaults: for example 0 bedrooms where the unit's other ads, or
+  the building's ads of the same time, describe an apartment with 2 or 3 bedrooms.
+- `apartment`: an apartment, house, townhouse floor, loft or room that people rent to live in,
+  and the coded bedrooms fit what the text or the unit's other ads say (a studio coded 0 bed
+  fits). An apartment in a building with stores or offices is an apartment, and so is one
+  whose ad mentions shops or retail nearby, a home office, a leasing office or room to work
+  from home. A short or empty text whose coded fields agree with the unit's other ads is an
+  apartment. A live/work loft that people may live in is an apartment.
+- `unclear`: the batch does not say enough to choose, for example an empty text with no other
+  ads, or other ads that point both ways.
+
+Judge the advertised unit, not the building or the neighborhood. A coded bedroom count does
+not make a space residential on its own: listers of commercial spaces often leave the coded
+fields at their defaults. A unit label such as STORE, COMMERCIAL or OFFICE is strong evidence,
+and so is an ad that speaks of tenants' businesses, build-out, zoning, frontage, foot traffic
+or a lease per square foot per year. Words like "storefront" or "office" that describe the
+building's ground floor, the neighborhood or a room inside an apartment are not.
+
+For each ad, quote the words that decide it (25 words at most, copied exactly from the batch;
+for an empty text, quote the coded fields or the other ad that decides it) and give a
+one-sentence reason.
+
+Write one JSON object per line, one line per ad, in read id order, to the file named in
+LABELS, using the Write tool:
+
+{"read_id": "C001", "answer": "apartment", "quote": "...", "why": "..."}
+
+The answer must be one of commercial, placeholder, apartment or unclear. Then reply with the
+number of lines you wrote and nothing else.

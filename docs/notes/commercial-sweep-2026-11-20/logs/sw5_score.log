@@ -1,0 +1,73 @@
+answers by stratum
+answer      apartment  commercial  placeholder  unclear  All
+stratum                                                     
+office              8           0            0        0    8
+per_sf              8           0            0        0    8
+ratio_only         34           5            1        0   40
+ratio_text         13          16            0        1   30
+retail              8           0            0        0    8
+short_0bed         19           0            1        0   20
+short_beds         19           0            0        1   20
+storefront          6           1            0        1    8
+warehouse           8           0            0        0    8
+All               123          22            2        3  150
+                             set half  reads  hits  precision   lo   hi
+ratio: commercial or placeholder    A     31     7      0.163 0.07 0.35
+ratio: commercial or placeholder    B     39    15      0.275 0.15 0.45
+ratio: commercial or placeholder  all     70    22      0.225 0.14 0.35
+               ratio: commercial    A     31     6      0.118 0.04 0.30
+               ratio: commercial    B     39    15      0.275 0.15 0.45
+               ratio: commercial  all     70    21      0.205 0.12 0.33
+          ratio with a text word    A     13     5      0.385 0.18 0.64
+          ratio with a text word    B     17    11      0.647 0.41 0.83
+          ratio with a text word  all     30    16      0.533 0.36 0.70
+       ratio without a text word    A     18     2      0.111 0.03 0.33
+       ratio without a text word    B     22     4      0.182 0.07 0.39
+       ratio without a text word  all     40     6      0.150 0.07 0.29
+                text: commercial    A     33     6      0.005 0.00 0.42
+                text: commercial    B     37    11      0.002 0.00 0.42
+                text: commercial  all     70    17      0.004 0.00 0.27
+  text without ratio: commercial    A     20     1      0.004 0.00 0.42
+  text without ratio: commercial    B     20     0      0.000 0.00 0.42
+  text without ratio: commercial  all     40     1      0.002 0.00 0.26
+              short: placeholder    A     16     0      0.000 0.00 0.25
+              short: placeholder    B     24     1      0.014 0.00 0.22
+              short: placeholder  all     40     1      0.008 0.00 0.14
+  short coded 0 bed: placeholder    A      7     0      0.000 0.00 0.35
+  short coded 0 bed: placeholder    B     13     1      0.077 0.01 0.33
+  short coded 0 bed: placeholder  all     20     1      0.050 0.01 0.24
+ short coded 1+ bed: placeholder    A      9     0      0.000 0.00 0.30
+ short coded 1+ bed: placeholder    B     11     0      0.000 0.00 0.26
+ short coded 1+ bed: placeholder  all     20     0      0.000 0.00 0.16
+
+by stratum and half, commercial or placeholder (unweighted counts)
+           reads     bad    
+half           A   B   A   B
+stratum                     
+office         4   4   0   0
+per_sf         3   5   0   0
+ratio_only    18  22   2   4
+ratio_text    13  17   5  11
+retail         4   4   0   0
+short_0bed     7  13   0   1
+short_beds     9  11   0   0
+storefront     5   3   1   0
+warehouse      4   4   0   0
+
+ratio reads by text word, label and half
+                              reads  bad
+half m_text commercial_label            
+A    False  False                18    2
+     True   False                13    5
+B    False  False                22    4
+     True   False                17   11
+
+ratio reads by ratio band and half (commercial or placeholder / reads)
+                 reads  bad
+half band                  
+A    (3, 4]         21    3
+     (4, 6]         10    4
+B    (3, 4]         26    6
+     (4, 6]          9    5
+     (6, 10]         2    2
+     (10, 1000]      2    2

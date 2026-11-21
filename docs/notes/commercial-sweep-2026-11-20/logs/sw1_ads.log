@@ -1,0 +1,11 @@
+active ledger excludes 2586
+ads with a ledger exclude 2550 of them late 2
+live rows 1901268 unique listings 1901268
+{'train': 1894766, 'rule': 325249, 'live': 6502, 'ledger': 2550}
+ratio missing 314052 l2bt held 189647
+ledger_late    False  True 
+status                     
+ledger          2548      2
+live            6502      0
+rule          325249      0
+train        1894766      0

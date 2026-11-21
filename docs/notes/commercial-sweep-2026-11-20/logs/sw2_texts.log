@@ -1,0 +1,11 @@
+ratio-mark listings 1140
+group 0 16384 1959
+group 20 16384 2087
+group 40 16384 1798
+group 60 16384 1804
+group 80 14451 2053
+group 100 16384 2268
+group 120 16384 2857
+group 140 16384 2954
+listings 2229067 with a kept text 302359
+{'t_retail': 37353, 't_storefront': 1484, 't_office': 199866, 't_per_sf': 136, 't_warehouse': 5882, 'short': 62377}
