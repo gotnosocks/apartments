@@ -60,6 +60,9 @@ from rentfrontier import cautions
         ("1.5 month lease credit on a 12 month lease", []),
         ("2 months free on a 24 month term", []),
         ("One month security deposit, one month broker fee", []),
+        ("one month rental fee due at signing", []),
+        ("1 month rental deposit required", []),
+        ("Ask about our 6-month rental option", ["short_lease"]),
         (
             "Income Requirements: Tenants should earn an average yearly income of 40 x",
             [],

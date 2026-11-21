@@ -479,9 +479,9 @@ first.
     first 60 and 11 in the first 300 of the default view.
 - [x] A short-lease Deals caution for text that prices a lease under 12 months (one case
   in the first 60, "$17,500 for a 6-month lease").
-  - 2026-11-21: `short_lease` on the "N-month lease" form, chosen on half A of the latest
-    split's held-out buildings and checked on half B (`docs/notes/short-lease-2026-11-21.md`);
-    8 live ads.
+  - 2026-11-21: `short_lease` on the "N-month lease" form, whose excess of low asks holds
+    on both halves of the latest split's held-out buildings; one scan printed both halves at
+    once, so half B was not held back (`docs/notes/short-lease-2026-11-21.md`). 8 live ads.
 - [ ] Extend the `beds` caution or the bedroom text reader to "convertible", "alcove
   studio" and "wall not yet installed" on ads coded one bedroom or more.
 - [ ] If the `deposit_net` caution goes in, decide whether a free-months and lease-term fill

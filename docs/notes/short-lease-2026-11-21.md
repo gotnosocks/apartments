@@ -18,9 +18,12 @@ and how common is it?
 - Held-out errors: the latest split's l2bt run, 189,629 ads. `gap` is the log ask less the
   log of the predicted median; `low` and `high` say the ask is below the 5% point or above the
   95% point.
-- Halves are the any-unit note's halves of buildings. Half A chooses the form; half B checks it.
-- Each mark is a regex on the lowercased text with runs of white space as one space. No ask
-  enters a mark.
+- Halves are the any-unit note's halves of buildings. Half A was meant to choose the form and
+  half B to check it, but one script printed all four forms on both halves at once, so half B
+  was not held back from the choice.
+- Each mark is a regex on the lowercased text with runs of white space as one space. The scan
+  did not map dashes to hyphens as `cautions.plain` does, so it misses a few "6–month" forms
+  the caution takes. No ask enters a mark.
 
 ## Four forms of the wording (`sl1_scan.py`, `sl1_scan.log`)
 
@@ -36,9 +39,11 @@ and how common is it?
 
 On half A only the "N-month lease" form shows a clear excess of low asks: 15.7% against
 6.0%, 13 of 83 ads. Mean gap −0.029 (se 0.011). Half B repeats it: 18.9% against 5.8%, 14 of
-74 ads. Half B also has an excess of high asks, so the model's interval is too narrow for
-these ads in both directions. "Month-to-month" is too rare to choose on, and the other two
-forms are near the unmarked rate on half A.
+74 ads. B's mean gap does not repeat A's: −0.008 (se 0.014). Half B also has an excess of
+high asks, so the model's interval is too narrow for these ads in both directions, and the
+excess of high asks offsets the low ones in the mean. "Month-to-month" is too rare to choose
+on. "Lease of N months" is near the unmarked rate on both halves. "Short-term" is near it on
+half A but 10.6% low on half B; it is left out, though a later scan could take it up.
 
 ## What the mark finds (`sl2_snips.py`)
 
@@ -59,7 +64,9 @@ and 3,883.
 ## What follows
 
 `cautions.short_lease` takes the "N-month lease" form, with a guard so "13-month" and
-"1.5 month" do not match on their last digit. The chip reads "short lease"; the description
+"1.5 month" do not match on their last digit, and another so "one month rental fee" and
+"1 month rental deposit" do not match (about 24 of the form's matches over all texts are
+fee wording of that kind). The chip reads "short lease"; the description
 reads "the ad offers a lease shorter than a year, and the rent shown may be for it". Like the
 other text cautions it hides an ad from the default view and is computed at publish from the
 texts, so the backtest, which has no texts, does not carry it. It reads only the text, so it
