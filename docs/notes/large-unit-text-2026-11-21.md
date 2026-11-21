@@ -121,7 +121,7 @@ Part of this is price. Within quartiles of l2bt's predicted rent, set by year
 
 All eight are positive. Five are over one SE and two under half of one (the SE as in
 `l8_within.py`). Averaged over the four tiers the difference is +0.009 and +0.014, against
-+0.016 and +0.021 across all tiers in the same table, so 60% to 70% of it stays inside a
++0.016 and +0.021 across all tiers (weighted from the rows of `l10_tier.log`), so 60% to 70% of it stays inside a
 price tier. The queued factor for the top 3% of predicted rents and
 the level for four or more bedrooms take some of the rest.
 
