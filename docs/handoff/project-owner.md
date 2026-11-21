@@ -172,8 +172,9 @@ subagent's model and effort to be picked by its task.
 - Zero-bed apartments (#1503, merged as `706b658b`, no fit,
   `docs/notes/zero-bed-apartments-2026-11-21.md`). 13,089 training rows coded 0 bed carry a
   text or unit mark for 2 or more beds, but only the 195 with both marks are precise (10 of
-  10 blind reads); the unit mark alone is right 1 in 20. Held-out ads with the text mark run
-  +0.097 (SE 0.038, 21 ads). 120 `bedrooms` set rows are drafted (blind read agrees and most
+  10 blind reads); the unit mark alone is right about 1 in 25 (weighted 0.04). Held-out ads
+  with the text mark run +0.048 (SE 0.031, 17 ads) with the ledger-named ads left out, and
+  +0.097 (SE 0.038, 21 ads) with them, which the sprint picked partly by their gap. 120 `bedrooms` set rows are drafted (blind read agrees and most
   of the unit's other counted ads agree, per the ad-text rule); import with the next base
   refit. No pipeline rule.
 - Any-unit pages (#1504, merged as `9acf3851`, no fit, `docs/notes/any-unit-pages-2026-11-21.md`).
@@ -184,7 +185,7 @@ subagent's model and effort to be picked by its task.
   changes. The overlap mark reads asks, so it is allowed for a caution and not for a data
   rule; a noise-scale term on it must be built as of each ad's first day from earlier ads.
 - Drafted for the next base refit, none in the ledger: 254 commercial and placeholder excludes
-  (sweep), 68 building-level rows, 120 zero-bed bedroom sets.
+  (sweep), 68 building-level rows (31 of them also among the 254), 120 zero-bed bedroom sets.
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
 
