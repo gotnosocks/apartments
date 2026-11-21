@@ -151,6 +151,23 @@ subagent's model and effort to be picked by its task.
   word is about 2 standard errors (9.3% against 6.7% matched) and is mostly `the-archive`; it
   looks like varied, expensive loft buildings and is no evidence of commercial rows raising
   levels. The cheap option before the next refit is a hand read of the ratio-with-word matches.
+- Ratio rows read by hand (#1500, merged as `292f8621`, no fit, same note, section "Hand read
+  of the ratio rows (2026-11-21)"). All 934 ratio-mark training rows not read before: 204
+  commercial, 27 placeholder, 38 unclear, 665 apartment, with two blind Sonnet reads on every
+  code other than apartment (92% agreement). The drafted excludes grow to 254 (226
+  `nonresidential`, 28 `bedrooms_unknown`), to import with the next base refit; 31 ids also
+  appear in the building-level read's file. A new follow-up: 165 of the apartment rows are
+  coded 0 bed and 53 of their reads cite 2 to 5 beds (TODO item, being sized on history).
+- Deals previous ask from the Deals fit itself (#1499, merged as `9de1aac5`, no fit).
+  `deals.json` now carries `prev_ask` and `prev_day`, taken by `drift_diagnostics.previous` on
+  the live run's dataset; older files fall back to the diagnostics. Site deployed at `9de1aac`
+  and Deals republished from `range-m3` with backtest `range-j` on Nov 20 at 11:31 PM ET:
+  4,380 of 6,502 deals have a previous-ask ring (2,805 before), none lost one, 3 changed
+  value, and every other field is identical. Backup in
+  `/data1/apartments/tmp/deals-backup/20261120-2329`. From review: `previous` could move to a
+  small module both import, replacing the import inside `deals()` (not blocking).
+- Diagnostics were republished on Nov 20 at 11:18 PM ET with the #1496 rule (7,258 rows with a
+  changed `prev_ask`); the old folder is `/data1/apartments/site/diagnostics.old-20261120`.
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
 
