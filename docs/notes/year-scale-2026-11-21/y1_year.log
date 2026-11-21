@@ -1,0 +1,46 @@
+text flags 31
+dataset ads 1896471 ; no flags row: 2671
+ads 189647 ; by year: {2014: 1033, 2015: 2426, 2016: 3292, 2017: 4836, 2018: 6939, 2019: 8010, 2020: 15778, 2021: 17472, 2022: 12760, 2023: 19314, 2024: 26316, 2025: 34531, 2026: 36940}
+t df 5
+
+base: j1's eight kept terms, all years: cross-fit gain   1934.9 (SE  78.5)
+
+base + year marks, all years: cross-fit gain   3108.5 (SE 101.3)
+  year marks over the base:  1173.6 (SE  60.3); by half [np.float64(530.5), np.float64(643.0)]
+    2014-19          scale (fit on A, on B) 0.963 0.968; shift +0.0015 +0.0010
+    2020             scale (fit on A, on B) 1.231 1.259; shift +0.0019 +0.0030
+    2021             scale (fit on A, on B) 1.241 1.266; shift +0.0009 -0.0013
+    2022             scale (fit on A, on B) 1.142 1.160; shift -0.0070 -0.0051
+    2023             scale (fit on A, on B) 1.061 1.067; shift -0.0030 -0.0034
+    2025             scale (fit on A, on B) 0.989 0.993; shift +0.0006 -0.0006
+    2026             scale (fit on A, on B) 0.974 0.977; shift +0.0010 +0.0018
+    2026 scale over the all-years intercept (fit on A): 0.930
+    2026 scale over the all-years intercept (fit on B): 0.925
+
+80% coverage by year: stored, base, base + years
+      stored   base  years
+year                      
+2014   0.817  0.810  0.773
+2015   0.811  0.804  0.779
+2016   0.817  0.807  0.774
+2017   0.830  0.819  0.791
+2018   0.848  0.833  0.805
+2019   0.858  0.845  0.818
+2020   0.753  0.733  0.801
+2021   0.744  0.721  0.796
+2022   0.776  0.760  0.800
+2023   0.804  0.790  0.795
+2024   0.829  0.818  0.800
+2025   0.835  0.820  0.798
+2026   0.839  0.825  0.798
+
+from 2022: base + gap bins + counts: cross-fit gain   2259.6 (SE  87.3)
+
+from 2022: + year marks: cross-fit gain   2568.6 (SE  93.0)
+  year marks over the gap bins and counts, from 2022:   308.9 (SE  30.4); by half [np.float64(145.8), np.float64(163.2)]
+    2022             scale (fit on A, on B) 1.145 1.164; shift -0.0078 -0.0055
+    2023             scale (fit on A, on B) 1.062 1.067; shift -0.0032 -0.0035
+    2025             scale (fit on A, on B) 0.987 0.990; shift +0.0004 -0.0006
+    2026             scale (fit on A, on B) 0.973 0.974; shift +0.0008 +0.0018
+    2026 scale over the all-years intercept (fit on A): 0.971
+    2026 scale over the all-years intercept (fit on B): 0.974

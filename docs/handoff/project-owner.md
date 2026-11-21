@@ -221,6 +221,11 @@ subagent's model and effort to be picked by its task.
   the model's price than on higher floors), with or without the snapshot's garden flag.
   This confirms the first-floor level of `docs/notes/duplex-scale-2026-11-18.md`, already on
   the TODO list of terms for the next base refit.
+- Year scale (Y1) on stored predictions (no fit, `docs/notes/year-scale-2026-11-21.md`):
+  the served design leaves it whole, +1,174 (SE 60) with 2020 and 2021 about 25% wider than
+  2024 and 2026 at 0.93 of a year-flat scale. It is the base refit's largest candidate and
+  needs a new module on the served design (the merged `drift-building-phase-year` extends
+  L1). L1 and L2 marked done in the TODO.
 - Renovation step and rewritten descriptions (no fit,
   `docs/notes/renovation-step-2026-11-21.md`): a lasting renovation step adds little (+48, SE
   12). An ad whose text changed in 3 or more of the 31 scan flags since the unit's last ad
