@@ -93,12 +93,21 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   on the years before listers used the structured field and hardly on current ads.
   Since 2026-11-13 the column exists as `months_free_text` in the `-freetext` copy of L1's
   dataset (the parsing item below). No fit reads it yet, so the prediction is untested.
-- [ ] Diagnostics: take each held-out ad's previous ask from the same build and the same
+- [x] Diagnostics: take each held-out ad's previous ask from the same build and the same
   model unit as the fit. `prev_ask` in `site/diagnostics/ads.parquet` comes from the market
   build's history, which crosses the pieces of an apartment: in 40% of the ads whose
   adjusted previous ask sits over 0.3 above the model it belongs to another configuration,
   and of 79 market ads checked, 38 had their previous ad under another unit id in the other
-  build and 28 had none in the market build.
+  build and 28 had none in the market build. Done 2026-11-20 in code
+  (`drift_diagnostics.previous`): each row reads the dataset of the fit that scored it, by
+  the model's unit, from training ads dated strictly earlier. Rebuilt on the 2026-11-09
+  runs, 7,540 of 195,423 rows change `prev_ask` or `prev_day` (7,385 had read another
+  piece, 934 a held-out ad, 162 an ad of the same day). The published folder is unchanged
+  until the next `publish`.
+- [ ] Deals: the previous-ask ring reads `diagnostics/ads.parquet` by listing id, so it
+  comes from the diagnostics fits (2026-11-09), not the fit Deals publishes, and 2,462 of
+  6,502 live deals have no diagnostics row. Republish diagnostics from the Deals fit's
+  pair of runs, or give `deals.json` its own previous ad from `drift_diagnostics.previous`.
 - [ ] Size-fill order, for the next base refit (read done 2026-11-20, no fit:
   `docs/notes/size-fills-read-2026-11-20.md`). The blanking rule proposed by the outlier
   sprint is rejected in two of its three clauses. Line fills more than 20% to 60% over the

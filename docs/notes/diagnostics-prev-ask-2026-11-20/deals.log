@@ -1,0 +1,4 @@
+deals run drift-building-bedtext-layout-range-b0-market-6cd1f12b-range-m3 scoring day 2026-11-20
+deals 6502 with a diagnostics row 4040 without 2462
+their diagnostics source {'market': 4013, 'latest': 27}
+rings 2942 | changed by the fix 188 | lost 137
