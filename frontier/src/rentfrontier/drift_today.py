@@ -198,7 +198,7 @@ KEEP = 2
 # Replicates drawn from each component when the quantiles are sampled (`quantiles`), as
 # `drift_score` draws them: at 4 the 95% bounds moved about 1.2% with the seed. The table
 # samples unless asked for the cdf's roots (`drift_quantiles`, `--exact`), which take
-# about ten times as long on its 190 components for each of some 940,000 apartments.
+# about ten times as long on its 192 components for each of some 940,000 apartments.
 SAMPLES = 32
 # Rows per block when the quantiles are worked out: SAMPLES * CHUNK replicates of every
 # component are held at once when they are sampled, 80,000 as when the two were 4 and

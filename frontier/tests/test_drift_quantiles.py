@@ -112,6 +112,41 @@ def test_a_far_start_and_a_bad_level_are_handled():
         drift_quantiles.exact(loc, usd, sigma, nu, p=(0.0, 0.5))
 
 
+def hard(rng, rows=40):
+    """A block of rows on which Newton's step, unguarded, cycles: few components, some in
+    two groups up to 3 apart, locations with an sd up to 1 over the components, unit sds
+    from 0.001 to 0.5, noise scales from 0.005 to 0.3 and degrees of freedom from 1.2
+    to 40."""
+    d = rng.integers(2, 60)
+    loc = 8 + rng.choice([0.005, 0.05, 0.3, 1.0]) * rng.standard_normal((d, rows))
+    loc[: d // 2, ::5] += rng.choice([0.3, 1, 3])
+    usd = 10 ** rng.uniform(-3, -0.3, (d, rows))
+    sigma = 10 ** rng.uniform(-2.3, -0.5, (d, rows))
+    return loc, usd, sigma, rng.choice([1.2, 1.7, 2, 4, 40], d)
+
+
+def test_newton_does_not_cycle_between_the_ends_of_a_bracket():
+    # Row 18 of the third block: at the 5% level Newton's step from either end of the
+    # bracket lands on the other end, so with no safeguard but the bracket the solver
+    # ran out of evaluations.
+    rng = np.random.default_rng(1)
+    for _ in range(3):
+        loc, usd, sigma, nu = hard(rng)
+    row = [v[:, 18:19] for v in (loc, usd, sigma)]
+    q = drift_quantiles.exact(*row, nu, p=(0.05,), max_iter=20)
+    assert abs(drift_quantiles.cdf(q, *row, nu)[0, 0] - 0.05) <= 1e-6
+
+
+def test_the_solver_converges_on_hard_rows():
+    rng = np.random.default_rng(1)
+    levels = np.array(drift_quantiles.LEVELS)
+    for _ in range(10):
+        block = hard(rng)
+        # Well inside `MAX_ITER`: the hardest of these rows takes under 30 evaluations.
+        q = drift_quantiles.exact(*block, max_iter=40)
+        assert np.abs(drift_quantiles.cdf(q, *block) - levels).max() <= 1e-6
+
+
 def test_many_replicates_bring_the_sampled_quantiles_to_the_exact_ones():
     loc, usd, sigma, nu = posterior(3, draws=60, rows=12)
     nu = np.full(60, 4.0)

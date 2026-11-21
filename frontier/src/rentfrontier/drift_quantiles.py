@@ -19,8 +19,15 @@ the `cdf` the Deals table's `below_share` is. `cdf` evaluates F with the same gr
 The solver. F is smooth and increasing, and its probit g(y) = Phi^-1(F(y)) is close to a
 line, so each quantile is found by Newton's method on g, kept inside a bracket: every
 evaluation of a row's F, for any of its levels, narrows the bracket of each of the row's
-levels, and a step that would leave its bracket is replaced by the bracket's midpoint, a
-bisection step. A level is done once it has taken a Newton step shorter than `TOL`.
+levels. The bracket's midpoint, a bisection step, replaces a Newton step that would leave
+the bracket, one longer than half the level's step before it, and one that follows
+`STALE` evaluations of the level over which its bracket has not halved. Those are the
+safeguards of Numerical Recipes' rtsafe. Without the last two Newton can jump for ever
+between the two ends of a bracket that never narrows, on a row whose probit bends
+sharply between two groups of components. With them a bracket closed on both sides
+halves at least once in `STALE` + 1 evaluations of its level, so `MAX_ITER` evaluations
+bring a bracket hundreds of log units wide under the tolerance. A level is done once it
+has taken a Newton step shorter than `TOL`.
 Newton's error after a step is of the order of the step squared, so the error left is far
 below 1e-6: on the served run's ads the quantiles are within 1e-9 of the ones a tolerance
 of 1e-12 gives. A level takes about three evaluations of F.
@@ -40,10 +47,15 @@ from . import drift_score
 
 # A quantile is done when it has taken a Newton step shorter than this, in log rent, or
 # its bracket is a tenth as wide. The error after such a step is of the order of TOL squared.
+# It is absolute, in log rent, and assumes the components' scales are well above 1e-5.
 TOL = 1e-5
 # Evaluations of a level before the solver gives up. Bisection alone halves a bracket a
-# few log units wide to TOL in about 30.
-MAX_ITER = 80
+# few log units wide to TOL in about 30, and the safeguarded steps in at most
+# `STALE` + 1 times as many.
+MAX_ITER = 120
+# Evaluations of a level over which its bracket may fail to halve before the next step is
+# a bisection step.
+STALE = 3
 # Elements of a block's (components, rows, nodes) work arrays, of which about four are
 # held at once by each thread: 5e5 doubles are 4 MB, which stays in a core's cache. Blocks
 # of 8e6 took a fifth longer.
@@ -114,6 +126,11 @@ def _solve(loc, usd, sigma, inv_lam, w, p, tol, max_iter):
     lo = np.full((rows, levels), -np.inf)
     hi = np.full((rows, levels), np.inf)
     active = np.ones((rows, levels), bool)
+    # Each level's last step, the bracket's width when it last halved, and the level's
+    # evaluations since then.
+    last = np.full((rows, levels), np.inf)
+    ref = np.full((rows, levels), np.inf)
+    stale = np.zeros((rows, levels), int)
     for _ in range(max_iter):
         for j in range(levels):
             at = np.flatnonzero(active[:, j])
@@ -135,14 +152,24 @@ def _solve(loc, usd, sigma, inv_lam, w, p, tol, max_iter):
                 step = (zp[j] - g) / slope
             new = xj + step
             a, b = lo[at, j], hi[at, j]
-            inside = np.isfinite(new) & (new >= a) & (new <= b)
+            inside = np.isfinite(new) & (new > a) & (new < b)
             both = np.isfinite(a) & np.isfinite(b)
+            width = b - a
+            halved = both & (width <= 0.5 * ref[at, j])
+            ref[at, j] = np.where(halved, width, ref[at, j])
+            stale[at, j] = np.where(halved | ~both, 0, stale[at, j] + 1)
+            short = np.abs(step) < tol
+            # Newton's step is kept while it shrinks and the bracket narrows (rtsafe's
+            # safeguards), and always when it is short enough to finish the level.
+            shrinks = (np.abs(step) <= 0.5 * last[at, j]) & (stale[at, j] < STALE)
+            inside &= short | ~both | shrinks
             # Where F is 0 or 1 to machine precision and one side is still open, walk
             # towards the centre by the row's spread.
             walk = np.where(np.isfinite(a), a + spread[at], b - spread[at])
             new = np.where(inside, new, np.where(both, 0.5 * (a + b), walk))
-            done = (inside & (np.abs(step) < tol)) | (both & (b - a < 0.1 * tol))
+            done = (inside & short) | (both & (width < 0.1 * tol))
             done |= F == p[j]
+            last[at, j] = np.abs(new - xj)
             x[at, j] = np.where(F == p[j], xj, new)
             active[at[done], j] = False
         if not active.any():

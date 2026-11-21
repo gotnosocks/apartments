@@ -30,8 +30,17 @@ the served run's ads move by at most 1.1e-9 in log rent.
 
 `rentfrontier.drift_quantiles.exact` solves `cdf(q) = p` for each row and level. It runs
 Newton's method on the probit of the cdf, which is close to a line, and keeps every level
-inside a bracket that all of the row's evaluations narrow. A step that would leave the
-bracket becomes the bracket's midpoint, which is a bisection step. A level stops after a
+inside a bracket that all of the row's evaluations narrow. The bracket's midpoint, a
+bisection step, replaces a Newton step in three cases: the step would leave the bracket,
+it is longer than half the level's step before it, or the bracket has not halved over
+the level's last three evaluations. These are the safeguards of Numerical Recipes'
+rtsafe. The first version had only the first case, and review found rows on which it
+never converged: where the probit bends sharply between two groups of components,
+Newton's step from each end of the bracket lands on the other end, the bracket never
+narrows and no bisection step is taken. On 200 seeded synthetic blocks of 40 such rows
+(`hard` in the tests) 29 blocks raised after 80 evaluations. With the safeguards a
+closed bracket halves at least once in four evaluations of its level, so the solver
+converges within its limit of 120. A level stops after a
 Newton step shorter than 1e-5. The error after such a step is of the order of the step
 squared: against a tolerance of 1e-12 the largest difference on 501 served ads was
 7e-10. Plain bisection to 1e-6 would need about 22 evaluations of the cdf per level.
@@ -58,6 +67,10 @@ with the registry, backtest and texts of `ops/deals-refresh publish`, under a 5 
 
 The peak of `publish` is the backtest's validation and the tables it reads, not the
 quantiles.
+
+The figures above are from the first version of the solver. With the safeguards
+`score_run` takes 88.2 s, its quantiles on the 6,502 ads are within 7.5e-10 in log rent of
+the first version's, and the published `deals.json` is byte for byte the same.
 
 The sampled table is byte for byte the live `deals.json`. The exact table has the same
 ads in the same order with the same `below_share` and the same values in every column but
@@ -97,6 +110,8 @@ there for when the cost is wanted.
 without a record, two-peaked rows, nu from 1.2 to 40) that the exact quantiles sit at their
 levels of the cdf to 1e-6, that sampled quantiles with 8,000 replicates per draw come to
 them, and that an ask is under a bound exactly when its share is under the bound's level.
+Two tests cover the solver's safeguards: a seeded row on which the unguarded Newton step
+cycled, and 400 seeded hard rows, each checked to 1e-6 at every level.
 One existing test changed: `test_the_tables_draws_are_keyed_by_block` in
 `test_drift_today.py` now names the sampled path in its comment and passes `exact=False`.
 No pinned value or seed changed.

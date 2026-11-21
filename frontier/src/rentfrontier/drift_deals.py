@@ -516,20 +516,20 @@ def publish(
     exact: bool = True,
 ) -> dict:
     """Write the site's Deals folder `out` from the market run at `run_dir`: `deals.json`,
-        `meta.json` and, with a backtest run, `validation.json`. `heldout` names a run on a
-        held-out split whose `pred_scores.npz` (`rentfrontier.drift_score`) gives the model's
-        scores on ads it never saw. Each ads table comes from its run's dataset manifest.
-        `texts` is the table the `texts` command wrote for this run; without it the rows carry
-        only the cautions the dataset gives, and `meta.json` says the texts were not read.
+    `meta.json` and, with a backtest run, `validation.json`. `heldout` names a run on a
+    held-out split whose `pred_scores.npz` (`rentfrontier.drift_score`) gives the model's
+    scores on ads it never saw. Each ads table comes from its run's dataset manifest.
+    `texts` is the table the `texts` command wrote for this run; without it the rows carry
+    only the cautions the dataset gives, and `meta.json` says the texts were not read.
     `exact` is `deals`'s: false samples the table's median and bounds.
 
-        The three runs must be fits of one model, the market run on a market dataset and the
-        backtest run on a backtest dataset. The market run must have passed the convergence
-        gate: the page ranks real ads by its draws. `meta.json` records the gate of each run,
-        so a backtest or held-out fit that missed it is on record beside the table.
-        Everything is computed before anything is written.
-        `meta.json` goes last and holds the sha256 of the other two files: the site shows a
-        meta or a backtest only beside the table it was published with."""
+    The three runs must be fits of one model, the market run on a market dataset and the
+    backtest run on a backtest dataset. The market run must have passed the convergence
+    gate: the page ranks real ads by its draws. `meta.json` records the gate of each run,
+    so a backtest or held-out fit that missed it is on record beside the table.
+    Everything is computed before anything is written.
+    `meta.json` goes last and holds the sha256 of the other two files: the site shows a
+    meta or a backtest only beside the table it was published with."""
     result, market = _checked(run_dir, backtest=False)
     model = result["model"]["name"]
     gate = {"market": _gate(result)}
