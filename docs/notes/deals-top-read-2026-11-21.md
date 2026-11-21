@@ -2,9 +2,9 @@
 
 This note reads the first 60 ads of the Deals page's default view as a broker would, and
 counts the traits they share against 60 ads from the middle of the same view. It is a read
-of the product. The readers saw the asks, so no rule or term is chosen from it. A trait found
-here goes forward only once it is coded without rent and tested on the held-out history, as
-`docs/expert-reads.md` sets out.
+of the product. The readers' blocks held the asks, so no rule or term is chosen from it. A
+trait found here goes forward only once it is coded without rent and tested on the held-out
+history, as `docs/expert-reads.md` sets out.
 
 ## What was read
 
@@ -54,8 +54,9 @@ free and 1 month OP".
 15 of the 18 have coded free months. The model's target is the ask net of free months, and
 months free is one of its columns, so these ads compare a net ask with a net estimate. The
 readers called them net because the page price is gross. Even so, the gross page price lies
-below the model's median for 14 of the 15 (median ratio 0.93). The ranking treats these 15
-correctly; the readers' call is about the page's wording. Coded free months are also only a little more
+below the model's median for 14 of the 15 (median ratio 0.93). These 15 are priced net
+against a net target, with `ad:months_free` in the design, so they are no Deals defect; the
+readers' call is about the page's wording. Coded free months are also only a little more
 common in the top than in the middle (15 against 11).
 
 The other 3 have no coded free months and a flat security deposit above the page price.
@@ -158,17 +159,21 @@ width-by-source item is already in the backlog.
 
 ## The deposit check over the whole table
 
-`deposit.py` reads the last stored record of every one of the 6,502 published ads.
+`deposit.py` reads the record of every one of the 6,502 published ads from the pipeline
+records file the publish reads for texts (`records-941f4a6588cbd8cc`, the build of the run's
+ads file), choosing the ACTIVE record fetched last as `descriptions.record_descriptions`
+does. A first count on the API export's last record gave 388, 319 and 94 for the rows below;
+the places in the default view came out the same.
 
 | step | ads |
 |---|---|
 | flat security deposit | 5,128 |
-| deposit above page price by 2% or more | 388 |
-| of those, with coded free months | 69 |
-| uncoded, deposit equals the first ask (a cut) | 219 |
-| uncoded, deposit fits a net rent | 94 |
+| deposit above page price by 2% or more | 372 |
+| of those, with coded free months | 67 |
+| uncoded, deposit equals the first ask (a cut) | 211 |
+| uncoded, deposit fits a net rent | 88 |
 | uncoded, other | 6 |
-| uncoded and over, already cautioned | 96 of 319 |
+| uncoded and over, already cautioned | 82 of 305 |
 
 `deposit_kinds.py` calls a deposit a net fit when deposit × (L - m) / L matches the page
 price within the larger of $2 and 0.2%, for m from 0.5 to 3 free months and a lease L of 12
@@ -186,12 +191,13 @@ by building: The Lightwell Dumbo 6, 733 Lincoln 6, The Baltic Canal 3. Two of th
 top 60 (T12 at Gilsey House, ratio 1.04, and T29 at 34 Eighth Avenue, 1.07) were read as one
 apartment. A ratio that small fits half a month on a 13-month lease and also fits a stale
 deposit from an intermediate price, so the mark is strongest at ratios near 1.1 and above.
-Stored records go back only to the API export, about 2026-10, so a long held-out history
-test of this mark is not possible. The backtest day can be checked where records cover it.
+The deposit field comes from API records, which start about 2026-10, so a long held-out
+history test of this mark may not be possible. The backtest day can be checked where records
+cover it.
 
 ## Caveats
 
-- The broker readers saw the ask, the median and the interval. Their tags are a reading of
+- The broker readers' blocks held the ask, the median and the interval. Their tags are a reading of
   the top and cannot stand as evidence for a term.
 - The middle group is the middle of the uncautioned view. It is no random draw of held-out
   ads, and the groups are 60 each. Every z above is rough.
@@ -207,7 +213,7 @@ test of this mark is not possible. The backtest day can be checked where records
 1. **`deposit_net`.** Mark an ad when its record has a flat security deposit at least 2%
    above the page price, no coded free months, a deposit different from the first ask, and a
    deposit that fits a net rent as above. The publish already reads the records file for the
-   ad's text, so the deposit comes from the same record. On the live table it would mark 94
+   ad's text, so the deposit comes from the same record. On the live table it would mark 88
    ads, 5 in the top 60 and 12 in the top 300. A first form could require a ratio of 1.05 or
    more, to leave out the half-month fits.
 2. **`short_lease`.** Mark ads whose text prices a lease under 12 months ("6-month lease",
@@ -217,10 +223,13 @@ test of this mark is not possible. The backtest day can be checked where records
 
 ### Data rules and ledger drafts
 
-1. Ads of the 733 Lincoln and Lightwell Dumbo kind, where the deposit fits a whole number of
-   free months exactly, could take their gross rent from the deposit, as a months-free fill or
-   as a ledger set. This needs a rule written with no ask in view and a count over the
-   records file.
+1. No data rule comes from the deposit mark. With coded free months the target stays net
+   (`ledger_rows.sql` with `concessions.sql`, and `latest_ask` in `b0data.py`), so taking a
+   gross rent from the deposit would break it. The only form that keeps the target net is a
+   free-months and lease-term fill for ads of the 733 Lincoln and Lightwell Dumbo kind. The
+   mark compares the deposit with the page price, so under `docs/leak-free-scoring.md` it may
+   screen or carry a Deals caution and may not become a data rule, as with the overlap mark
+   of the any-unit read of 2026-11-21. It goes forward as the caution above.
 2. T25 at its alcove studio and T01's unbuilt fifth bedroom go to the bedroom ledger as drafts.
 
 ### Traits to test as terms on the held-out history
@@ -257,4 +266,4 @@ in scratch.
 - `codes.csv`: the 120 blind codes with field traits and short quotes; `blind_key.csv` maps
   the blind keys to ads and groups.
 - `fields.csv`: coded fields of the 120 ads, with no text.
-- `deposit_kinds.csv`: the 319 uncoded deposit-over-price ads by kind.
+- `deposit_kinds.csv`: the 305 uncoded deposit-over-price ads by kind.

@@ -2,34 +2,41 @@
 
 New York caps a security deposit at one month's rent (2019), so a deposit above the price
 the page shows says the lease rent is the deposit and the page shows a net rent with no free
-months coded. Reads each ad's last stored API record (the export the ads file was built
-from), the deposit and the page price, and no model output. Writes deposit.csv to scratch
-and prints counts by place in the default Deals view."""
+months coded. Reads each ad's record from the pipeline records file the publish reads for
+texts (`api_records.records_file`), chosen as `descriptions.record_descriptions` chooses it:
+the ACTIVE record fetched last, else the record fetched last. Takes the deposit and the page
+price, and no model output. Writes deposit.csv to scratch and prints counts by place in the
+default Deals view."""
 
-import glob
 import json
 import sys
 from pathlib import Path
 
 import pandas as pd
-import pyarrow.compute as pc
-import pyarrow.dataset as ds
 
 from apartments.site import deals
+from rentfrontier import api_records
 
 S = Path(sys.argv[1])
 data = deals.load(Path("/data1/apartments/site"))
 rows = data["rows"]
 view = {r["listing_id"]: i + 1 for i, r in enumerate(deals.choose(rows))}
-ids = [int(r["listing_id"]) for r in rows]
-files = sorted(
-    glob.glob("/data1/apartments/archive/crawls/api/export/ads/run-*/*.parquet")
-)
-t = ds.dataset(files, format="parquet").to_table(
-    columns=["listing_id", "fetched", "outcome", "record"],
-    filter=pc.field("listing_id").isin(ids) & (pc.field("outcome") == "record"),
-)
-rec = t.to_pandas().sort_values("fetched").groupby("listing_id").record.last()
+wanted = {str(r["listing_id"]) for r in rows}
+records = api_records.records_file()
+print("records file", records["path"])
+latest, active = {}, {}
+columns = ["listing_id", "collected_at", "snapshot_id", "raw_listing_json"]
+for r in api_records.captures(records, columns):
+    lid = str(r["listing_id"])
+    if lid not in wanted:
+        continue
+    key = (r["collected_at"], r["snapshot_id"])
+    j = (json.loads(r["raw_listing_json"]) or {}) if r["raw_listing_json"] else {}
+    if lid not in latest or key >= latest[lid][0]:
+        latest[lid] = (key, j)
+    if j.get("status") == "ACTIVE" and (lid not in active or key >= active[lid][0]):
+        active[lid] = (key, j)
+rec = {lid: (active.get(lid) or latest[lid])[1] for lid in latest}
 
 
 def deposit(j: dict):
@@ -45,8 +52,7 @@ def deposit(j: dict):
 
 out = []
 for r in rows:
-    lid = int(r["listing_id"])
-    j = json.loads(rec[lid]) if lid in rec.index else {}
+    j = rec.get(str(r["listing_id"]), {})
     pr = j.get("pricing") or {}
     out.append(
         {
