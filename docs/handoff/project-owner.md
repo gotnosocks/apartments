@@ -218,7 +218,8 @@ subagent's model and effort to be picked by its task.
   `docs/notes/four-traits-2026-11-21.md`). Walk-ups, the virtual doorman and garden wording
   are closed. Floor 1 runs low on both halves (8.3% and 8.0% low, asks about 1% further below
   the model's price than on higher floors), with or without the snapshot's garden flag.
-  Queued in TODO: a `unit:floor1` step outside the floor curve for the next base refit.
+  This confirms the first-floor level of `docs/notes/duplex-scale-2026-11-18.md`, already on
+  the TODO list of terms for the next base refit.
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
 
