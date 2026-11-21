@@ -1,0 +1,5 @@
+held-out 189647 {'counts as before': 148852, 'counts changed': 40795}
+records /data1/apartments/pipeline/datasets/records-941f4a6588cbd8cc.parquet compared ads wanted 40204
+changed 40795 from 2022 27822
+texts: held 40777 compared 40726
+previous ad has other counts 0.572

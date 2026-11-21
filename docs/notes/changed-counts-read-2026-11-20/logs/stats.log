@@ -1,0 +1,154 @@
+
+===== 2025 and 2026
+
+all held-out ads by kind
+                        n     gap      se      sd     low    high
+kind                                                             
+counts as before  56266.0 -0.0036  0.0003  0.0681  0.0415  0.0348
+counts changed    15205.0 -0.0024  0.0008  0.0876  0.0693  0.0645
+
+by kind and half
+                             n     gap      se      sd     low    high
+kind             half                                                 
+counts as before A     27182.0 -0.0032  0.0005  0.0682  0.0411  0.0352
+                 B     29084.0 -0.0039  0.0005  0.0679  0.0418  0.0344
+counts changed   A      7697.0 -0.0026  0.0011  0.0874  0.0678  0.0663
+                 B      7508.0 -0.0021  0.0011  0.0877  0.0707  0.0626
+
+changed counts by direction
+                 n     gap      se      sd     low    high
+dir                                                       
+baths only  2770.0 -0.0048  0.0022  0.1061  0.1058  0.0931
+beds down   5997.0  0.0061  0.0012  0.0839  0.0502  0.0727
+beds up     6438.0 -0.0092  0.0011  0.0811  0.0713  0.0444
+
+by direction and half
+                      n     gap      se      sd     low    high
+dir        half                                                
+baths only A     1343.0 -0.0044  0.0031  0.1020  0.0968  0.0961
+           B     1427.0 -0.0052  0.0031  0.1100  0.1142  0.0904
+beds down  A     3076.0  0.0051  0.0018  0.0860  0.0520  0.0790
+           B     2921.0  0.0071  0.0016  0.0817  0.0483  0.0661
+beds up    A     3278.0 -0.0091  0.0016  0.0814  0.0708  0.0421
+           B     3160.0 -0.0093  0.0015  0.0808  0.0718  0.0468
+
+previous training ad already has the held-out counts
+            n     gap      se      sd    low    high
+back                                                
+False  5933.0 -0.0026  0.0015  0.1055  0.101  0.0934
+True   9272.0 -0.0023  0.0008  0.0738  0.049  0.0459
+
+by direction and back
+                       n     gap      se      sd     low    high
+dir        back                                                 
+baths only False  1607.0 -0.0022  0.0034  0.1221  0.1301  0.1263
+           True   1163.0 -0.0084  0.0025  0.0788  0.0722  0.0473
+beds down  False  2139.0  0.0156  0.0024  0.0996  0.0645  0.1085
+           True   3858.0  0.0008  0.0012  0.0734  0.0422  0.0529
+beds up    False  2187.0 -0.0205  0.0022  0.0944  0.1152  0.0544
+           True   4251.0 -0.0034  0.0012  0.0727  0.0487  0.0393
+
+back by half
+                 n     gap      se      sd     low    high
+back  half                                                
+False A     2992.0 -0.0022  0.0021  0.1068  0.0973  0.0979
+      B     2941.0 -0.0029  0.0022  0.1042  0.1047  0.0887
+True  A     4705.0 -0.0029  0.0012  0.0724  0.0491  0.0461
+      B     4567.0 -0.0017  0.0012  0.0752  0.0488  0.0458
+
+gaps to the earlier ads (median, quartiles)
+           days_prev                 days_other                 dlog_prev               dlog_other              
+                0.25   0.50     0.75       0.25    0.50    0.75      0.25   0.50   0.75       0.25   0.50   0.75
+dir                                                                                                             
+baths only    347.25  707.5  1253.50     496.00  1236.0  2351.0     0.011  0.096  0.215      0.047  0.174  0.344
+beds down     239.00  490.0   986.00     549.00  1559.0  2803.0    -0.047  0.053  0.148     -0.134  0.079  0.259
+beds up       262.00  458.0   875.75     560.75  1613.0  2868.0     0.035  0.113  0.238      0.192  0.358  0.545
+mean and sd of the log ask change
+           days_prev          days_other           dlog_prev        dlog_other       
+                mean      std       mean       std      mean    std       mean    std
+dir                                                                                  
+baths only   918.827  838.015   1527.488  1174.158     0.132  0.200      0.203  0.236
+beds down    707.616  741.395   1695.239  1323.078     0.042  0.221      0.053  0.287
+beds up      654.231  660.517   1749.264  1350.321     0.156  0.187      0.387  0.270
+held-out ad earlier than the compared ad 0.06570207168694508
+unit label differs 0.0278
+both sizes stated 1359 equal 0.5
+size ratio quantiles {0.05: 0.712857142857143, 0.25: 0.9907179054054054, 0.75: 1.0, 0.95: 1.3333333333333333}
+texts identical 0.02
+
+===== 2022 on
+
+all held-out ads by kind
+                         n     gap      se      sd     low    high
+kind                                                              
+counts as before  102039.0 -0.0059  0.0003  0.0705  0.0493  0.0349
+counts changed     27822.0 -0.0042  0.0006  0.0918  0.0781  0.0666
+
+by kind and half
+                             n     gap      se      sd     low    high
+kind             half                                                 
+counts as before A     48948.0 -0.0056  0.0004  0.0705  0.0491  0.0355
+                 B     53091.0 -0.0061  0.0004  0.0705  0.0495  0.0344
+counts changed   A     14003.0 -0.0042  0.0008  0.0903  0.0762  0.0663
+                 B     13819.0 -0.0042  0.0009  0.0934  0.0801  0.0668
+
+changed counts by direction
+                  n     gap      se      sd     low    high
+dir                                                        
+baths only   4840.0 -0.0073  0.0017  0.1106  0.1145  0.0917
+beds down   11328.0  0.0067  0.0009  0.0878  0.0565  0.0792
+beds up     11654.0 -0.0135  0.0008  0.0858  0.0841  0.0438
+
+by direction and half
+                      n     gap      se      sd     low    high
+dir        half                                                
+baths only A     2353.0 -0.0072  0.0024  0.1057  0.1062  0.0888
+           B     2487.0 -0.0074  0.0025  0.1151  0.1222  0.0945
+beds down  A     5781.0  0.0049  0.0013  0.0873  0.0597  0.0801
+           B     5547.0  0.0086  0.0012  0.0881  0.0532  0.0782
+beds up    A     5869.0 -0.0119  0.0012  0.0855  0.0804  0.0438
+           B     5785.0 -0.0151  0.0012  0.0861  0.0878  0.0439
+
+previous training ad already has the held-out counts
+             n     gap      se      sd     low    high
+back                                                  
+False  13061.0 -0.0033  0.0010  0.1070  0.1010  0.0915
+True   14761.0 -0.0050  0.0007  0.0759  0.0579  0.0445
+
+by direction and back
+                       n     gap      se      sd     low    high
+dir        back                                                 
+baths only False  2943.0 -0.0036  0.0025  0.1257  0.1366  0.1223
+           True   1897.0 -0.0130  0.0020  0.0815  0.0801  0.0443
+beds down  False  4993.0  0.0155  0.0015  0.1007  0.0623  0.1122
+           True   6335.0 -0.0002  0.0010  0.0754  0.0519  0.0532
+beds up    False  5125.0 -0.0214  0.0014  0.0977  0.1182  0.0537
+           True   6529.0 -0.0073  0.0009  0.0745  0.0573  0.0361
+
+back by half
+                 n     gap      se      sd     low    high
+back  half                                                
+False A     6553.0 -0.0031  0.0014  0.1052  0.0961  0.0900
+      B     6508.0 -0.0034  0.0015  0.1087  0.1059  0.0930
+True  A     7450.0 -0.0051  0.0009  0.0747  0.0587  0.0455
+      B     7311.0 -0.0048  0.0010  0.0772  0.0572  0.0435
+
+gaps to the earlier ads (median, quartiles)
+           days_prev                days_other                  dlog_prev               dlog_other              
+                0.25   0.50    0.75       0.25    0.50     0.75      0.25   0.50   0.75       0.25   0.50   0.75
+dir                                                                                                             
+baths only     364.0  726.0  1278.5     545.75  1207.5  2214.25     0.012  0.105  0.235      0.046  0.163  0.316
+beds down      100.0  421.0   904.0     259.75  1229.0  2407.25    -0.099  0.034  0.143     -0.170  0.033  0.211
+beds up         91.0  404.0   812.0     262.00  1220.5  2500.00     0.016  0.105  0.245      0.123  0.298  0.487
+mean and sd of the log ask change
+           days_prev          days_other           dlog_prev        dlog_other       
+                mean      std       mean       std      mean    std       mean    std
+dir                                                                                  
+baths only   931.553  804.407   1473.810  1088.613     0.138  0.202      0.190  0.227
+beds down    531.767  834.339   1329.411  1396.246     0.012  0.244      0.009  0.289
+beds up      492.561  777.328   1366.800  1436.900     0.146  0.201      0.322  0.281
+held-out ad earlier than the compared ad 0.16026885198763569
+unit label differs 0.0294
+both sizes stated 2745 equal 0.51
+size ratio quantiles {0.05: 0.7272727272727273, 0.25: 0.9986033519553073, 0.75: 1.0, 0.95: 1.3603174603174593}
+texts identical 0.0171

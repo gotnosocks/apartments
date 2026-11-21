@@ -1,0 +1,88 @@
+
+codes by group
+code          a       b         c         d         e    n
+group                                                     
+high   38 (38%)  1 (1%)  10 (10%)  11 (11%)  40 (40%)  100
+low    23 (23%)  1 (1%)  12 (12%)  15 (15%)  49 (49%)  100
+mid    28 (28%)  0 (0%)  15 (15%)  10 (10%)  47 (47%)  100
+
+codes by half and group
+code               a       b         c        d         e   n
+half group                                                   
+A    high   25 (44%)  1 (2%)   7 (12%)  6 (11%)  18 (32%)  57
+     low    10 (21%)  1 (2%)   7 (15%)  7 (15%)  23 (48%)  48
+     mid    15 (31%)  0 (0%)   5 (10%)  6 (12%)  23 (47%)  49
+B    high   13 (30%)  0 (0%)    3 (7%)  5 (12%)  22 (51%)  43
+     low    13 (25%)  0 (0%)   5 (10%)  8 (15%)  26 (50%)  52
+     mid    13 (25%)  0 (0%)  10 (20%)   4 (8%)  24 (47%)  51
+
+codes by whether the previous ad has other counts
+code                a       b         c        d         e   n
+fresh group                                                   
+False high   12 (32%)  0 (0%)   5 (14%)   3 (8%)  17 (46%)  37
+      low     8 (17%)  0 (0%)    3 (7%)  8 (17%)  27 (59%)  46
+      mid    19 (28%)  0 (0%)    5 (7%)  8 (12%)  36 (53%)  68
+True  high   26 (41%)  1 (2%)    5 (8%)  8 (13%)  23 (37%)  63
+      low    15 (28%)  1 (2%)   9 (17%)  7 (13%)  22 (41%)  54
+      mid     9 (28%)  0 (0%)  10 (31%)   2 (6%)  11 (34%)  32
+
+codes by direction
+code                     a       b        c        d         e   n
+dir        group                                                  
+baths only high    7 (28%)  0 (0%)   0 (0%)  4 (16%)  14 (56%)  25
+           low     5 (16%)  0 (0%)  4 (13%)  7 (23%)  15 (48%)  31
+           mid     4 (27%)  0 (0%)   1 (7%)  2 (13%)   8 (53%)  15
+beds down  high   22 (46%)  1 (2%)  5 (10%)  6 (12%)  14 (29%)  48
+           low     7 (27%)  0 (0%)  3 (12%)  4 (15%)  12 (46%)  26
+           mid    11 (28%)  0 (0%)  8 (20%)   3 (8%)  18 (45%)  40
+beds up    high    9 (33%)  0 (0%)  5 (19%)   1 (4%)  12 (44%)  27
+           low    11 (26%)  1 (2%)  5 (12%)   4 (9%)  22 (51%)  43
+           mid    13 (29%)  0 (0%)  6 (13%)  5 (11%)  21 (47%)  45
+
+codes by whether the unit labels differ
+code                  a       b         c         d          e    n
+label_differs                                                      
+False          85 (29%)  2 (1%)  37 (13%)  36 (12%)  131 (45%)  291
+True            4 (44%)  0 (0%)    0 (0%)    0 (0%)    5 (56%)    9
+
+same apartment by group
+same_apartment  no  unclear  yes
+group                           
+high            10       39   51
+low             10       60   30
+mid             14       52   34
+same_apartment  no  unclear  yes
+half group                      
+A    high        7       20   30
+     low         7       25   16
+     mid         4       29   16
+B    high        3       19   21
+     low         3       35   14
+     mid        10       23   18
+
+all: share less the ordinary group's, with se
+low 100 vs 100 | a -0.05 (0.06)  b +0.01 (0.01)  c -0.03 (0.05)  d +0.05 (0.05)  e +0.02 (0.07)  not same -0.04 (0.05)
+high 100 vs 100 | a +0.10 (0.07)  b +0.01 (0.01)  c -0.05 (0.05)  d +0.01 (0.04)  e -0.07 (0.07)  not same -0.04 (0.05)
+
+half A: share less the ordinary group's, with se
+low 48 vs 49 | a -0.10 (0.09)  b +0.02 (0.02)  c +0.04 (0.07)  d +0.02 (0.07)  e +0.01 (0.10)  not same +0.06 (0.06)
+high 57 vs 49 | a +0.13 (0.09)  b +0.02 (0.02)  c +0.02 (0.06)  d -0.02 (0.06)  e -0.15 (0.09)  not same +0.04 (0.06)
+
+half B: share less the ordinary group's, with se
+low 52 vs 51 | a -0.00 (0.09)  b +0.00 (0.00)  c -0.10 (0.07)  d +0.08 (0.06)  e +0.03 (0.10)  not same -0.14 (0.06)
+high 43 vs 51 | a +0.05 (0.09)  b +0.00 (0.00)  c -0.13 (0.07)  d +0.04 (0.06)  e +0.04 (0.10)  not same -0.13 (0.07)
+
+previous ad has other counts True: share less the ordinary group's, with se
+low 54 vs 32 | a -0.00 (0.10)  b +0.02 (0.02)  c -0.15 (0.10)  d +0.07 (0.06)  e +0.06 (0.11)  not same -0.13 (0.09)
+high 63 vs 32 | a +0.13 (0.10)  b +0.02 (0.02)  c -0.23 (0.09)  d +0.06 (0.06)  e +0.02 (0.10)  not same -0.20 (0.09)
+
+previous ad has other counts False: share less the ordinary group's, with se
+low 46 vs 68 | a -0.11 (0.08)  b +0.00 (0.00)  c -0.01 (0.05)  d +0.06 (0.07)  e +0.06 (0.09)  not same -0.03 (0.04)
+high 37 vs 68 | a +0.04 (0.09)  b +0.00 (0.00)  c +0.06 (0.06)  d -0.04 (0.06)  e -0.07 (0.10)  not same +0.06 (0.06)
+
+fresh by group
+       mean  size
+group            
+high   0.63   100
+low    0.54   100
+mid    0.32   100

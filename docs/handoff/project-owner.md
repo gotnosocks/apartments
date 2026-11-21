@@ -88,8 +88,9 @@ subagent's model and effort to be picked by its task.
   blind ad readings of 302 ads gave no text code that holds on history. The plan image's excess
   is steady but small (0.0022, se 0.0007). So there is no new column, and the building x
   bedroom-count level (LN1, written, unfit) stays a candidate for the next base refit. The 307
-  open ads on pages whose previous ad has another bedroom count are still unread (open TODO
-  item).
+  open ads on pages whose previous ad has another bedroom count were answered on history
+  instead, in `docs/notes/changed-counts-read-2026-11-20.md` (300 held-out pairs read; the
+  wide tails belong to ads whose counts are new to the unit).
 - First-ad noise inputs (#1488, merged as `e1491d3d`, no fit, no spend,
   `docs/notes/first-ad-noise-inputs-2026-11-20.md`). The latest split holds no first-ad units,
   so the check ran on the 2025-11-10 Deals backtest (3,168 first-ad ads of 9,346). The label
