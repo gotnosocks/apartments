@@ -282,6 +282,9 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   0.189 and line fills at 0.086, and a matched fill would take a size from 3.6% of listings.
   On l2bt the borrowed fills price like stated sizes inside the group and like other ads
   outside it; marks for them lose 1.3 (SE 3.0). The matched fill is not carried forward.
+  The model reads `sizefill.asof_size`, not the snapshot; under it only 20 of 227 large
+  0-1-bedroom unit fills borrow from another count, and the size-fill order item covers
+  them. Define the large 0-1-bedroom mark on the model's sizes when it goes to the refit.
 - [ ] U4: a unit scale by bedroom count, a factor on the sd of a unit's lasting level for
   2 bedrooms and for 3 or more. For units with no ad in training the 80% interval covers
   0.733, 0.693 and 0.663 of final asks at 2, 3 and 4 or more bedrooms in the backtest j9

@@ -63,6 +63,7 @@ cross_unit = (src == "unit") & np.array(
 # A line fill draws on another bedroom count when a unit filed under its key has stated
 # sizes from a bedroom count other than the key's.
 unit_sq = unit.map(sq[unit.notna()].groupby(unit[unit.notna()]).median())
+# dropna also drops rows with no bedroom count, which uf.sizes keeps (a rare edge case).
 units = pd.DataFrame({"key": key, "unit": unit, "sq": unit_sq, "beds": beds}).dropna()
 units = units.drop_duplicates("unit")
 units["mixed"] = [

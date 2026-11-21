@@ -91,8 +91,8 @@ three or more. It changes the size of 17,658 more.
 
 Filled sizes are smaller than stated ones in this group, so large fills are not common;
 the trouble is where they come from. 59% of the large 0-1-bedroom fills borrow a size from
-an ad of another bedroom count of the same unit or line, and a matched fill keeps only half
-of them. Whether those borrowed sizes are the deep low
+an ad of another bedroom count of the same unit or line, and a matched fill keeps 2,865 of
+all 5,733 large fills over 1,000 sq ft. Whether those borrowed sizes are the deep low
 misses is the next question: a mark for a fill that draws on another bedroom count, read
 on l2bt's stored predictives as `docs/notes/large-one-beds-2026-11-21.md` reads its group,
 with its predictions written below before the run. If it holds, the matched fill becomes a
@@ -166,3 +166,29 @@ The group's low misses lean on fills from the same bedroom count: those 215 ads 
 residual of −0.05 on both halves and a third of them below the 10% point. They are few,
 and `docs/notes/large-one-beds-2026-11-21.md` found that splitting the group's marks by
 size source adds only +0.4, so no further mark is read on them.
+
+## Which sizes the model reads
+
+Both this note and `docs/notes/large-one-beds-2026-11-21.md` read sizes from the
+`unit_features` snapshot. l2bt's design does not: `building_zones_floor_asof.size_table`
+keeps an ad's stated size and fills a missing one with `sizefill.asof_size` from training
+ads priced on earlier days (unit layer, then line layer), keyed by `unit_id`, with full
+baths in the line key and a mean of log sizes. So the matched fill above would change no
+input of the served design, and Step 2 tests the snapshot's fills, not the model's.
+
+The model's sizes are in `/data1/apartments/tmp/po-size-fills/sizes.parquet`, built for
+`docs/notes/size-fills-read-2026-11-20.md`. This count reads bedrooms and sizes only, with
+no rent, and was run after Step 2 without predictions. Of the 73,684 held-out 0-1-bedroom
+ads from 2022 on, the model gives 1,130 a size over 1,000 sq ft and the snapshot 1,243;
+1,093 are in both. The snapshot's 842 stated sizes in that group are stated in the model
+too. Of its 401 filled sizes, the model fills 251 over 1,000 sq ft, 51 under it, and leaves
+99 with no size. Of the model's 227 unit fills over
+1,000 sq ft, 20 draw on an ad of another bedroom count (13 on such ads alone), and 61 more
+are line fills.
+
+So under the model's own fill, a large 0-1-bedroom size borrowed from another bedroom
+count is rare, and the order of layers that `docs/notes/size-fills-read-2026-11-20.md`
+supports (same bedroom count, then line, then another count) already covers it for the
+next base refit. The large 0-1-bedroom mark of `docs/notes/large-one-beds-2026-11-21.md`
+was read on the snapshot's sizes; on the refit's list it should be defined on the model's
+sizes, which keep 1,093 of its 1,243 ads.
