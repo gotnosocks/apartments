@@ -221,12 +221,13 @@ everyone = np.ones(len(h), bool)
 late = year >= 2022
 LY = ["2022", "2023", "2025", "2026"]
 
-setdf(everyone, "all years")
-py, _, cy = crossfit(xc + YR, "all years: base + year marks", everyone)
-ps, ths, cs = crossfit(xc + YR + SRC, "all years: + source marks", everyone)
-over(ps, py, "source marks over the base and year marks, all years", everyone)
-show(ths, SRC, len(xc) + len(YR))
-coverage(cy, cs, everyone, "all years")
+if "--late-only" not in sys.argv:
+    setdf(everyone, "all years")
+    py, _, cy = crossfit(xc + YR, "all years: base + year marks", everyone)
+    ps, ths, cs = crossfit(xc + YR + SRC, "all years: + source marks", everyone)
+    over(ps, py, "source marks over the base and year marks, all years", everyone)
+    show(ths, SRC, len(xc) + len(YR))
+    coverage(cy, cs, everyone, "all years")
 
 setdf(late, "ads from 2022")
 core = xc + GAP + CNT + LY
