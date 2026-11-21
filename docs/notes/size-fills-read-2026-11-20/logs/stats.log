@@ -1,0 +1,216 @@
+
+rows by class
+held                     held    train
+klass                                 
+line, other apartments  16683   122523
+none                    89875  1026756
+stated                  54526   446539
+unit, mixed beds          242      948
+unit, other beds          465     2040
+unit, same beds         27856   108018
+
+held-out by source, 2022 on
+              n    gap   low5     se  high95  sq_gap
+source                                              
+line    12806.0 -0.004  0.046  0.002   0.037   0.004
+none    61219.0 -0.005  0.052  0.001   0.039   0.006
+stated  35056.0 -0.005  0.060  0.001   0.047   0.006
+unit    20780.0 -0.007  0.064  0.002   0.043   0.006
+
+held-out by class, 2022 on
+                              n    gap   low5     se  high95  sq_gap
+klass                                                               
+line, other apartments  12806.0 -0.004  0.046  0.002   0.037   0.004
+none                    61219.0 -0.005  0.052  0.001   0.039   0.006
+stated                  35056.0 -0.005  0.060  0.001   0.047   0.006
+unit, mixed beds          209.0 -0.009  0.091  0.020   0.057   0.007
+unit, other beds          373.0 -0.016  0.137  0.018   0.078   0.013
+unit, same beds         20198.0 -0.007  0.062  0.002   0.043   0.006
+
+held-out by class and half, 2022 on
+                                   n    gap   low5     se  high95  sq_gap
+klass                  half                                              
+line, other apartments A      6293.0 -0.002  0.046  0.003   0.038   0.004
+                       B      6513.0 -0.005  0.047  0.003   0.035   0.004
+none                   A     30106.0 -0.006  0.052  0.001   0.038   0.005
+                       B     31113.0 -0.005  0.053  0.001   0.040   0.006
+stated                 A     16314.0 -0.005  0.059  0.002   0.049   0.007
+                       B     18742.0 -0.006  0.060  0.002   0.045   0.006
+unit, mixed beds       A       110.0 -0.012  0.118  0.031   0.045   0.007
+                       B        99.0 -0.005  0.061  0.024   0.071   0.007
+unit, other beds       A       209.0 -0.009  0.124  0.023   0.096   0.014
+                       B       164.0 -0.024  0.152  0.028   0.055   0.011
+unit, same beds        A      9919.0 -0.007  0.062  0.002   0.046   0.006
+                       B     10279.0 -0.007  0.062  0.002   0.040   0.006
+
+held-out by source, 2025-26
+              n    gap   low5     se  high95  sq_gap
+source                                              
+line     7126.0 -0.001  0.040  0.002   0.038   0.004
+none    34501.0 -0.004  0.046  0.001   0.038   0.005
+stated  18329.0 -0.003  0.048  0.002   0.046   0.006
+unit    11515.0 -0.004  0.056  0.002   0.042   0.006
+
+held-out by class, 2025-26
+                              n    gap   low5     se  high95  sq_gap
+klass                                                               
+line, other apartments   7126.0 -0.001  0.040  0.002   0.038   0.004
+none                    34501.0 -0.004  0.046  0.001   0.038   0.005
+stated                  18329.0 -0.003  0.048  0.002   0.046   0.006
+unit, mixed beds          140.0 -0.007  0.071  0.022   0.064   0.006
+unit, other beds          221.0 -0.010  0.136  0.023   0.081   0.014
+unit, same beds         11154.0 -0.004  0.054  0.002   0.041   0.006
+
+held-out by class and half, 2025-26
+                                   n    gap   low5     se  high95  sq_gap
+klass                  half                                              
+line, other apartments A      3539.0 -0.001  0.038  0.003   0.038   0.004
+                       B      3587.0 -0.002  0.042  0.003   0.038   0.004
+none                   A     17068.0 -0.004  0.045  0.002   0.037   0.005
+                       B     17433.0 -0.004  0.047  0.002   0.039   0.005
+stated                 A      8489.0 -0.002  0.047  0.002   0.050   0.006
+                       B      9840.0 -0.004  0.048  0.002   0.043   0.005
+unit, mixed beds       A        76.0 -0.010  0.092  0.033   0.053   0.006
+                       B        64.0 -0.002  0.047  0.026   0.078   0.006
+unit, other beds       A       126.0 -0.013  0.143  0.031   0.087   0.017
+                       B        95.0 -0.006  0.126  0.034   0.074   0.011
+unit, same beds        A      5581.0 -0.004  0.055  0.003   0.045   0.006
+                       B      5573.0 -0.004  0.053  0.003   0.038   0.006
+
+later check, filled ads, all years
+                              n  off15  off30  big30  small30  rmse_fill  rmse_med
+klass                                                                             
+line, other apartments  19161.0  0.176  0.065  0.038    0.027      0.134     0.201
+unit, mixed beds          159.0  0.270  0.088  0.063    0.025      0.157     0.284
+unit, other beds          208.0  0.514  0.255  0.173    0.082      0.252     0.303
+unit, same beds         19383.0  0.188  0.063  0.033    0.030      0.139     0.240
+
+later check by half
+                                   n  off15  off30  big30  small30  rmse_fill  rmse_med
+klass                  half                                                            
+line, other apartments A      9036.0  0.175  0.061  0.034    0.027      0.135     0.203
+                       B     10125.0  0.176  0.069  0.042    0.027      0.133     0.200
+unit, mixed beds       A        72.0  0.333  0.111  0.083    0.028      0.177     0.302
+                       B        87.0  0.218  0.069  0.046    0.023      0.138     0.268
+unit, other beds       A       120.0  0.525  0.300  0.192    0.108      0.269     0.316
+                       B        88.0  0.500  0.193  0.148    0.045      0.228     0.284
+unit, same beds        A      9451.0  0.180  0.063  0.032    0.031      0.137     0.238
+                       B      9932.0  0.195  0.063  0.033    0.030      0.142     0.241
+
+later check, held-out ads only
+                           n  off15  off30  big30  small30  rmse_fill  rmse_med
+klass                                                                          
+line, other apartments  36.0  0.306  0.083  0.056    0.028      0.140     0.278
+unit, mixed beds         6.0  0.167  0.000  0.000    0.000      0.083     0.158
+unit, other beds         1.0  1.000  1.000  1.000    0.000      0.451     0.149
+unit, same beds         75.0  0.267  0.067  0.040    0.027      0.150     0.281
+
+own check, ads that state a size, all years
+                               n  off15  off30  big30  small30  rmse_fill  rmse_med
+would                                                                              
+line, other apartments  102866.0  0.098  0.033  0.015    0.017      0.100     0.225
+line, own apartment        414.0  0.191  0.051  0.024    0.027      0.130     0.257
+unit, mixed beds           864.0  0.237  0.073  0.041    0.032      0.139     0.317
+unit, other beds          1641.0  0.377  0.222  0.114    0.108      0.249     0.302
+unit, same beds         206189.0  0.052  0.016  0.008    0.008      0.071     0.254
+
+own check, 2022 on
+                              n  off15  off30  big30  small30  rmse_fill  rmse_med
+would                                                                             
+line, other apartments  28234.0  0.108  0.038  0.018    0.021      0.107     0.235
+line, own apartment       217.0  0.203  0.065  0.032    0.032      0.127     0.254
+unit, mixed beds          583.0  0.228  0.070  0.038    0.033      0.133     0.313
+unit, other beds          830.0  0.399  0.248  0.120    0.128      0.267     0.297
+unit, same beds         94847.0  0.046  0.014  0.007    0.007      0.068     0.251
+
+own check by half
+                                    n  off15  off30  big30  small30  rmse_fill  rmse_med
+would                  half                                                             
+line, other apartments A      48055.0  0.103  0.035  0.017    0.018      0.103     0.229
+                       B      54811.0  0.093  0.031  0.014    0.016      0.097     0.222
+line, own apartment    A        213.0  0.183  0.047  0.019    0.028      0.132     0.266
+                       B        201.0  0.199  0.055  0.030    0.025      0.128     0.247
+unit, mixed beds       A        419.0  0.251  0.076  0.038    0.038      0.144     0.342
+                       B        445.0  0.225  0.070  0.043    0.027      0.135     0.293
+unit, other beds       A        820.0  0.377  0.228  0.112    0.116      0.256     0.313
+                       B        821.0  0.378  0.216  0.116    0.100      0.242     0.290
+unit, same beds        A      92855.0  0.058  0.017  0.009    0.009      0.074     0.261
+                       B     113334.0  0.048  0.014  0.007    0.007      0.069     0.248
+
+own check, held-out ads
+                              n  off15  off30  big30  small30  rmse_fill  rmse_med
+would                                                                             
+line, other apartments   4538.0  0.125  0.047  0.026    0.020      0.118     0.214
+line, own apartment        90.0  0.189  0.067  0.022    0.044      0.121     0.245
+unit, mixed beds          191.0  0.157  0.058  0.026    0.031      0.125     0.322
+unit, other beds          353.0  0.363  0.198  0.093    0.105      0.241     0.272
+unit, same beds         42593.0  0.054  0.016  0.008    0.008      0.073     0.266
+
+own check, mixed beds, unit_fill
+          n  off15  off30  big30  small30  rmse_fill  rmse_med
+half                                                          
+A     419.0  0.251  0.076  0.038    0.038      0.144     0.342
+B     445.0  0.225  0.070  0.043    0.027      0.135     0.293
+
+own check, mixed beds, unit_same_fill
+          n  off15  off30  big30  small30  rmse_fill  rmse_med
+half                                                          
+A     419.0  0.181  0.074  0.036    0.038      0.136     0.342
+B     445.0  0.157  0.031  0.022    0.009      0.113     0.293
+
+own check, mixed beds, unit_other_fill
+          n  off15  off30  big30  small30  rmse_fill  rmse_med
+half                                                          
+A     419.0  0.344  0.186   0.10    0.086      0.213     0.342
+B     445.0  0.328  0.162   0.09    0.072      0.231     0.293
+
+later check, mixed beds, unit_fill
+         n  off15  off30  big30  small30  rmse_fill  rmse_med
+half                                                         
+A     72.0  0.333  0.111  0.083    0.028      0.177     0.302
+B     87.0  0.218  0.069  0.046    0.023      0.138     0.268
+
+later check, mixed beds, unit_same_fill
+         n  off15  off30  big30  small30  rmse_fill  rmse_med
+half                                                         
+A     72.0  0.319  0.083  0.028    0.056      0.178     0.302
+B     87.0  0.241  0.011  0.011    0.000      0.111     0.268
+
+later check, mixed beds, unit_other_fill
+         n  off15  off30  big30  small30  rmse_fill  rmse_med
+half                                                         
+A     72.0  0.403  0.264  0.153    0.111      0.256     0.302
+B     87.0  0.368  0.184  0.103    0.080      0.307     0.268
+
+own check, line with own apartment, line_fill
+          n  off15  off30  big30  small30  rmse_fill  rmse_med
+half                                                          
+A     213.0  0.183  0.047  0.019    0.028      0.132     0.266
+B     201.0  0.199  0.055  0.030    0.025      0.128     0.247
+
+own check, line with own apartment, line_piece_fill
+          n  off15  off30  big30  small30  rmse_fill  rmse_med
+half                                                          
+A     213.0  0.192  0.061  0.019    0.042      0.185     0.266
+B     201.0  0.184  0.050  0.020    0.030      0.127     0.247
+
+own check, line with own apartment, line_else_fill
+          n  off15  off30  big30  small30  rmse_fill  rmse_med
+half                                                          
+A     144.0  0.174  0.056  0.021    0.035      0.111     0.237
+B     134.0  0.149  0.045  0.022    0.022      0.117     0.241
+
+later check, line with own apartment, line_fill
+Empty DataFrame
+Columns: [listing_id, building, apt, unit, day, held, bedrooms, full_baths, half_baths, stated, sqft, source, bed_median, unit_n, unit_fill, unit_same_n, unit_same_fill, unit_other_n, unit_other_fill, line_n, line_fill, line_piece_n, line_piece_fill, line_else_n, line_else_fill, truth, truth_n, gap, cdf, year, klass, would, would_fill, ratio, fill, check]
+Index: []
+
+later check, line with own apartment, line_piece_fill
+Empty DataFrame
+Columns: [listing_id, building, apt, unit, day, held, bedrooms, full_baths, half_baths, stated, sqft, source, bed_median, unit_n, unit_fill, unit_same_n, unit_same_fill, unit_other_n, unit_other_fill, line_n, line_fill, line_piece_n, line_piece_fill, line_else_n, line_else_fill, truth, truth_n, gap, cdf, year, klass, would, would_fill, ratio, fill, check]
+Index: []
+
+later check, line with own apartment, line_else_fill
+Empty DataFrame
+Columns: [listing_id, building, apt, unit, day, held, bedrooms, full_baths, half_baths, stated, sqft, source, bed_median, unit_n, unit_fill, unit_same_n, unit_same_fill, unit_other_n, unit_other_fill, line_n, line_fill, line_piece_n, line_piece_fill, line_else_n, line_else_fill, truth, truth_n, gap, cdf, year, klass, would, would_fill, ratio, fill, check]
+Index: []

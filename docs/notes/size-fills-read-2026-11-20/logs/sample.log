@@ -1,0 +1,18 @@
+available {'unit, same beds, to 1.4': 13247, 'line, to 1.4': 8582, 'unit, same beds, over 1.4': 545, 'unit, other beds': 257, 'line, over 1.4': 214, 'unit, mixed beds': 153}
+half                        A   B
+stratum                          
+line, over 1.4             26  24
+line, to 1.4               15  25
+unit, mixed beds           17  13
+unit, other beds           29  21
+unit, same beds, over 1.4  18  12
+unit, same beds, to 1.4    20  20
+ads 240 buildings 219 max per building 2
+0 30 ads 33387 chars
+1 30 ads 29499 chars
+2 30 ads 32398 chars
+3 30 ads 39772 chars
+4 30 ads 29620 chars
+5 30 ads 29529 chars
+6 30 ads 35423 chars
+7 30 ads 34898 chars
