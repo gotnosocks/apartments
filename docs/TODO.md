@@ -563,10 +563,13 @@ first.
     misses is too rare to tell (80 held-out ads), and flagged flex wording is near the unmarked rate. Ads
     coded 1 bedroom or more whose text reads as a studio are 12.5% and 17.5% low on the two
     halves, but a third of the 24 live readings are reader errors.
-- [ ] A term for a studio reading on an ad coded 1 bedroom or more, beside
-  `ad:bed_text_smaller`, with `b0bedtext` fixes for amenity names ("wellbeats studio") and
-  "the size of a ... studio". One change for the next base refit, with a note and
-  predictions first (`docs/notes/flex-wording-2026-11-21.md`).
+- [x] A term for a studio reading on an ad coded 1 bedroom or more, beside
+  `ad:bed_text_smaller` (`docs/notes/flex-wording-2026-11-21.md`).
+  - 2026-11-21: dropped (`docs/notes/studio-reading-size-2026-11-21.md`, no fit). On l2bt's
+    stored predictives from 2022 on, the mark gains −0.4 (SE 2.9) on 185 ads beside the
+    queued terms. The ads lean low (residual −0.0165 on both halves) but too few to help.
+- [ ] `b0bedtext` fixes for amenity names ("wellbeats studio") and "the size of a ...
+  studio", to go with the next change to the reader; no fit of their own.
 - [x] If the `deposit_net` caution goes in, decide whether a free-months and lease-term fill
   for exact fits (733 Lincoln, The Lightwell Dumbo) is worth a screen. It keeps the target
   net; a gross rent from the deposit would break it. The mark reads the page price, so it may

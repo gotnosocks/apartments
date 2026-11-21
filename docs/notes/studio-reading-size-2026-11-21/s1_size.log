@@ -1,0 +1,30 @@
+text flags 31
+dataset ads 1896471 ; no flags row: 2671
+held-out ads 189647 ; new units 0 ; with a size 99772
+new-unit share by year: {2014: 0.0, 2015: 0.0, 2016: 0.0, 2017: 0.0, 2018: 0.0, 2019: 0.0, 2020: 0.0, 2021: 0.0, 2022: 0.0, 2023: 0.0, 2024: 0.0, 2025: 0.0, 2026: 0.0}
+ads with L > 0: 22564 ; mean L there 0.32
+held-out ads with a marks row: 180274 of 189647
+
+from 2022: residual and tails (stored cdf) by half
+  studio reading          n    105 res -0.0165 (se 0.0082) low 0.210 high 0.057 | n     80 res -0.0165 (se 0.0109) low 0.225 high 0.150
+  other bed text smaller  n   1425 res -0.0063 (se 0.0022) low 0.126 high 0.074 | n   1275 res -0.0048 (se 0.0025) low 0.136 high 0.110
+  other ads               n  61421 res -0.0053 (se 0.0003) low 0.106 high 0.082 | n  65555 res -0.0057 (se 0.0003) low 0.107 high 0.079
+  share of studio-reading misses below the 10% point: 0.69
+  studio-reading ads from 2022 by year: {2022: 21, 2023: 23, 2024: 30, 2025: 50, 2026: 61}
+
+t df, picked on ads from 2022: 7
+from 2022: reference: cross-fit gain   2575.9 (SE  94.8)
+from 2022: + bed text smaller: cross-fit gain   2568.1 (SE  94.8)
+  pooled bed-text mark over the reference:    -7.8 (SE   3.5); by half [np.float64(-6.5), np.float64(-1.3)]
+    by group: {'other': 0.1, 'other bed text smaller': -8.1, 'studio reading': 0.2}
+    bed text smaller scale (fit on A, on B) 0.993 1.075; shift +0.0000 +0.0014
+from 2022: + studio reading: cross-fit gain   2575.5 (SE  95.1)
+  studio-reading mark over the reference:    -0.4 (SE   2.9); by half [np.float64(-1.9), np.float64(1.6)]
+    by group: {'other': -0.8, 'other bed text smaller': -0.4, 'studio reading': 0.8}
+    studio reading scale (fit on A, on B) 1.057 1.191; shift -0.0033 +0.0077
+  80% coverage by group, from 2022:
+                          own  reference  + pooled  + studio     ads
+group                                                               
+other                   0.813      0.800     0.800     0.800  126976
+other bed text smaller  0.779      0.802     0.810     0.801    2700
+studio reading          0.686      0.703     0.708     0.735     185
