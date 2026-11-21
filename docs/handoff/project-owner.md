@@ -121,15 +121,19 @@ subagent's model and effort to be picked by its task.
 - The Deals page already carries the low-place note by bedroom count (#1457, backtest card; 45% and 39% within 7 days for studios and one-bedrooms against 30% and 29% for mid-range asks, nothing at four or more bedrooms). The TODO item is closed and a test checks the text. Its comparison is first asks below the 5% point against asks between the 25% and 75% points, on 128,554 closed ads from 2022 on.
 - Size fills read (no fit, no spend, `docs/notes/size-fills-read-2026-11-20.md`). The run's
   sizes are filled at design time by `sizefill.asof_size`, and on history the fills are sound:
-  off by more than 30% in 1.6% of same-bedroom unit fills and 3.3% of line fills when checked
-  against the ad's own stated size. The sprint's rule to blank line fills over 40% of the
-  bedroom median is rejected at every threshold from 20% to 60% on both halves, since the
-  fill beats the median a blank gives. Unit fills from another bedroom count are off in 22%
-  and are 13.7% low and 7.8% high held-out, so the supported rule orders the layers as same
-  bedroom count, then line, then other bedroom count. It changes 1,830 rows and waits for
+  against sizes the apartment states on later ads, off by more than 30% in 6.3% of
+  same-bedroom unit fills and 6.5% of line fills (1.6% and 3.3% against the ad's own stated
+  size, a check inflated by reposts copying an earlier number). The sprint's rule to blank
+  line fills over 40% of the bedroom median is rejected at every threshold from 20% to 60%
+  on both halves, since the fill beats the median a blank gives; on the later check, the
+  only evidence on those rows, the margin is 0.31 against 0.42 on half A (thin) and 0.18
+  against 0.43 on B. Unit fills from another bedroom count are off in 25.5% (22.2% on the
+  own check) and are 13.7% low and 7.8% high held-out, so the supported rule orders the
+  layers as same bedroom count, then line, then other bedroom count. It changes 1,830 rows and waits for
   the next base refit (TODO item). 240 ads read by Sonnet readers add little: 4.0% too large
-  among the ads the sprint's rule blanks, 1.4% among the rest. A slope for filled sizes is a
-  new refit candidate, also in the TODO.
+  among the ads the sprint's rule blanks, 1.4% among the rest. Large filled sizes fall low at
+  about twice the share of large stated sizes, and predicted rent does not explain it, so a
+  slope for filled sizes is a new refit candidate, also in the TODO.
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
 
