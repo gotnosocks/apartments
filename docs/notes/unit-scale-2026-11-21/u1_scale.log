@@ -11,3 +11,37 @@ from 2022: + bedroom marks for every ad: cross-fit gain   2572.6 (SE  93.2)
     by group: {'0-1 bd': 7.0, '0-1 bd, over 1,000 sq ft': 11.2, '2 bd': 20.0, '2 bd, over 1,000 sq ft': 5.4, '3+ bd': 40.4, '3+ bd, over 1,000 sq ft': -15.3}
     2 bd       scale (fit on A, on B) 0.970 0.977; shift +0.0031 +0.0027
     3+ bd      scale (fit on A, on B) 0.901 0.924; shift +0.0003 -0.0042
+from 2022: + L: cross-fit gain   2533.9 (SE  93.9)
+  L over the reference, from 2022:    30.0 (SE   9.9); by half [np.float64(14.2), np.float64(15.8)]
+    by group: {'0-1 bd': -3.5, '0-1 bd, over 1,000 sq ft': 17.1, '2 bd': -2.7, '2 bd, over 1,000 sq ft': 13.1, '3+ bd': 6.0, '3+ bd, over 1,000 sq ft': -0.0}
+    L          scale (fit on A, on B) 1.217 1.169; shift -0.0039 -0.0123
+  80% coverage by group, from 2022:
+                          reference  + bedrooms    + L    ads
+group                                                        
+0-1 bd                        0.798       0.802  0.797  72441
+0-1 bd, over 1,000 sq ft      0.690       0.699  0.702   1243
+2 bd                          0.805       0.804  0.803  29622
+2 bd, over 1,000 sq ft        0.782       0.786  0.788   7394
+3+ bd                         0.822       0.802  0.817  13097
+3+ bd, over 1,000 sq ft       0.800       0.790  0.814   6064
+
+t df, picked on all years: 5
+all years: reference: cross-fit gain   3108.5 (SE 101.3)
+all years: + bedroom marks for every ad: cross-fit gain   3230.8 (SE 102.2)
+  bedroom marks over the reference, all years:   122.4 (SE  21.0); by half [np.float64(61.7), np.float64(60.7)]
+    by group: {'0-1 bd': 15.0, '0-1 bd, over 1,000 sq ft': 14.8, '2 bd': 16.9, '2 bd, over 1,000 sq ft': 9.4, '3+ bd': 80.9, '3+ bd, over 1,000 sq ft': -14.6}
+    2 bd       scale (fit on A, on B) 0.972 0.973; shift +0.0020 +0.0022
+    3+ bd      scale (fit on A, on B) 0.887 0.910; shift -0.0010 -0.0041
+all years: + L: cross-fit gain   3135.5 (SE 102.1)
+  L over the reference, all years:    27.0 (SE   8.5); by half [np.float64(14.8), np.float64(12.3)]
+    by group: {'0-1 bd': -5.2, '0-1 bd, over 1,000 sq ft': 15.4, '2 bd': -2.6, '2 bd, over 1,000 sq ft': 12.4, '3+ bd': 5.6, '3+ bd, over 1,000 sq ft': 1.5}
+    L          scale (fit on A, on B) 1.161 1.142; shift -0.0056 -0.0051
+  80% coverage by group, all years:
+                          reference  + bedrooms    + L     ads
+group                                                         
+0-1 bd                        0.794       0.800  0.794  103660
+0-1 bd, over 1,000 sq ft      0.713       0.722  0.720    1935
+2 bd                          0.803       0.802  0.802   43642
+2 bd, over 1,000 sq ft        0.783       0.789  0.788   11319
+3+ bd                         0.822       0.800  0.818   19625
+3+ bd, over 1,000 sq ft       0.806       0.790  0.816    9466
