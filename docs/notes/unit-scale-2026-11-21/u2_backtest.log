@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/data1/apartments/tmp/wt-unit-scale/docs/notes/unit-scale-2026-11-21/u2_backtest.py", line 47, in <module>
+    known &= np.isfinite(sqft)
+ValueError: output array is read-only

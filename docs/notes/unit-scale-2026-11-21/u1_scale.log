@@ -1,0 +1,13 @@
+text flags 31
+dataset ads 1896471 ; no flags row: 2671
+held-out ads 189647 ; new units 0 ; with a size 97586
+new-unit share by year: {2014: 0.0, 2015: 0.0, 2016: 0.0, 2017: 0.0, 2018: 0.0, 2019: 0.0, 2020: 0.0, 2021: 0.0, 2022: 0.0, 2023: 0.0, 2024: 0.0, 2025: 0.0, 2026: 0.0}
+ads with L > 0: 22720 ; mean L there 0.322
+
+t df, picked on ads from 2022: 7
+from 2022: reference: cross-fit gain   2504.0 (SE  92.7)
+from 2022: + bedroom marks for every ad: cross-fit gain   2572.6 (SE  93.2)
+  bedroom marks over the reference, from 2022:    68.7 (SE  17.4); by half [np.float64(35.2), np.float64(33.5)]
+    by group: {'0-1 bd': 7.0, '0-1 bd, over 1,000 sq ft': 11.2, '2 bd': 20.0, '2 bd, over 1,000 sq ft': 5.4, '3+ bd': 40.4, '3+ bd, over 1,000 sq ft': -15.3}
+    2 bd       scale (fit on A, on B) 0.970 0.977; shift +0.0031 +0.0027
+    3+ bd      scale (fit on A, on B) 0.901 0.924; shift +0.0003 -0.0042

@@ -44,7 +44,7 @@ sqft = h.listing_id.astype(str).map(sz.sqft).to_numpy(float)
 known = (
     h.listing_id.astype(str).map(sz.size_source).fillna("none").ne("none").to_numpy()
 )
-known &= np.isfinite(sqft)
+known = known & np.isfinite(sqft)
 Lsz = np.where(known, np.maximum(0, np.log(np.where(known, sqft, 1000) / 1000)), 0.0)
 
 bd = h.bedrooms.to_numpy(float)
