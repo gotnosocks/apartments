@@ -118,6 +118,7 @@ subagent's model and effort to be picked by its task.
   backtest the 47 marked ads with no other caution have factor 1.24 and none below the 5%
   point, against 1.65 on the 114 that `rooms_up` and `beds` already mark, so a caution adds
   nothing and the refit term should start from those marks.
+- The Deals page already carries the low-place note by bedroom count (#1457, backtest card; 45% and 39% within 7 days for studios and one-bedrooms against 30% and 29% for mid-range asks, nothing at four or more bedrooms). The TODO item is closed and a test checks the text. Its comparison is first asks below the 5% point against asks between the 25% and 75% points, on 128,554 closed ads from 2022 on.
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
 
