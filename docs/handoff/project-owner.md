@@ -102,6 +102,17 @@ subagent's model and effort to be picked by its task.
   suggestive only. Next, in order: fit LN1 (level for building and bedroom count) with a
   market backtest at the next base refit, then test a factor by thin same-bedroom history only
   if it is still needed, and the lister form after that. The $19.57 left has no budget for it.
+- Changed counts read (#1490, merged as `1bee0ba6`, no fit, no spend,
+  `docs/notes/changed-counts-read-2026-11-20.md`). 300 held-out pairs were read blind to rent
+  on Sonnet readers, and no reading (recount, alteration, other apartment, coding error)
+  separates the tails. A mark from fields alone, using only earlier ads, does: held-out ads
+  whose most recent earlier ad has other counts are 10.5% and 11.6% low and 9.7% and 10.0%
+  high by half, with scale factor 1.35 and 1.40 against 0.92 for unchanged counts. Where the
+  counts are new to the unit the factor is 1.68 and 1.71. The Deals backtest gives 1.45 (se
+  0.09) against 0.94. This is separate from the first-ad finding, and it is a candidate scale
+  mark for the next base refit. The next base refit now has four candidates gathered in the
+  TODO item on refit terms (LN1, the thin-history factor if needed, the counts-new-to-the-unit
+  factor, the level shrinkage `--level-dof 8`), and it needs budget beyond the $19.57 left.
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
 
