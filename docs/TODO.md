@@ -452,7 +452,9 @@ No fit was run for these.
 - [ ] Import the 120 drafted bedroom sets in
   `docs/notes/zero-bed-apartments-2026-11-21/candidate_rows.ndjson` with the next base refit
   (section 6 of `docs/notes/zero-bed-apartments-2026-11-21.md`). They overlap neither the
-  commercial sweep's nor the building-level read's candidate files.
+  commercial sweep's nor the building-level read's candidate files. Their agreeing ads are on
+  the same page and in other fit units (`docs/notes/label-reuse-2026-11-21.md`), so check the
+  19 read as mixed again first, and check each set row's fit unit after the split runs.
 - [x] Study unit labels reused across layouts: in 9 of 10 reads of 0 bed ads whose unit's
   other ads all code 2 or more, those ads describe a different apartment
   (`docs/notes/zero-bed-apartments-2026-11-21.md`, section 2). Done 2026-11-21
