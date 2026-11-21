@@ -162,7 +162,7 @@ Rheingold 7 (`deals_marked.csv`).
 
 ## Recommendation: nothing
 
-Evidence thresholds. These were set after the results above were seen, so they are post
+Evidence thresholds. These were set after the results above were known, so they are post
 hoc, and the verdict rests on the numbers as much as on the lines drawn through them:
 
 - A pipeline rule dropping the unit level needs read precision with a Wilson lower bound of at
@@ -182,7 +182,7 @@ scans already propose (`docs/TODO.md`, L1 and the changed-count factor), and a s
 overlap mark is a candidate term for a later fit. Its form here is a page fact built from
 each ad's latest ask, which leaks: a held-out ad's ask would set its own scale, and later ads
 would set the scale of earlier ones. The leak-free form builds the flag for each ad from the
-page's ads that started before it, read as of the ad's first day (each one's ask as last seen
+page's ads that started before it, read as of the ad's first day (each one's ask as last recorded
 by then), with the ad's own ask left out. It reads earlier rents of the same unit, so it goes
 in `features.READS_EARLIER_RENTS` and is scored on the latest split, with a prediction
 written first.
