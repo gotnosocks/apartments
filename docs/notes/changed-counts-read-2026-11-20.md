@@ -341,3 +341,27 @@ before the held-out ads and the first cut and the strictly-prior marks agree
   compares groups under one shape and is no estimate of a fitted model's scale term.
 - The latest-split model has no mean terms for changed counts. The backtest's model has
   them, and the width remains there.
+
+## A Deals caution was built and dropped
+
+A Deals caution for ads whose bedroom and bath counts are new to the unit was built in
+PR #1492 and dropped (closed, commits kept under the tag `archive/pr-1492`). The check is
+`caution_overlap.py` with its log, rerun on the Deals backtest (run range-j) from the code
+on master. Below, "another caution" means any code the page already sets.
+
+| Group | Ads | Below the 5% point | Above the 95% point | Scale factor (se) |
+|---|---|---|---|---|
+| Marked, no other caution | 47 | 0.0% (0 ads) | 14.9% (7 ads) | 1.24 (0.12) |
+| Marked, another caution (mostly `rooms_up` and `beds`) | 114 | 15.8% | 11.4% | 1.65 (0.14) |
+| Unmarked, cautioned | 1,596 | 7.5% | 6.0% | 1.09 (0.04) |
+| Unmarked, uncautioned | 7,589 | 3.8% | 6.0% | 0.97 (0.01) |
+
+By half the 47 are 26 ads with factor 1.15 (0.22) and 21 ads with 1.33 (0.17). On the live
+table (run range-m3) the mark was on 108 of 6,502 ads, 84 of them already cautioned. It would
+have moved 24 ads out of the uncautioned list, one of them among the first 300. These live
+counts come from the review of #1492, since its staging table is not kept.
+
+The wide low tail of counts-new-to-the-unit ads is entirely among ads the page already
+cautions, so a caution adds nothing for a page that ranks low places. The scale term for the
+base refit stays a candidate. The existing `rooms_up` and `beds` marks are the natural form
+for it, since the width is where they are set.

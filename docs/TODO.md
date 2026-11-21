@@ -335,7 +335,10 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   1.71 by half on the latest split, 1.52 with se 0.13 on the Deals backtest) and smaller
   where the unit had the counts at some earlier time (1.15 and 1.19), suggestive with both
   halves in view, its form to be fixed before the fit and checked on a market backtest
-  (`docs/notes/changed-counts-read-2026-11-20.md`); a level near -0.03 and a factor near 1.2
+  (`docs/notes/changed-counts-read-2026-11-20.md`). On the Deals backtest the width is among
+  ads that `rooms_up` and `beds` already mark (factor 1.65 on 114 ads against 1.24 on the 47
+  others), so the term's form should start from those marks; a page caution was tried and
+  dropped; a level near -0.03 and a factor near 1.2
   for three or more baths; a factor of
   1.15 to 1.2 for the top 3% of predicted rents; a level near -0.015 for four or more
   bedrooms; the first-floor level and the duplex factor of

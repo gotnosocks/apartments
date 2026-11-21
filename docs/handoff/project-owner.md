@@ -113,6 +113,11 @@ subagent's model and effort to be picked by its task.
   mark for the next base refit. The next base refit now has four candidates gathered in the
   TODO item on refit terms (LN1, the thin-history factor if needed, the counts-new-to-the-unit
   factor, the level shrinkage `--level-dof 8`), and it needs budget beyond the $19.57 left.
+- A Deals caution for counts new to the unit was built and dropped (closed PR #1492, commits
+  under the tag `archive/pr-1492`; `docs/notes/changed-counts-read-2026-11-20.md`). On the
+  backtest the 47 marked ads with no other caution have factor 1.24 and none below the 5%
+  point, against 1.65 on the 114 that `rooms_up` and `beds` already mark, so a caution adds
+  nothing and the refit term should start from those marks.
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
 
