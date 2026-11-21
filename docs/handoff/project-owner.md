@@ -187,12 +187,12 @@ subagent's model and effort to be picked by its task.
 - Drafted for the next base refit, none in the ledger: 254 commercial and placeholder excludes
   (sweep), 68 building-level rows (31 of them also among the 254), 120 zero-bed bedroom sets.
 - Label reuse (#1506, merged as `203109c4`, no fit, `docs/notes/label-reuse-2026-11-21.md`).
-  The zero-bed note's "unit" was the page label. None of the 410 ads whose unit's other ads
-  agree shares a fit unit (`split_unit`), and 65 are not in the live dataset, so the 120 sets
+  The zero-bed note's "unit" was the page label (its section 6 correction). None of the 410
+  ads whose unit's other ads agree shares a fit unit (`split_unit`), and 65 are not in the live dataset, so the 120 sets
   rest on the text and the blind read. Before import, recheck the 19 mixed ones and each
   row's fit unit after the split.
 - Deals top read (#1507, merged as `1e87824a`, no fit, `docs/notes/deals-top-read-2026-11-21.md`).
-  A read of the top Deals ads; its TODO items: the `deposit_net` caution (done in #1508), a
+  A read of the top Deals ads; among its TODO items: the `deposit_net` caution (done in #1508), a
   short-lease caution ("$17,500 for a 6-month lease"), `beds` wording for "convertible",
   "alcove studio" and "wall not yet installed", screen-only free-months and lease-term fill,
   and history tests of walkups by zone, virtual doormen, owner rentals in condos and co-ops
@@ -201,10 +201,11 @@ subagent's model and effort to be picked by its task.
   least 1.05 times the page price, no coded free months, the deposit not the first ask, and
   deposit × (L−m)/L equal to the page price within max($2, 0.2%) for m of 0.5 to 3 months
   and L of 12 to 24. It reads the deposit with the texts at publish; the backtest has no texts,
-  so no backtest ad carries it. Deployed at `d1f9dc4` and republished from range-m3 with the
+  so no backtest ad carries it. Deployed at `d1f9dc4` (site-deploy output) and republished from range-m3 with the
   range-j backtest at 12:59 AM ET on Nov 21 (backup `/data1/apartments/tmp/deals-backup/20261121-0056`):
   75 ads carry it, and the chip renders on the cautioned view (`/deals?all=1`).
-- Cautioned toggle tooltip built from `CAUTION_LABELS` (#1509), so it names every caution.
+- Cautioned toggle tooltip built from `CAUTION_LABELS` (#1509, merged as `71e53d16`), so it
+  names every caution. Deployed at `71e53d1`.
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
 
