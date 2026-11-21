@@ -277,13 +277,14 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   Those ads were read on 2026-11-21 (`docs/notes/large-one-beds-2026-11-21.md`): a scale
   and shift mark for them gains +65 (SE 14) from 2022 on l2bt, scale 1.25, coverage to
   0.80, and no kind of apartment holds a block of the misses. Carry that mark beside U1.
-- [ ] Size fills across bedroom counts: of the 30 lowest misses among 0-1-bedroom ads
-  over 1,000 sq ft, 21 have a filled size (16 unit, 5 line), against 16 of 60 ads inside
-  the interval. Both fill layers in `unit_features.sizes` mix bedroom counts: `unit` takes
-  the median over all the unit's listings, and `line` files each unit's all-count median
-  under its first listing's bedroom count. Count how often that happens and what a fill
-  matched on bedroom count changes, with no rent, before any model term
-  (`docs/notes/large-one-beds-2026-11-21.md`).
+- [x] Size fills across bedroom counts (2026-11-21,
+  `docs/notes/size-fill-beds-2026-11-21.md`): unit fills draw on another bedroom count at
+  0.189 and line fills at 0.086, and a matched fill would take a size from 3.6% of listings.
+  On l2bt the borrowed fills price like stated sizes inside the group and like other ads
+  outside it; marks for them lose 1.3 (SE 3.0). The matched fill is not carried forward.
+  The model reads `sizefill.asof_size`, not the snapshot; under it only 20 of 227 large
+  0-1-bedroom unit fills borrow from another count, and the size-fill order item covers
+  them. Define the large 0-1-bedroom mark on the model's sizes when it goes to the refit.
 - [ ] U4: a unit scale by bedroom count, a factor on the sd of a unit's lasting level for
   2 bedrooms and for 3 or more. For units with no ad in training the 80% interval covers
   0.733, 0.693 and 0.663 of final asks at 2, 3 and 4 or more bedrooms in the backtest j9

@@ -130,3 +130,8 @@ basement or a whole floor. Two items go to the TODO: carry a large 0-1-bedroom m
 U1 on the base refit's list (U1 alone leaves the group at 0.702), and a data check on both
 fill layers, which take a median across every bedroom count of a unit (`unit`) and file it
 under one bedroom count of the line (`line`), before any model term.
+
+Correction, 2026-11-21: this note reads sizes from the `unit_features` snapshot, while the
+fit's design fills them with `sizefill.asof_size`. The two agree on 1,093 of this group's
+1,243 ads; the filled sizes counted above are the snapshot's fills. See "Which sizes the
+model reads" in `docs/notes/size-fill-beds-2026-11-21.md`.
