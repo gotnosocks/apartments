@@ -217,8 +217,8 @@ subagent's model and effort to be picked by its task.
 - Four traits from the top read on held-out history (no fit,
   `docs/notes/four-traits-2026-11-21.md`). Walk-ups, the virtual doorman and garden wording
   are closed. Floor 1 runs low on both halves (8.3% and 8.0% low, asks about 1% further below
-  the median than on higher floors), with or without the snapshot's garden flag. Queued in TODO: a `unit:floor1` step outside the floor curve for the
-  next base refit.
+  the model's price than on higher floors), with or without the snapshot's garden flag.
+  Queued in TODO: a `unit:floor1` step outside the floor curve for the next base refit.
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
 
