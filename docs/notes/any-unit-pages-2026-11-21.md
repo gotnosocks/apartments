@@ -34,7 +34,13 @@ blind reads are in `docs/notes/any-unit-pages-2026-11-21/`; scratch files are un
 
 ## The two marks
 
-Both were built and chosen with no ask level and no model output.
+Neither mark reads a model output. The text mark reads no ask. The overlap mark reads the
+asks of the two ads in each pair, since it asks whether they are more than 10% apart. As a
+screen that is allowed: the held-out comparison below drops each held-out ad's own pairs, so
+its ask takes no part in its mark, and a Deals caution built on the mark would be allowed too.
+A data rule built on the overlap mark is not allowed, because other rows' rents would then
+shape which rows the fit keeps (`docs/leak-free-scoring.md`). Only the text mark could carry a
+rule.
 
 **Text.** Eight candidate phrases were matched on every ad (`a4_text.py`, contexts in
 `logs/a5_context.log`). A page carries a phrase when any of its ads does. A phrase joined the
@@ -155,7 +161,8 @@ Rheingold 7 (`deals_marked.csv`).
 
 ## Recommendation: nothing
 
-Evidence thresholds:
+Evidence thresholds. These were set after the results above were seen, so they are post
+hoc, and the verdict rests on the numbers as much as on the lines drawn through them:
 
 - A pipeline rule dropping the unit level needs read precision with a Wilson lower bound of at
   least 0.5 on each half. The marks read 0.40 (0.22 to 0.61) and 0.25 (0.11 to 0.47), and
@@ -170,8 +177,14 @@ level on 4,010 pages holding 27,762 ads, and a caution would have marked 42 Deal
 them uncautioned and none in the top 100.
 
 The coverage loss holds on both halves. It belongs with the noise-scale terms the history
-scans already propose (`docs/TODO.md`, L1 and the changed-count factor): a scale on the overlap
-mark is a candidate term for a later fit, and it would need a prediction written first.
+scans already propose (`docs/TODO.md`, L1 and the changed-count factor), and a scale on the
+overlap mark is a candidate term for a later fit. Its form here is a page fact built from
+each ad's latest ask, which leaks: a held-out ad's ask would set its own scale, and later ads
+would set the scale of earlier ones. The leak-free form builds the flag for each ad from the
+page's ads that started before it, read as of the ad's first day (each one's ask as last seen
+by then), with the ad's own ask left out. It reads earlier rents of the same unit, so it goes
+in `features.READS_EARLIER_RENTS` and is scored on the latest split, with a prediction
+written first.
 The Rheingold itself is better repaired by hand than by a rule: a `split_unit` review of its
 pages, where 3 of 7 read several, would go to Data improvements with the other
 unit-ledger work.

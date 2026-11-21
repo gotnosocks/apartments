@@ -205,8 +205,11 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   13 of 40 marked pages (0.33, 0.20 to 0.48) against 4 of 20 unmarked pages in the same
   buildings. Held-out ads on marked pages show no level gap; coverage falls 4 to 5 points
   and the low tail rises 1 to 3 points on both halves. 42 of 6,502 Deals ads are marked,
-  none in the top 100. No rule and no caution. A noise scale on the overlap mark is a
-  candidate term, and a hand `split_unit` read of The Rheingold's pages is open.
+  none in the top 100. No rule and no caution (thresholds set post hoc); the overlap mark reads asks, so it
+  may screen or caution and may not carry a data rule. Open: a noise scale on the overlap
+  mark, built for each ad from the page's ads that started earlier, read as of its first
+  day with its own ask left out, listed in `READS_EARLIER_RENTS` and scored on the latest
+  split; and a hand `split_unit` read of The Rheingold's pages.
 - [ ] L1: a noise scale by lease phase, a factor on the ad-level scale per group of months
   since the opening of the unit's previous ad (none, under 3, 3 to 9, 10 to 13, 14 to 21,
   22 to 25, 26 or more). The served intervals cover 0.752 of held-out asks at 3 to 9
