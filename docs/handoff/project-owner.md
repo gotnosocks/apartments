@@ -237,7 +237,7 @@ subagent's model and effort to be picked by its task.
   shift mark gains +65 (SE 14), scale 1.25, coverage 0.69 to 0.80. Readers name no kind
   that holds a block of the misses; lofts lead at 1.29 times their share inside. Filled
   sizes are 21 of the 30 lowest misses, and both fill layers mix bedroom counts, so a data
-  check on the fill (`docs/notes/size-fill-beds-2026-11-21.md`) is the next item.
+  check on the fill is the next item in the TODO.
 - Year scale (Y1) on stored predictions (no fit, `docs/notes/year-scale-2026-11-21.md`):
   l2bt's design (best on the latest split; Deals reads the range model) leaves it whole,
   +1,174 (SE 60) on all years with 2020 and 2021 about 25% wider than 2024. From 2022 on it

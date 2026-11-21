@@ -102,10 +102,10 @@ Filled sizes are 21 of the 30 low misses, 9 of the 30 high and 16 of the 60 insi
 size, using no rent: a fill is traced when it equals one of those sizes or their median,
 as the fill takes it. 21 are traced (11 of 16 low, 3 of 9 high, 7 of 13 inside), and 16
 have no other ad of the unit with a stated size in the ads table (5 low, 6 high, 5
-inside), so their source lies outside it. Of the traced fills, the size came from an ad
-with more bedrooms for 2 of 11 low, all 3 high and 1 of 7 inside. A larger layout explains
-few of the low misses, and the three high ones point the other way: the 0-1-bedroom ad is
-priced as if smaller than the size it borrows.
+inside), so their source lies outside it; 1 inside matches neither. Of the traced fills,
+the size came from an ad with more bedrooms for 2 of 11 low, all 3 high and 1 of 7 inside.
+A larger layout explains few of the low misses, and the three high ones point the other
+way.
 
 ## Predictions scored
 
@@ -116,9 +116,7 @@ priced as if smaller than the size it borrows.
    halves with a scale of 1.25 in range; the split adds +0.4, under 15.
 4. Wrong. No kind is both twice as common among misses as inside and holds 10 misses.
    Outdoor (4 to 2) and a size at odds with the text (6 to 0) are twice as common but
-   small. Lofts lead
-   the misses at 18 with a ratio of 1.29; a size at odds with the text holds 6 misses and
-   none inside.
+   small. Lofts lead the misses at 18 with a ratio of 1.29.
 5. Partly right. Lofts are the commonest high miss (10 of 30). Among the low misses lofts
    and other tie at 8, with a size at odds with the text at 5.
 
@@ -131,5 +129,4 @@ readers' few clear errors there are sizes filled from the line or sizes that cou
 basement or a whole floor. Two items go to the TODO: carry a large 0-1-bedroom mark beside
 U1 on the base refit's list (U1 alone leaves the group at 0.702), and a data check on both
 fill layers, which take a median across every bedroom count of a unit (`unit`) and file it
-under one bedroom count of the line (`line`), before any model term. That check is
-`docs/notes/size-fill-beds-2026-11-21.md`.
+under one bedroom count of the line (`line`), before any model term.

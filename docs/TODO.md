@@ -283,7 +283,7 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   the median over all the unit's listings, and `line` files each unit's all-count median
   under its first listing's bedroom count. Count how often that happens and what a fill
   matched on bedroom count changes, with no rent, before any model term
-  (`docs/notes/large-one-beds-2026-11-21.md`, `docs/notes/size-fill-beds-2026-11-21.md`).
+  (`docs/notes/large-one-beds-2026-11-21.md`).
 - [ ] U4: a unit scale by bedroom count, a factor on the sd of a unit's lasting level for
   2 bedrooms and for 3 or more. For units with no ad in training the 80% interval covers
   0.733, 0.693 and 0.663 of final asks at 2, 3 and 4 or more bedrooms in the backtest j9
