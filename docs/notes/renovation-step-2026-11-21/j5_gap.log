@@ -1,0 +1,83 @@
+text flags 31
+dataset ads 1896471 ; no flags row: 2671
+held-out ads with no flag count: 28
+nflip
+-1.0    0.0002
+ 0.0    0.3735
+ 1.0    0.1824
+ 2.0    0.1318
+ 3.0    0.1087
+ 4.0    0.0834
+ 5.0    0.0565
+ 6.0    0.0635
+Name: proportion, dtype: float64
+days since the unit's last ad by flags changed (median):
+nflip
+0      573.0
+1      779.0
+2      907.0
+3+    1090.0
+share with this ad's or the last ad's text under 200 characters:
+nflip
+0     0.124
+1     0.120
+2     0.151
+3+    0.174
+share whose text halves or doubles in length:
+nflip
+0     0.074
+1     0.222
+2     0.305
+3+    0.415
+ads 129861 from 2022
+marked shares:
+gap 180-364 d     0.0955
+gap 1-2 y         0.2806
+gap 2-4 y         0.3143
+gap 4+ y          0.2329
+1 flag changed    0.1824
+2 changed         0.1318
+3+ changed        0.3121
+switch            0.0789
+dishwasher on     0.0710
+t df 7
+
+base: j1's eight kept terms: cross-fit gain   1807.1 (SE  78.9)
+gap shares: {'gap 180-364 d': 0.0955, 'gap 1-2 y': 0.2806, 'gap 2-4 y': 0.3143, 'gap 4+ y': 0.2329}
+
+base + gap bins: cross-fit gain   1945.1 (SE  82.3)
+  gap bins over the base:   138.0 (SE  21.7); by half [np.float64(77.5), np.float64(60.5)]
+    gap 180-364 d    scale (fit on A, on B) 0.875 0.910; shift +0.0050 +0.0043
+    gap 1-2 y        scale (fit on A, on B) 0.882 0.878; shift +0.0009 +0.0014
+    gap 2-4 y        scale (fit on A, on B) 0.893 0.886; shift -0.0003 +0.0009
+    gap 4+ y         scale (fit on A, on B) 0.948 0.933; shift +0.0012 +0.0006
+
+base + gap bins + count marks: cross-fit gain   2175.3 (SE  87.1)
+  count marks over the gap bins over the base:   230.1 (SE  26.4); by half [np.float64(115.3), np.float64(114.8)]
+    gap 180-364 d    scale (fit on A, on B) 0.880 0.918; shift +0.0052 +0.0045
+    gap 1-2 y        scale (fit on A, on B) 0.885 0.883; shift +0.0010 +0.0015
+    gap 2-4 y        scale (fit on A, on B) 0.887 0.882; shift -0.0006 +0.0007
+    gap 4+ y         scale (fit on A, on B) 0.917 0.906; shift +0.0002 -0.0003
+    1 flag changed   scale (fit on A, on B) 1.023 1.024; shift +0.0006 -0.0002
+    2 changed        scale (fit on A, on B) 1.051 1.061; shift +0.0010 +0.0013
+    3+ changed       scale (fit on A, on B) 1.129 1.122; shift +0.0029 +0.0029
+
+base + gap + counts + switch: cross-fit gain   2229.7 (SE  88.2)
+  switch over the gap bins and counts over the base:    54.5 (SE  12.3); by half [np.float64(20.9), np.float64(33.5)]
+    gap 180-364 d    scale (fit on A, on B) 0.880 0.917; shift +0.0053 +0.0045
+    gap 1-2 y        scale (fit on A, on B) 0.885 0.882; shift +0.0010 +0.0016
+    gap 2-4 y        scale (fit on A, on B) 0.887 0.881; shift -0.0005 +0.0007
+    gap 4+ y         scale (fit on A, on B) 0.916 0.904; shift +0.0003 -0.0004
+    1 flag changed   scale (fit on A, on B) 1.022 1.023; shift +0.0003 -0.0005
+    2 changed        scale (fit on A, on B) 1.048 1.057; shift +0.0003 +0.0005
+    3+ changed       scale (fit on A, on B) 1.124 1.112; shift +0.0018 +0.0015
+    switch           scale (fit on A, on B) 1.023 1.043; shift +0.0066 +0.0074
+
+base + count marks (for the low tail): cross-fit gain   2060.7 (SE  83.5)
+  count marks over the base:   253.6 (SE  27.5); by half [np.float64(132.3), np.float64(121.3)]
+
+low tail (below 5%), base 6792, base + counts 6848, left 321, joined 377
+  0   changed: marked  48502  low  2317 ->  2622  left    0 joined  305
+  1   changed: marked  23682  low  1238 ->  1309  left    0 joined   71
+  2   changed: marked  17119  low   915 ->   902  left   14 joined    1
+  3+  changed: marked  40530  low  2322 ->  2015  left  307 joined    0

@@ -72,9 +72,9 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   +0.010 and an elpd gain under 40. DOB alteration filings by BIN can date the work without
   the ad text, and photos can confirm it. Sized on stored l2bt predictions on 2026-11-21
   (`docs/notes/renovation-step-2026-11-21.md`, no fit): the words flicker, a lasting step
-  carries +0.003 (+48, SE 12), and the gain is in the first worded ad. That ad's wider scale
-  belongs to any rewritten description, so two terms go to the base refit's list in its
-  place (below). DOB filings stay untested.
+  carries +0.003 (+48, SE 12), and the gain is in the first worded ad. Most of that ad's
+  wider scale belongs to rewritten descriptions in general, so two terms go to the base
+  refit's list in its place (below). DOB filings stay untested.
 - [x] Text columns where the lister left the coded field empty: private outdoor space (+0.0154
   where the field is false), penthouse (+0.0058), dishwasher (+0.0064), furnished (8,064
   held-out ads say it, no training row has the coded field) and full floor (no column,
@@ -404,10 +404,12 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   space where the coded field is false (+16, SE 10) and for penthouse wording (+8, SE 5), each
   beside the others (`docs/notes/text-columns-2026-11-21.md`). A scale term for the count
   of the scan's 31 text flags changed since the unit's last ad (1, 2, 3 or more; 3 or more
-  at a scale of 1.13) gains +254 (SE 28; +132 and +121 by half) beside the base and moves
-  about 5% of the low tail; built after a first run, so a fit confirms it before Deals reads
-  it. Beside it, the renovation switch (the ad whose text first says renovated after the
-  unit's last ad did not) gains +54 (SE 12) with a shift near +0.007
+  at a scale of 1.13) gains +254 (SE 28; +132 and +121 by half) beside the base, +230 (SE
+  26) beside bins of days since the unit's last ad, and moves about 5% of the low tail;
+  built after a first run, so a fit confirms it before Deals reads it. Beside it, the
+  renovation switch (the ad whose text first says renovated after the unit's last ad did
+  not) gains +54 (SE 12) with a shift near +0.007. The gap bins themselves gain +138 (SE
+  22), mostly a 12% wider scale for ads within 180 days of the unit's last ad
   (`docs/notes/renovation-step-2026-11-21.md`).
 - [x] Deals page: a first ask below the 5% point closes sooner for studios and one-bedrooms
   (45% and 39% within 7 days against 30% and 29%) and no sooner for four or more bedrooms

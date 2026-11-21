@@ -24,7 +24,9 @@ The words are the `renovated` and `gut` flags of the outlier sprint's quality sc
 latest record. A unit's ads are the rows of l2bt's dataset with its `unit_id`, training and
 held-out alike, ordered by `price_at`. For a held-out ad only ads of the unit priced
 strictly earlier count as earlier, and their text is all the mark reads; no mark reads an
-ask.
+ask. In `j3_renov.py` and `j4_rewrite.py` an earlier ad with no flags row (2,671 dataset rows
+have none) counts as lacking the words; `j5_gap.py` requires a flags row for the earlier ad
+in the switch, with the same results.
 
 - step: some ad of the unit up to and including this one has the words, and an ad of the
   unit priced before that one lacks them
@@ -100,17 +102,18 @@ unit's latest earlier ad. 37% of ads change none, 18% one, 13% two and 31% three
 - An ad whose description changed in three or more flags since the unit's last ad is about
   13% harder to price, and the scale rises in steps with the count. The gain is 9 SE and
   even by half.
-- Short or blank texts do not drive it: 17% of the 3+ group has a text under 200
-  characters, against 12% of ads with no change. Its texts more often halve or double in
-  length (42% against 7%), as a rewrite would.
+- Short or blank texts do not drive it: in 17.4% of the 3+ group this ad's or the last ad's
+  text is under 200 characters, against 12.4% of ads with no change. Its texts more often
+  halve or double in length (41.5% against 7.4%), as a rewrite would (`j5_gap.log`).
 - Beside the counts the renovation switch keeps its shift (+0.007) and loses most of its
   extra scale. A dishwasher turning on keeps +0.003.
 
 ## The low tail
 
 Of 6,792 base low-tail ads, 17 leave with the step added. With the three count marks 321
-leave and 377 join (about 5% each), most of the movement among ads with 3 or more flags
-changed (2,322 to 2,015 below 5%).
+leave and 377 join (about 5% each). Of those leaving, 307 have 3 or more flags changed
+(2,322 to 2,015 below 5%); of those joining, 305 have none changed (2,317 to 2,622), since
+the narrower scale there pushes their misses further out (`j5_gap.log`).
 
 ## Predictions scored
 
@@ -135,10 +138,11 @@ Second check:
 
 The step as the TODO framed it does not go to the base refit: a lasting step carries
 +0.003, and most of its gain is in the first worded ad. Two terms replace it on the base
-refit's list, both read from the text of this ad and the unit's ad before it, never an ask:
+refit's list. Both read only the text of this ad and the unit's ad before it:
 
 - A scale term for the count of text flags changed since the unit's last ad (1, 2, 3 or
-  more), +254 (SE 28) beside the base. It is the largest term found on stored predictions
+  more), +254 (SE 28) beside the base and +230 (SE 26) beside bins of the time since the
+  unit's last ad (third check, below). It is the largest term found on stored predictions
   since j1's ten, and it moves about 5% of the low tail. The mark was built after the first
   run showed the switch's scale, so a fit should confirm it before Deals reads it.
 - The renovation switch, a shift and scale on the ad whose text first says renovated after
@@ -161,3 +165,32 @@ Predictions:
    scale for 3 or more changed stays at 1.08 or more on each half.
 3. Beside the gap bins and the counts, the renovation switch keeps a shift of +0.004 to
    +0.008 on each half.
+
+## Third check results
+
+`j5_gap.log`. Gains are cross-fitted; scales and shifts are fitted on half A, then on B.
+
+| marks | gain (SE) | by half | scale, 3+ changed | switch shift |
+|---|---|---|---|---|
+| gap bins over the base | +138.0 (21.7) | +77.5, +60.5 | | |
+| count marks over the gap bins | +230.1 (26.4) | +115.3, +114.8 | 1.129 / 1.122 | |
+| switch over the gap bins and counts | +54.5 (12.3) | +20.9, +33.5 | 1.124 / 1.112 | +0.0066 / +0.0074 |
+
+- The gap bins narrow every ad more than 180 days after the unit's last ad (scales 0.88 to
+  0.95, against ads within 180 days). The narrowing is about even from half a year to four
+  years and eases after four.
+- Beside the bins the counts keep 91% of their gain, and the scales for 1, 2 and 3 or more
+  changed hardly move (1.023 / 1.024, 1.051 / 1.061, 1.129 / 1.122). The count of changed
+  flags is not a stand-in for a stale last ad.
+- The switch keeps its shift and gain beside both.
+
+## Predictions scored (third check)
+
+1. Gap bins gain, with a scale rising with the gap: half right. They gain +138 (6 SE), but
+   the scale falls from under 180 days to 180 to 364 days and stays near flat after.
+2. Counts keep over 127 and 3+ stays at 1.08 or more: right (+230; 1.129 and 1.122).
+3. Switch shift +0.004 to +0.008 on each half: right (+0.0066 and +0.0074).
+
+The gap bins are a candidate of their own for the base refit (+138, SE 22), built after
+review, so a fit confirms them too. Their gain comes from ads relisted within half a year
+of the unit's last ad (about 8% of ads), which need a scale about 12% wider than the rest.

@@ -225,7 +225,9 @@ subagent's model and effort to be picked by its task.
   `docs/notes/renovation-step-2026-11-21.md`): a lasting renovation step adds little (+48, SE
   12). An ad whose text changed in 3 or more of the 31 scan flags since the unit's last ad
   needs a scale of 1.13; the count marks gain +254 (SE 28) beside the base and go to the base
-  refit's list, with the renovation switch (+54, SE 12, shift +0.007) beside them.
+  refit's list, with the renovation switch (+54, SE 12, shift +0.007) beside them. Beside
+  bins of days since the unit's last ad the counts keep +230 (SE 26); the bins gain +138 (SE
+  22) and are a further candidate.
 - Text columns for coded fields left empty (no fit, `docs/notes/text-columns-2026-11-21.md`):
   beside the queued terms the five marks gain +33 (SE 14) together; 72 low-tail ads leave and
   72 join. Three leave the queue; outdoor space with the box unchecked (+16, SE 10) and
