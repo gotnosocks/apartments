@@ -71,18 +71,23 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   them sit at zero, so the step stays once taken. Predicted: a coefficient of +0.005 to
   +0.010 and an elpd gain under 40. DOB alteration filings by BIN can date the work
   without the ad text, and photos can confirm it.
-- [ ] Text columns where the lister left the coded field empty: private outdoor space
-  (+0.0154 where the field is false), penthouse (+0.0058), dishwasher (+0.0064), furnished
-  (8,064 held-out ads say it, no training row has the coded field) and full floor (no
-  column, +0.0124 within building). Each is a fit of its own. Predicted for each: a
-  coefficient between half and the whole of the figure given here, and an elpd gain
-  under 30. For private outdoor space, the outdoor-size item of 2026-11-14 covers only the
-  ads that state an area: 136 uncoded held-out ads at +0.045 ± 0.012, which
-  `drift-building-phase-outdoorsize` marks with a column of their own. 8 of S16's 11
-  outdoor misses state no area, so the text column is still needed
-  (`docs/notes/outdoor-size-2026-11-14.md`). Rescored on L1's draws, that term's best
-  shift gains +6.6 ± 4.2 and a noise factor on the rows with an area +31.1 ± 10.0, so the
-  note recommends writing the factor after I1's fit instead of fitting the term.
+- [x] Text columns where the lister left the coded field empty: private outdoor space (+0.0154
+  where the field is false), penthouse (+0.0058), dishwasher (+0.0064), furnished (8,064
+  held-out ads say it, no training row has the coded field) and full floor (no column,
+  +0.0124 within building). Each is a fit of its own. Predicted for each: a coefficient
+  between half and the whole of the figure given here, and an elpd gain under 30. For
+  private outdoor space, the outdoor-size item of 2026-11-14 covers only the ads that state
+  an area: 136 uncoded held-out ads at +0.045 ± 0.012, which
+  `drift-building-phase-outdoorsize` marks with a column of their own. 8 of S16's 11 outdoor
+  misses state no area, so the text column is still needed
+  (`docs/notes/outdoor-size-2026-11-14.md`). Rescored on L1's draws, that term's best shift
+  gains +6.6 ± 4.2 and a noise factor on the rows with an area +31.1 ± 10.0, so the note
+  recommends writing the factor after I1's fit instead of fitting the term. Sized on stored
+  l2bt predictions beside the queued base-refit terms on 2026-11-21
+  (`docs/notes/text-columns-2026-11-21.md`, no fit): none is worth 2 SE alone and the five
+  together gain +33 (SE 14) with about 1% of the low tail changing. Dishwasher, furnished,
+  penthouse and full floor leave the queue. Outdoor space with the box unchecked (+16, SE
+  10, a shift near +0.006) goes to the base refit's list as an optional term.
 - [ ] Free months parsed from ad text as an added column for the 5,502 held-out ads (and
   their training counterparts) with a concession in the text and none in the record. The
   ask stays as recorded: in most of these ads the lister typed the net rent as the price.
@@ -390,7 +395,9 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   half) on the 129,861 held-out ads from 2022 on, beside an overall predictive about 4% too
   wide that belongs to the noise term; one in seven low-tail ads leaves the tail and about as
   many join. The four-bedroom level (8, SE 5) and the share-0 flag (11, SE 8) add little
-  beside the others and can be dropped.
+  beside the others and can be dropped. An optional addition: a text column for private
+  outdoor space where the coded field is false (+16, SE 10, beside the others;
+  `docs/notes/text-columns-2026-11-21.md`).
 - [x] Deals page: a first ask below the 5% point closes sooner for studios and one-bedrooms
   (45% and 39% within 7 days against 30% and 29%) and no sooner for four or more bedrooms
   or for ads with coded free months (`docs/notes/history-scan-2026-11-18.md`, last table). A page note or
