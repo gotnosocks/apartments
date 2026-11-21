@@ -1,0 +1,71 @@
+rows read: 120 of 120
+dir        high  inside  low  misses  miss/inside
+kind                                             
+converted     1       2    0       1     0.500000
+flex          3      13    6       9     0.692308
+loft         10      14    8      18     1.285714
+luxury        6      12    2       8     0.666667
+mismatch      1       0    5       6          NaN
+other         6      17    8      14     0.823529
+outdoor       3       2    1       4     2.000000
+
+flags (any):
+col_0                      high  inside  low
+row_0                                       
+converted                     3       4    1
+converted;flex                0       0    1
+doorman                       9      17    9
+doorman;flex                  1       0    0
+doorman;prewar                0       2    0
+duplex                        4       7    4
+duplex;loft;outdoor           0       0    1
+duplex;outdoor                0       1    0
+duplex;outdoor;prewar         0       0    1
+duplex;townhouse;outdoor      0       1    0
+flex                          1       2    1
+flex;doorman                  0       1    0
+flex;prewar                   0       1    0
+flex;prewar;doorman           0       0    1
+furnished                     0       0    1
+loft                          1       0    1
+loft;duplex;luxury            0       0    1
+luxury                        2       0    1
+luxury;doorman                1       4    0
+luxury;doorman;short_term     1       0    0
+mismatch                      0       1    0
+outdoor                       1       9    4
+outdoor;doorman               0       0    1
+outdoor;flex                  1       0    0
+prewar                        1       4    2
+prewar;doorman                1       0    0
+townhouse                     1       3    2
+townhouse;flex                0       1    0
+townhouse;outdoor             0       1    0
+walkup                        0       1    1
+walkup;prewar;outdoor         0       0    1
+
+text size more than 15% from the size used, by direction:
+        sum  count
+dir               
+high      0     30
+inside    0     60
+low       0     30
+text bedrooms above 1, by direction:
+dir
+high      3
+inside    5
+low       4
+size source by direction:
+dir          high  inside  low
+size_source                   
+line            0       3    5
+stated         21      44    9
+unit            9      13   16
+
+mismatch and text-off ads:
+  low    mismatch  used  1100 (line) text nan: Text says both 1-bedroom and studio living; size only from line
+  high   mismatch  used  1973 (stated) text 1973: Marketed as 2 bd duplex; legally 1 bd plus recreation room
+  low    mismatch  used  1700 (stated) text 1700: Size includes 800 sq ft basement; two bedrooms; 700 sq ft yard
+  low    mismatch  used  3500 (unit) text nan: Text lists king bedroom and second full bedroom; full floor of house; 3500 coded
+  low    mismatch  used  1383 (line) text nan: Generic building ad; 3 baths with 1BR and size from line not unit
+  low    mismatch  used  1562 (line) text nan: Rent stabilized studio; 1562 line size implausible
