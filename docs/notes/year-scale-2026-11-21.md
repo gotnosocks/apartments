@@ -6,8 +6,9 @@ factors of 1.15 in 2020 and 1.18 in 2021 against 0.91 to 0.93 in 2024 to 2026, a
 coverage of 0.745 in 2020 to 2022 against 0.826 before and after. Y1's predictions are in
 the sprint note ("Fits for after the sprint", item 5). Since then the best design on the
 latest split (l2bt) gained lease-phase levels, a Student-t unit level and the bedroom text
-reader. This note sizes the year scale again on l2bt's stored held-out predictions, beside j1's eight kept terms, to
-decide whether Y1 still earns a fit and what it would do to the Deals page.
+reader. This note sizes the year scale again on l2bt's stored held-out predictions, beside
+j1's eight kept terms, to decide whether Y1 still earns a fit and what it would do to the
+Deals page.
 
 No fit is run and no money is spent. The script and log go in `year-scale-2026-11-21/`.
 
@@ -86,9 +87,9 @@ cross-fitted; scales and shifts are fitted on half A, then on B, against 2024.
 | 2026 | 0.839 | 0.825 | 0.798 |
 
 - l2bt's design (the best on the latest split; Deals reads
-  `drift-building-bedtext-layout-range`) leaves the year scale whole: the marks gain +1,174 on l2bt, as much as the sprint's
-  +1,185 on L1. Held-out ads of 2020 and 2021 need a scale about 25%
-  wider than those of 2024, 2022 about 15% and 2023 about 6%. The shifts stay under 0.008.
+  `drift-building-bedtext-layout-range`) leaves the year scale whole: the marks gain +1,174
+  on l2bt, as much as the sprint's +1,185 on L1. Held-out ads of 2020 and 2021 need a scale
+  about 25% wider than those of 2024, 2022 about 15% and 2023 about 6%. The shifts stay under 0.008.
 - After the marks every year from 2018 on covers 0.795 to 0.818. Pooling 2014 to 2019 leaves
   2014 to 2017 at 0.77 to 0.79 and 2019 at 0.82, so those years need marks of their own.
 - From 2022 on the marks keep +309 beside the gap bins and the flag-change counts. The
