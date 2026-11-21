@@ -54,7 +54,7 @@ changes only the history layer, so it splits none of the 7,343 units.
 
 The fit does not group by page. It takes `split_unit`, which `unit-splits-v4`
 (`analysis.history_splits`) cuts at every change of one bedroom or more, and a count of 0 never
-goes back into a piece of 2 or more. Of the 21,493 pairs whose 2+ ad is a training row, 21,485
+goes back into a piece of 2 or more. Of the 21,493 pairs whose 2+ ad is a row of the live run, 21,485
 fall in different fit units. The 8 left are 6 rows at three pages, where a run of 1-bed and
 2-bed ads sends a later 0-bed ad back to an earlier piece.
 
