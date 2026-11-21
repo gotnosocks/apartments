@@ -46,3 +46,54 @@ size under both fills.
 If prediction 3 holds, the matched fill goes into `unit_features` as a new snapshot, and
 the large one-bedroom mark is read again on a fit that uses it; a change to the size data
 changes the served model's inputs, so that refit goes on the base refit's list.
+
+## Results
+
+`f1_fills.log` holds the output. The rerun of `sizes` matches the snapshot on all
+1,969,299 listings. A first run counted a unit fill as drawing on another bedroom count
+only when the unit's stated sizes held two or more counts, which missed units whose stated
+ads all have one other count; the fixed flag is the one below.
+
+| layer | filled listings | draw on another count | 0 bd  | 1 bd  | 2 bd  | 3+ bd |
+|-------|-----------------|-----------------------|-------|-------|-------|-------|
+| unit  | 253,014         | 0.189                 | 0.126 | 0.154 | 0.217 | 0.283 |
+| line  | 114,983         | 0.086                 | 0.060 | 0.082 | 0.111 | 0.131 |
+
+Over 1,000 sq ft among 0-1-bedroom listings:
+
+| sizes          | listings | over 1,000 sq ft |
+|----------------|----------|------------------|
+| stated         | 309,533  | 0.0397           |
+| current fills  | 217,211  | 0.0264           |
+| unit fills     | 135,369  | 0.0342           |
+| line fills     | 81,842   | 0.0134           |
+| matched fills  | 205,143  | 0.0147           |
+
+Of the 5,733 current fills over 1,000 sq ft for 0-1-bedroom listings, 3,367 draw on
+another bedroom count. Under the matched fill 2,865 stay over 1,000 sq ft, 442 fall under
+it and 2,426 lose their size (2,145 of them unit fills whose unit states a size only on
+ads of another count). Across all listings the matched fill takes a size from 33,747 of
+930,485 (0.036): 4,021 studios, 9,642 one-bedrooms, 11,619 two-bedrooms and 8,465 with
+three or more. It changes the size of 17,658 more.
+
+## Predictions scored
+
+1. Partly right. Unit fills draw on another bedroom count at 0.189, inside 10% to 30%;
+   line fills at 0.086, under 20% to 50%.
+2. Wrong. Stated sizes are over 1,000 sq ft for 0.040 of 0-1-bedroom listings, above 2%
+   to 3%, and current fills for 0.026, under 4% to 8%. Matched fills, at 0.015, are 2.5
+   points under the stated share.
+3. Right. The matched fill brings 2,868 of the 5,733 (50%) under 1,000 sq ft or leaves
+   them with no size, most of them with none.
+4. Right. It takes a size from 3.6% of the listings that have one.
+
+## What follows
+
+Filled sizes are smaller than stated ones in this group, so large fills are not common;
+the trouble is where they come from. 59% of the large 0-1-bedroom fills borrow a size from
+an ad of another bedroom count, most often a unit that was also listed with more bedrooms,
+and a matched fill keeps only half of them. Whether those borrowed sizes are the deep low
+misses is the next question: a mark for a fill that draws on another bedroom count, read
+on l2bt's stored predictives as `docs/notes/large-one-beds-2026-11-21.md` reads its group,
+with its predictions written below before the run. If it holds, the matched fill becomes a
+new `unit_features` snapshot for the base refit.

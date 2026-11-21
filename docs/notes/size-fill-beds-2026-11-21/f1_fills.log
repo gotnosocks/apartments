@@ -1,0 +1,23 @@
+rerun vs snapshot: 1969299 listings, 1969299 in both, 1.0000 same
+
+1. filled listings whose fill draws on another bedroom count
+  unit: 0.189 of 253014; by bedrooms (3 = 3+):
+    {0.0: {'mean': 0.126, 'size': 44447}, 1.0: {'mean': 0.154, 'size': 90922}, 2.0: {'mean': 0.217, 'size': 75502}, 3.0: {'mean': 0.283, 'size': 42143}}
+  line: 0.086 of 114983; by bedrooms (3 = 3+):
+    {0.0: {'mean': 0.06, 'size': 31129}, 1.0: {'mean': 0.082, 'size': 50713}, 2.0: {'mean': 0.111, 'size': 26114}, 3.0: {'mean': 0.131, 'size': 7027}}
+
+2. 0-1-bedroom listings over 1,000 sq ft
+  stated       : 0.0397 of 309533
+  current fills: 0.0264 of 217211
+  matched fills: 0.0147 of 205143
+    current unit fills: 0.0342 of 135369
+    current line fills: 0.0134 of 81842
+  current fills over 1,000 (5733) under the matched fill:
+    {'still over': 2865, 'no size': 2426, 'under 1,000': 442}
+    by layer: {'line': {'no size': 281, 'still over': 767, 'under 1,000': 52}, 'unit': {'no size': 2145, 'still over': 2098, 'under 1,000': 390}}
+    of those drawing on another bedroom count: 3367
+
+3. listings that lose a size under the matched fill
+  33747 of 930485 (0.0363)
+    {0.0: 4021, 1.0: 9642, 2.0: 11619, 3.0: 8465}
+  size changed but kept: 17658

@@ -55,9 +55,11 @@ st = pd.DataFrame({"unit": unit, "beds": beds})[sq.notna() & unit.notna()]
 unit_beds = st.groupby("unit").beds.agg(lambda b: frozenset(b))
 ub = unit.map(unit_beds)
 src = cur.size_source.to_numpy()
-cross_unit = (src == "unit") & ub.map(
-    lambda s: isinstance(s, frozenset) and len(s) > 1
-).to_numpy()
+# A unit fill draws on another bedroom count when any of the unit's stated sizes comes
+# from a bedroom count other than the listing's own.
+cross_unit = (src == "unit") & np.array(
+    [isinstance(u, frozenset) and not (u <= {b}) for u, b in zip(ub, beds)]
+)
 # A line fill draws on another bedroom count when a unit filed under its key has stated
 # sizes from a bedroom count other than the key's.
 unit_sq = unit.map(sq[unit.notna()].groupby(unit[unit.notna()]).median())
