@@ -4,9 +4,9 @@
 in #1337 and never fit). The outlier sprint's free check on L1 gave +1,185 elpd, with
 factors of 1.15 in 2020 and 1.18 in 2021 against 0.91 to 0.93 in 2024 to 2026, and 80%
 coverage of 0.745 in 2020 to 2022 against 0.826 before and after. Y1's predictions are in
-the sprint note ("Fits for after the sprint", item 5). Since then the served design gained
-lease-phase levels, a Student-t unit level and the bedroom text reader. This note sizes the
-year scale again on l2bt's stored held-out predictions, beside j1's eight kept terms, to
+the sprint note ("Fits for after the sprint", item 5). Since then the best design on the
+latest split (l2bt) gained lease-phase levels, a Student-t unit level and the bedroom text
+reader. This note sizes the year scale again on l2bt's stored held-out predictions, beside j1's eight kept terms, to
 decide whether Y1 still earns a fit and what it would do to the Deals page.
 
 No fit is run and no money is spent. The script and log go in `year-scale-2026-11-21/`.
@@ -47,7 +47,8 @@ base. Three readings follow:
 
 ## Results
 
-`y1_year.log`. The t has 5 degrees of freedom on all years (7 from 2022 on). Gains are
+`y1_year.log`. The t has 5 degrees of freedom, picked on all years and used for the
+from-2022 readings too, so its from-2022 base is not comparable with j5's. Gains are
 cross-fitted; scales and shifts are fitted on half A, then on B, against 2024.
 
 | marks | gain (SE) | by half |
@@ -68,7 +69,7 @@ cross-fitted; scales and shifts are fitted on half A, then on B, against 2024.
 
 80% coverage by year:
 
-| year | stored | base | base and years |
+| year | t from stored quartiles | base | base and years |
 |---|---|---|---|
 | 2014 | 0.817 | 0.810 | 0.773 |
 | 2015 | 0.811 | 0.804 | 0.779 |
@@ -84,17 +85,22 @@ cross-fitted; scales and shifts are fitted on half A, then on B, against 2024.
 | 2025 | 0.835 | 0.820 | 0.798 |
 | 2026 | 0.839 | 0.825 | 0.798 |
 
-- The served design leaves the year scale untouched: the marks gain +1,174 on l2bt, as
-  much as the sprint's +1,185 on L1. Held-out ads of 2020 and 2021 need a scale about 25%
+- l2bt's design (the best on the latest split; Deals reads
+  `drift-building-bedtext-layout-range`) leaves the year scale whole: the marks gain +1,174 on l2bt, as much as the sprint's
+  +1,185 on L1. Held-out ads of 2020 and 2021 need a scale about 25%
   wider than those of 2024, 2022 about 15% and 2023 about 6%. The shifts stay under 0.008.
 - After the marks every year from 2018 on covers 0.795 to 0.818. Pooling 2014 to 2019 leaves
   2014 to 2017 at 0.77 to 0.79 and 2019 at 0.82, so those years need marks of their own.
-- From 2022 on, the gap bins and the flag-change counts take almost none of it: the marks keep
-  +309, nearly all from 2022 and 2023 being wider than later years.
-- On all years the fitted 2026 scale is 0.930 and 0.925 of the all-years intercept, so a
-  year-flat noise scale makes a current ad's interval about 7% too wide. Every current Deals
-  ad carries the same factor, so their order by the median's gap stays as it is. Their
-  intervals narrow, and an ad well under its median moves further into the low tail.
+- From 2022 on the marks keep +309 beside the gap bins and the flag-change counts. The
+  follow-up below reads them with the t picked on these ads and splits the gain by year.
+- On all years the fitted 2026 scale is 0.930 and 0.925 of the all-years intercept, so in
+  l2bt's design a year-flat noise scale makes a 2026 ad's interval about 7% too wide. From
+  2022 on, beside the gap bins and counts, the same ratio is 0.971 and 0.974, about 3%: the
+  2026 ads are wide against the older years more than against 2022 to 2025. The Deals model
+  has no year or phase scale and its backtest covers 0.792 at 80% (`docs/model/drift.md`),
+  so these figures do not say its intervals are too wide. A common factor on the row noise
+  would keep the order of Deals ads by `below_share` nearly as it is, since the parameter
+  spread in each predictive does not scale with it.
 
 ## Predictions scored
 
@@ -104,14 +110,17 @@ cross-fitted; scales and shifts are fitted on half A, then on B, against 2024.
 3. Coverage 0.77 to 0.83 in every year from 2020 on: right (0.795 to 0.801).
 4. From 2022 on, beside the gap bins and counts, under 80: wrong (+309). 2022 and 2023 are
    still wide.
-5. 2026 scale 0.88 to 0.96 of the all-years scale: right (0.930 and 0.925).
+5. 2026 scale 0.88 to 0.96 of the all-years scale: right on all years (0.930 and 0.925),
+   and outside the range from 2022 on beside the gap bins and counts (0.971 and 0.974),
+   the reading the Method named for a current ad.
 
 ## What follows
 
-Y1 still earns a fit and goes to the base refit's list as its largest term: the year scale
-on stored predictions (+1,174, SE 60) is about five times the flag-change counts. The
-merged module `drift-building-phase-year` extends L1, so the refit needs a year scale on the
-served design in a new module. It should carry a mark for each year, since a pooled 2014 to
+Y1 still earns a fit and goes to the base refit's list. On all years it gains +1,174 (SE
+60); on the ads from 2022 on, where j5 sized the flag-change counts at +230 beside the gap
+bins, it gains +329 (follow-up below), about 1.4 times as much. The merged module
+`drift-building-phase-year` extends L1, so the refit needs a year scale on l2bt's design in
+a new module. It should carry a mark for each year, since a pooled 2014 to
 2019 leaves 2014 to 2017 under 0.80. A fit is still needed to say how much of this the
 model's other scales take once the year scale is fitted beside them.
 
@@ -131,3 +140,39 @@ year from the stored predictive's own 10% and 90% quantiles. Predictions:
 3. The stored predictive's own 80% coverage is within 0.015 of the t from its quartiles in
    every year.
 4. The fitted 2026 scale from 2022 on is 0.96 to 0.99 of the intercept without year marks.
+
+## Follow-up results
+
+`y2_followup.log`. The t has 7 degrees of freedom, picked on ads from 2022 on as in j5, so the
+gap bins and counts gain +368.1 (SE 35.5) over the base, j5's +138 and +230 together.
+
+| marks, from 2022 | gain (SE) | by half | by year: 2022, 2023, 2024, 2025, 2026 |
+|---|---|---|---|
+| year marks over the base | +302.9 (30.7) | +140.8, +162.1 | +186, +45, +4, +8, +60 |
+| year marks over the base, gap bins and counts | +328.7 (32.1) | +154.6, +174.1 | +195, +44, +5, +15, +70 |
+
+The scales match the first reading: 1.14 to 1.16 in 2022, 1.06 to 1.07 in 2023, 0.985 to
+0.994 in 2025 and 0.973 to 0.980 in 2026, against 2024. The 2026 scale is 0.963 and 0.962 of
+the intercept without year marks over the base alone, and 0.972 and 0.975 beside the gap bins
+and counts.
+
+80% coverage from the stored predictive's own 10% and 90% quantiles runs 0.730 (2021) to
+0.846 (2019), within 0.008 of the t from its quartiles in every year: 0.738 and 0.730 in 2020
+and 2021, 0.760 in 2022, 0.816 to 0.826 in 2024 to 2026.
+
+- The gap bins and counts take none of the year scale: the marks gain a little more beside
+  them (+329 against +303).
+- Ads of 2022 hold 59% of that gain and 2023 another 13%. The 2026 ads add +70, from a scale
+  about 2.5% narrower than 2024's.
+- The year scale and the flag-change counts are separate terms of about the same size on
+  current ads; the base refit should carry both.
+
+## Follow-up predictions scored
+
+1. Over the base alone +250 to +450, keeping at least 80% beside the gap bins and counts:
+   right (+303; +329 beside them, 109%).
+2. Ads of 2022 and 2023 hold at least 70% of the gain beside the gap bins and counts: right,
+   narrowly (73%).
+3. Own 80% coverage within 0.015 of the t from the quartiles in every year: right (at most
+   0.008 apart).
+4. 2026 scale 0.96 to 0.99 of the intercept without year marks: right (0.962 to 0.975).

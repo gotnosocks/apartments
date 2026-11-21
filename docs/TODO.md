@@ -225,8 +225,9 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   22 to 25, 26 or more). The served intervals cover 0.752 of held-out asks at 3 to 9
   months against 0.841 at 10 to 13, and the model's width runs the other way. Predictions
   and the free checks are in the sprint note ("The lease cycle"; elpd +400 to +900). Done:
-  the lease-phase factors are in every design since L1, the served
-  `drift-building-phase-unitkn-level-bedtext` among them (`docs/model/drift.md`).
+  L1 passed the gate, and its lease-phase factors are in every `drift-building-phase`
+  design since, l2bt (the best on the latest split) among them. Deals reads a
+  `drift-building` model without them (`docs/model/drift.md`).
 - [ ] Y1: a noise scale by calendar year. Coverage is 0.745 for held-out ads of 2020 to
   2022 and 0.826 before and after; current intervals are 7% to 9% too wide by the free
   check. Predictions are in the sprint note (elpd +600 to +1,300). Training rows scored
@@ -235,15 +236,16 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   split's choice of units. Sized again on l2bt's stored predictions on 2026-11-21
   (`docs/notes/year-scale-2026-11-21.md`, no fit): +1,174 (SE 60) beside j1's terms,
   scales of 1.23 to 1.27 in 2020 and 2021 against 2024, 2026 at 0.93 of the all-years
-  scale; from 2022 on it keeps +309 beside the gap bins and counts. The merged
-  `drift-building-phase-year` extends L1, so a year scale on the served design needs a new
+  scale; from 2022 on it gains +329 beside the gap bins and counts, 73% of it from 2022
+  and 2023 ads, with 2026 at 0.97 of a year-flat scale. The merged
+  `drift-building-phase-year` extends L1, so a year scale on l2bt's design needs a new
   module, with a mark for each year (a pooled 2014 to 2019 leaves 2014 to 2017 near 0.78).
 - [x] L2: a level per lease phase on L1's winner (apartments back within 3 months come
   1.4% under the median). Behind it, the previous ad's ending (delisted or paused against a
   deal), now the column `prev_ending` in a copy of L1's dataset
   (`docs/notes/ending-column-2026-11-13.md`). No model reads it yet. Done for the levels:
   fit on 2026-11-14 as `drift-building-phase-unitkn-level` (account B of the causal
-  sprint), and in the served design since; no model reads `prev_ending`.
+  sprint), and in l2bt's design since; no model reads `prev_ending`.
 - [ ] R, for Data improvements and Modeling: make the label standard for reposts a
   pipeline step, then collapse the certified chains in the dataset build. The standard
   joins a handoff (same lister, building and counts, the later ad opening 0 or 1 day
@@ -419,9 +421,9 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   renovation switch (the ad whose text first says renovated after the unit's last ad did
   not) gains +54 (SE 12) with a shift near +0.007. The gap bins themselves gain +138 (SE
   22), mostly a 12% wider scale for ads within 180 days of the unit's last ad
-  (`docs/notes/renovation-step-2026-11-21.md`). The largest candidate is Y1's noise scale
-  by calendar year, +1,174 (SE 60) on all years and +309 (SE 30) from 2022 on beside the
-  gap bins and counts (`docs/notes/year-scale-2026-11-21.md`, item Y1 above).
+  (`docs/notes/renovation-step-2026-11-21.md`). Beside them goes Y1's noise scale by
+  calendar year, +1,174 (SE 60) on all years and +329 (SE 32) from 2022 on beside the gap
+  bins and counts, about 1.4 times the counts on the same ads (`docs/notes/year-scale-2026-11-21.md`, item Y1 above).
 - [x] Deals page: a first ask below the 5% point closes sooner for studios and one-bedrooms
   (45% and 39% within 7 days against 30% and 29%) and no sooner for four or more bedrooms
   or for ads with coded free months (`docs/notes/history-scan-2026-11-18.md`, last table). A page note or
