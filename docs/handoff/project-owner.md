@@ -248,8 +248,12 @@ subagent's model and effort to be picked by its task.
 - Large 0-1-bedroom ads on the model's sizes (no fit,
   `docs/notes/large-one-beds-asof-2026-11-21.md`): the mark holds, +71.9 (SE 14.6), scale
   1.27, coverage 0.68 to 0.80 on 1,130 ads. Filled model sizes in the group lean low
-  (residual −0.058 and −0.056), and a +9.9 (SE 6.6) split by source supports the filled-size slope
-  candidate in the TODO.
+  (residual −0.058 and −0.056), and a +9.9 (SE 6.6) split by source supports the
+  filled-size slope candidate in the TODO.
+- Studio reading on ads coded 1 bedroom or more (no fit,
+  `docs/notes/studio-reading-size-2026-11-21.md`): dropped from the refit list. Beside the
+  queued terms the mark gains −0.4 (SE 2.9) on 185 ads from 2022 on; the reader fixes
+  remain a TODO item.
 - Year scale (Y1) on stored predictions (no fit, `docs/notes/year-scale-2026-11-21.md`):
   l2bt's design (best on the latest split; Deals reads the range model) leaves it whole,
   +1,174 (SE 60) on all years with 2020 and 2021 about 25% wider than 2024. From 2022 on it

@@ -38,3 +38,44 @@ not applied, so the mark carries the reader's errors. No fit is run and no money
 
 If 2 holds, the studio reading joins the refit's list at its size, with the reader fixes;
 if it gains under +3, the term is dropped from the list and the reader fixes alone remain.
+
+## Results
+
+`s1_size.log` holds the output. From 2022 on, by half of buildings (A | B):
+
+| ads                      | n (A, B)       | residual         | below 10%    | above 90%    |
+|--------------------------|----------------|------------------|--------------|--------------|
+| studio reading           | 105, 80        | −0.0165, −0.0165 | 0.210, 0.225 | 0.057, 0.150 |
+| other `bed_text_smaller` | 1,425, 1,275   | −0.0063, −0.0048 | 0.126, 0.136 | 0.074, 0.110 |
+| other ads                | 61,421, 65,555 | −0.0053, −0.0057 | 0.106, 0.107 | 0.082, 0.079 |
+
+0.69 of the studio-reading misses fall below the 10% point. The ads grow by year, from 21
+in 2022 to 61 in 2026.
+
+| mark beside the reference | gain (SE)  | by half (A, B) | scale (A, B)  | shift (A, B)     |
+|---------------------------|------------|----------------|---------------|------------------|
+| studio reading            | −0.4 (2.9) | −1.9, +1.6     | 1.057, 1.191  | −0.0033, +0.0077 |
+| pooled `bed_text_smaller` | −7.8 (3.5) | −6.5, −1.3     | 0.993, 1.075  | +0.0000, +0.0014 |
+
+The reference gains +2,575.9 (SE 94.8) over the stored predictives. Coverage of the 80%
+interval for the studio-reading ads is 0.686 on the stored predictives, 0.703 under the
+reference and 0.735 with the mark; other ads stay at 0.800.
+
+## Predictions scored
+
+1. Right. 185 ads, residual −0.0165 on both halves, 21.0% and 22.5% below the 10% point.
+2. Wrong. The mark gains −0.4 (SE 2.9) and is negative on half A. The scales are inside
+   1.0 to 1.4; the shift on half B, +0.0077, is outside −0.035 to 0.0.
+3. Right. 0.703 under the reference and 0.735 with the mark, a rise of 0.032.
+4. Right. The pooled mark gains −7.8, with scales 0.993 and 1.075.
+
+## What follows
+
+The studio reading leans low on both halves, but by little: its mean residual sits 0.011
+below other ads', and the tails beyond that are too thin
+across 185 ads for a mark fitted on one half to help the other. Under the rule written
+above, the term is dropped from the refit's list. The reader fixes for amenity names and
+"the size of a ... studio" remain worth making, since they correct the column the served
+term reads, but they need no fit of their own and can go with any later change to
+`b0bedtext`. The pooled check agrees with the flex-wording note: the served term prices
+`bed_text_smaller` as a whole.
