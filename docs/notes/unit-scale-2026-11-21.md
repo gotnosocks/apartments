@@ -108,8 +108,8 @@ fitted on half A, then on half B.
 | bedroom marks for every ad, beside U4 | +14.5 (7.7) | | 2 bd 1.113, 1.094; 3+ bd 1.155, 1.083 |
 | U1 over U4 | +46.2 (12.1) | +26.8, +19.4 | `L` 1.693, 1.433; `new × L` 0.890, 0.911 |
 
-U4's gain is +11.6 on new 0-1-bedroom ads, which carry no U4 mark: beside U4's marks the `new`
-mark narrows them (coverage 0.839 to 0.806). New 3-or-more-bedroom ads add +7.4 and new
+Of U4's +21.0, +11.6 is on new 0-1-bedroom ads, which carry no U4 mark: beside U4's marks the
+`new` mark narrows them (coverage 0.839 to 0.806). New 3-or-more-bedroom ads add +7.4 and new
 2-bedroom ads +1.9. `new × L` also shifts the centre up by 0.056 and 0.099 per unit of `L`.
 The size slope of the scale is 0.36 to 0.53 for units with earlier asks and 0.27 to 0.41 for
 new units.
