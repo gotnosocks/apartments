@@ -65,12 +65,16 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   it; a factor by thin same-bedroom history only if one is still needed; the lister form
   after that. The evidence is one backtest day with every form seen on both halves, so it
   is suggestive and a second backtest day is wanted.
-- [ ] A renovation step dated from the unit's own ads: a column set from the first ad of a
+- [x] A renovation step dated from the unit's own ads: a column set from the first ad of a
   unit whose text says renovated or gut renovated when an earlier ad of the unit lacked the
   words. Ads switching the words on sit +0.009 to +0.012 over the model, and ads dropping
   them sit at zero, so the step stays once taken. Predicted: a coefficient of +0.005 to
-  +0.010 and an elpd gain under 40. DOB alteration filings by BIN can date the work
-  without the ad text, and photos can confirm it.
+  +0.010 and an elpd gain under 40. DOB alteration filings by BIN can date the work without
+  the ad text, and photos can confirm it. Sized on stored l2bt predictions on 2026-11-21
+  (`docs/notes/renovation-step-2026-11-21.md`, no fit): the words flicker, a lasting step
+  carries +0.003 (+48, SE 12), and the gain is in the first worded ad. That ad's wider scale
+  belongs to any rewritten description, so two terms go to the base refit's list in its
+  place (below). DOB filings stay untested.
 - [x] Text columns where the lister left the coded field empty: private outdoor space (+0.0154
   where the field is false), penthouse (+0.0058), dishwasher (+0.0064), furnished (8,064
   held-out ads say it, no training row has the coded field) and full floor (no column,
@@ -398,7 +402,13 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   many join. The four-bedroom level (8, SE 5) and the share-0 flag (11, SE 8) add little
   beside the others and can be dropped. Optional additions: text columns for private outdoor
   space where the coded field is false (+16, SE 10) and for penthouse wording (+8, SE 5), each
-  beside the others (`docs/notes/text-columns-2026-11-21.md`).
+  beside the others (`docs/notes/text-columns-2026-11-21.md`). A scale term for the count
+  of the scan's 31 text flags changed since the unit's last ad (1, 2, 3 or more; 3 or more
+  at a scale of 1.13) gains +254 (SE 28; +132 and +121 by half) beside the base and moves
+  about 5% of the low tail; built after a first run, so a fit confirms it before Deals reads
+  it. Beside it, the renovation switch (the ad whose text first says renovated after the
+  unit's last ad did not) gains +54 (SE 12) with a shift near +0.007
+  (`docs/notes/renovation-step-2026-11-21.md`).
 - [x] Deals page: a first ask below the 5% point closes sooner for studios and one-bedrooms
   (45% and 39% within 7 days against 30% and 29%) and no sooner for four or more bedrooms
   or for ads with coded free months (`docs/notes/history-scan-2026-11-18.md`, last table). A page note or
