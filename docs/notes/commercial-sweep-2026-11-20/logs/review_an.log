@@ -1,0 +1,60 @@
+changed ratio training rows: orig 975 leakfree 971 both 966
+
+ratio+text: bld 151 ads 461 blds-with-heldout 71 low 0.093 (cl SE 0.012) exp-matched 0.067 | high 0.069 (SE 0.010) exp 0.048
+  half A: n 294 blds 35 low 0.088 SE 0.012 matched exp 0.068
+  half B: n 167 blds 36 low 0.102 SE 0.026 matched exp 0.065
+  top3% pred share 0.15 all 0.03; top10% 0.449 median pp 0.88
+  pp>=.97: n 69 low 0.145 exp 0.094 high 0.072
+  pp<.97: n 392 low 0.084 exp 0.062 high 0.069
+  bed01: n 284 low 0.088 exp 0.064 high 0.074
+  bed2+: n 177 low 0.102 exp 0.071 high 0.062
+  low misses 43 in 20 buildings; top5 {'the-archive': {'sum': 17.0, 'size': 179}, '193-bedford-avenue-brooklyn': {'sum': 4.0, 'size': 25}, '151-canal-street-new_york': {'sum': 2.0, 'size': 2}, '15-central-park-west-new_york': {'sum': 2.0, 'size': 6}, 'silk-building': {'sum': 2.0, 'size': 9}}
+  median level 0.049 all 0.007
+note set n 467 low 0.094
+
+ratio+text leakfree median: bld 150 ads 461 blds-with-heldout 71 low 0.093 (cl SE 0.012) exp-matched 0.067 | high 0.069 (SE 0.010) exp 0.048
+  half A: n 294 blds 35 low 0.088 SE 0.012 matched exp 0.068
+  half B: n 167 blds 36 low 0.102 SE 0.026 matched exp 0.065
+  top3% pred share 0.15 all 0.03; top10% 0.449 median pp 0.88
+  pp>=.97: n 69 low 0.145 exp 0.094 high 0.072
+  pp<.97: n 392 low 0.084 exp 0.062 high 0.069
+  bed01: n 284 low 0.088 exp 0.064 high 0.074
+  bed2+: n 177 low 0.102 exp 0.071 high 0.062
+  low misses 43 in 20 buildings; top5 {'the-archive': {'sum': 17.0, 'size': 179}, '193-bedford-avenue-brooklyn': {'sum': 4.0, 'size': 25}, '151-canal-street-new_york': {'sum': 2.0, 'size': 2}, '15-central-park-west-new_york': {'sum': 2.0, 'size': 6}, 'silk-building': {'sum': 2.0, 'size': 9}}
+  median level 0.049 all 0.007
+
+ratio: bld 544 ads 4357 blds-with-heldout 328 low 0.067 (cl SE 0.005) exp-matched 0.064 | high 0.059 (SE 0.005) exp 0.048
+  half A: n 2238 blds 172 low 0.069 SE 0.006 matched exp 0.065
+  half B: n 2119 blds 156 low 0.065 SE 0.009 matched exp 0.063
+  top3% pred share 0.16 all 0.03; top10% 0.339 median pp 0.8
+  pp>=.97: n 696 low 0.121 exp 0.091 high 0.068
+  pp<.97: n 3661 low 0.057 exp 0.059 high 0.057
+  bed01: n 2800 low 0.060 exp 0.058 high 0.055
+  bed2+: n 1557 low 0.080 exp 0.074 high 0.066
+  low misses 293 in 123 buildings; top5 {'the-archive': {'sum': 17.0, 'size': 179}, '70-pine-street': {'sum': 16.0, 'size': 243}, 'mima-450-west-42nd-street-new_york': {'sum': 11.0, 'size': 230}, 'chelsea-mercantile': {'sum': 10.0, 'size': 39}, '180-riverside-blvd': {'sum': 9.0, 'size': 192}}
+  median level 0.067 all 0.007
+
+marked held-out ratio ads in those blds 15 low 1.0 high 3.0
+
+ratio only (no text) blds: bld 393 ads 3896 blds-with-heldout 257 low 0.064 (cl SE 0.005) exp-matched 0.064 | high 0.058 (SE 0.005) exp 0.049
+  half A: n 1944 blds 137 low 0.066 SE 0.006 matched exp 0.064
+  half B: n 1952 blds 120 low 0.062 SE 0.009 matched exp 0.063
+  top3% pred share 0.161 all 0.03; top10% 0.326 median pp 0.79
+  pp>=.97: n 627 low 0.118 exp 0.091 high 0.067
+  pp<.97: n 3269 low 0.054 exp 0.058 high 0.056
+  bed01: n 2516 low 0.057 exp 0.057 high 0.053
+  bed2+: n 1380 low 0.077 exp 0.075 high 0.067
+  low misses 250 in 103 buildings; top5 {'70-pine-street': {'sum': 16.0, 'size': 243}, 'mima-450-west-42nd-street-new_york': {'sum': 11.0, 'size': 230}, 'chelsea-mercantile': {'sum': 10.0, 'size': 39}, '45-wall-street-new_york': {'sum': 9.0, 'size': 146}, '180-riverside-blvd': {'sum': 9.0, 'size': 192}}
+  median level 0.067 all 0.007
+
+--- extra
+no archive n 282 blds 70 low 0.092 SE 0.019 exp 0.067 high 0.064 exp 0.048
+  half A 115 0.078 0.07
+  half B 167 0.102 0.065
+archive half <ArrowStringArray>
+['A']
+Length: 1, dtype: str archive train rows 1104 ratio rows 5
+ band 0-4 3 low 0.0 exp 0.031 high 0.0
+ band 5-19 56 low 0.125 exp 0.077 high 0.071
+ band 20-99 138 low 0.101 exp 0.07 high 0.058
+ band 100+ 264 low 0.083 exp 0.063 high 0.076

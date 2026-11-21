@@ -102,9 +102,15 @@ Among ratio reads by ratio band, commercial or placeholder over reads: half A 3 
 to 4x and 4 of 10 at 4x to 6x; half B 6 of 26, 5 of 9, 2 of 2 at 6x to 10x and 2 of 2 over
 10x.
 
-Rule form, chosen on half A: the best form on A is the ratio mark with a text word, at 0.38,
-with 4x and over a close second at 4 of 10. On half B the same form gives 0.65. Both halves
-leave a third or more of its matches as apartments, so no rule is written. The text and short
+Rule form, chosen on half A. Two forms lead on A and are level there: the ratio mark at 4x
+and over, 4 of 10 (0.40, unweighted), and the ratio mark with a text word, 5 of 13 (0.38). On
+half B they give 9 of 13 (0.69) and 11 of 17 (0.65). Neither form clears half its matches on
+A, and both leave a third or more as apartments on B, so no rule is written and the choice
+between them does not change the verdict.
+
+This reader evidence is limited. Each ad had one reader, the leading forms rest on 10 to 17
+reads per half, and their intervals overlap across halves (0.18 to 0.64 on A and 0.41 to 0.83
+on B for the ratio mark with a text word). The text and short
 marks alone find almost no commercial or placeholder rows outside the ledger: the readers
 coded 39 of 40 text-only reads and 38 of 40 short reads as apartments. Over the pools, the
 ratio estimates imply about 105 commercial rows among the 197 ratio rows with a text word
@@ -139,11 +145,33 @@ would move through the building's level:
 | text | 15,961 | 74,561 | -0.0040 | 6.3% | 5.0% |
 | short | 8,325 | 56,767 | -0.0033 | 6.2% | 5.2% |
 
-All held-out ads by half: 6.0% / 5.8% below 5%. Buildings with a ratio row and a text word
-hold an excess of low misses on both halves, 3 to 4 points (about 3 standard errors on the
-pooled 467). The 24 buildings with a confirmed commercial read show no excess, so the excess
-may come from buildings whose asks vary widely, such as loft buildings, more than from the
-commercial rows raising the level.
+All held-out ads by half: 6.0% / 5.8% below 5%. The table's shares compare against all
+held-out ads. A review check (`review_an.py`, `logs/review_an.log`) uses standard errors
+clustered by building and an expected share matched on predicted-rent rank (twentieths) and
+building size band. It leaves out every ratio-marked held-out ad, so it counts 461 ads. On it,
+buildings with a ratio row and a text word hold 9.3% low misses against 6.7% expected (SE
+1.2), about 2 standard errors. Half A: 8.8% against 6.8% (294 ads, 35 buildings). Half B:
+10.2% against 6.5% (167 ads, 36 buildings, SE 2.6). 17 of the 43 low misses are in one
+building, `the-archive`, which lies in half A. Without it, half A is 7.8% against 7.0%.
+
+The evidence that commercial rows raise these buildings' levels is weak:
+
+- Both tails widen. The high tail is 6.9% against 4.8% expected.
+- `the-archive` holds 1,104 training rows and 5 ratio rows, too few to move its level.
+- The ads are expensive: 15% lie in the top 3% of predicted rents and 45% in the top 10%.
+- Buildings with a ratio row and no text word show nothing: 6.4% against 6.4% (3,896 ads).
+- A small gradient by building size rests on small counts: 12.5% against 7.7% at 5 to 19
+  rows (56 ads) and 8.3% against 6.3% at 100 rows or more (264 ads).
+- The 15 marked held-out ratio ads in these buildings hold 1 low miss.
+
+These look like varied, expensive loft buildings. The excess is no evidence that commercial
+rows raise building levels. The 24 buildings with a confirmed commercial read hold 53 other
+held-out ads, too few to show anything either way, so that row of the table is uninformative.
+
+Leak check. The area median behind the ratio mark includes held-out asks. With the l2bt and
+live held-out rows removed from the median, 971 l2bt training rows are marked against 975
+(966 in both). The buildings with a ratio row and a text word fall from 151 to 150, and every
+share above is unchanged to the shown digit (`logs/review_an.log`, "leakfree median").
 
 Live Deals ads (6,502; 496 ask under the 80% interval's low end, 309 of them uncautioned;
 4,687 in the default population of a unit basis or a building with five or more training ads,
@@ -174,31 +202,36 @@ near zero gap. This sweep gives three reasons:
    now excludes miss high: median gaps of 1.03 (ratio), 0.63 (text) and 0.077 with 23.7% above
    the 95% point (short).
 3. Commercial asks miss high, so they show at the top of the interval, away from the Deals
-   page. Buildings with a confirmed commercial row hold no excess of low misses among their
-   other held-out ads.
+   page. The 53 other held-out ads in buildings with a confirmed commercial row are too few
+   to say whether such rows move a building's level.
 
 ## What follows
 
-- No pipeline rule. The best form, the ratio mark with a text word, reads 0.38 on half A and
-  0.65 on half B.
+- No pipeline rule. The two leading forms read 0.40 and 0.38 on half A and 0.69 and 0.65 on
+  half B.
+- No case for a building-level change. The low-miss excess near ratio rows with a text word
+  belongs to varied, expensive loft buildings, and excluding the rows is not expected to
+  remove it.
 - `candidate_rows.ndjson` holds 23 drafted excludes from the reads (22 `nonresidential`, 1
   `bedrooms_unknown` for C034, a building's inquiry line coded 0 bed), with `decided`,
-  `source` and `when`. C033 is held back. 3 of the 23 are also among the 68 rows of
-  `building-level-read-2026-11-20/candidate_rows.ndjson`. They are not imported: an import is
-  a rule version that makes the served fit unservable until a refit, so it belongs with the
-  next base refit.
-- For more ledger rows, the yield is in the ratio mark: a hand read of the remaining
-  167 ratio rows with a text word would find about half commercial, and the 767 ratio rows
-  without one about one in seven.
+  `source` and `when`; the ledger reader parses all 23 (`review_led.py`, run in the `pipeline` venv, which holds duckdb and sqlglot). C033 is held
+  back. Three of the 23 are also among the 68 rows of
+  `building-level-read-2026-11-20/candidate_rows.ndjson`: 1527202, 1297718 and 1452337, each
+  `nonresidential` in both files. They are not imported: an import is a rule version that
+  makes the served fit unservable until a refit, so it belongs with the next base refit.
+- The cheap option is to route the ratio matches with a text word to a hand read before the
+  next refit, and the TODO's hand read is that option. A read of the remaining 167 ratio rows
+  with a text word would find about half commercial, and of the 767 ratio rows without one
+  about one in seven.
 
 ## What was not verified
 
 - The narrowed text marks were read on 40 rows over pools of 61,186; their interval runs to
   0.26, so a few hundred commercial rows among them cannot be ruled out.
-- The 150 reads rest on one Sonnet reader per batch; my 15 checks found 2 borderline codes and
+- The 150 reads rest on one Sonnet reader per ad; my 15 checks found 2 borderline codes and
   no clear reversal.
-- The low-miss excess in buildings with a ratio row and a text word was not traced to a cause,
-  and no fit tested whether excluding those rows removes it.
+- No fit tested whether excluding the ratio rows with a text word changes the low tail of
+  their buildings.
 - The Deals counts use an approximation of the page's default population (building training
   ads from `levels_live.parquet`); the page's own filter was not run.
 - Ads with no ratio (no median for their cell, 314,052) carry only the text and short marks.
