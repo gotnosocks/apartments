@@ -89,7 +89,8 @@ cross-fitted; scales and shifts are fitted on half A, then on B, against 2024.
 - l2bt's design (the best on the latest split; Deals reads
   `drift-building-bedtext-layout-range`) leaves the year scale whole: the marks gain +1,174
   on l2bt, as much as the sprint's +1,185 on L1. Held-out ads of 2020 and 2021 need a scale
-  about 25% wider than those of 2024, 2022 about 15% and 2023 about 6%. The shifts stay under 0.008.
+  about 25% wider than those of 2024, 2022 about 15% and 2023 about 6%. The shifts stay
+  under 0.008.
 - After the marks every year from 2018 on covers 0.795 to 0.818. Pooling 2014 to 2019 leaves
   2014 to 2017 at 0.77 to 0.79 and 2019 at 0.82, so those years need marks of their own.
 - From 2022 on the marks keep +309 beside the gap bins and the flag-change counts. The
