@@ -385,7 +385,11 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   60% to 70% of the step inside a tier of predicted rent
   (`docs/notes/large-unit-text-2026-11-21.md`). None changes enough of the Deals list for a
   fit of its own (the changed-count and three-bath classes hold about 60 of 425 low-tail ads on
-  the backtest).
+  the backtest). Fitted together on stored predictions (`docs/notes/joint-terms-2026-11-21.md`)
+  they gain +1,331 elpd (SE 70; +593 and +739 by half) on the 129,861 held-out ads from 2022
+  on, beside an overall scale near 0.89 that belongs to the noise term, and move about one in
+  seven low-tail ads. The four-bedroom level (8) and the share-0 flag (11) add little beside
+  the others and can be dropped.
 - [x] Deals page: a first ask below the 5% point closes sooner for studios and one-bedrooms
   (45% and 39% within 7 days against 30% and 29%) and no sooner for four or more bedrooms
   or for ads with coded free months (`docs/notes/history-scan-2026-11-18.md`, last table). A page note or
