@@ -61,8 +61,9 @@ in each year from 2020 on.
 | source over the base, gap bins, counts and year marks, from 2022 (t with 7) | +28.9 (12.1) | +15.2, +13.7 | 0.989 / 0.984 | +0.0031 / +0.0024 |
 | feed mark alone, the same, from 2022 | +28.5 (12.0) | +15.8, +12.7 | | |
 
-The owner scale is 1.028 to 1.038 on all years and 1.000 to 1.003 from 2022 on, and the
-owner mark gains +0.7 and +1.3.
+The owner scale is 1.028 to 1.038 on all years and 1.000 to 1.003 from 2022 on. The owner
+mark's own gain from 2022 on is +0.4 (the source marks' +28.9 less the feed mark's
++28.5); of the source marks' gain, owner ads hold +0.7 on all years and +1.3 from 2022.
 
 80% coverage by source, before and after the marks:
 
@@ -75,10 +76,10 @@ owner mark gains +0.7 and +1.3.
 - Beside the year marks, feed ads need no width of their own. On all years their scale is
   within 1% of brokerage ads'; from 2022 on it is 1% to 1.6% narrower.
 - b9's +140 most likely came from the years: feed ads made up most of the ads before 2020,
-  and those years need a scale about 4% narrower than 2024's
+  and those years need a scale 3% to 4% narrower than 2024's
   (`docs/notes/year-scale-2026-11-21.md`). The earlier check had no year term to take it.
   The two checks also differ in model (b9 against l2bt), so this is read from the shares
-  and scales, not tested on b9.
+  and scales; it was not tested on b9.
 - What is left, about +29 from 2022 on, holds a shift of about +0.003 (feed asks about 0.3%
   above the median) and a scale 1% to 1.6% narrower; the two were not read apart. It is too
   small to earn a term of its own.
@@ -88,7 +89,7 @@ owner mark gains +0.7 and +1.3.
 1. From 2022 on, +80 to +250 on both halves: wrong (+28.9; +15.2 and +13.7).
 2. Feed scale 0.88 to 0.95 with a shift under 0.01: wrong on the scale (0.984 and 0.989),
    right on the shift (+0.0024 and +0.0031).
-3. Owner mark under 30 from 2022 on: right (+1.3).
+3. Owner mark under 30 from 2022 on: right (+0.4).
 4. On all years +100 to +350: wrong (+22.4).
 5. Feed coverage from 2022 on within 0.01 of brokerage ads' after the marks: right (0.801
    against 0.799).

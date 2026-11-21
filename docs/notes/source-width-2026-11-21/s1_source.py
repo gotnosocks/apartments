@@ -1,6 +1,6 @@
 """Free check: a predictive width by ad source on l2bt's stored held-out predictions.
 
-See docs/notes/source-width-2026-11-21.md. The scoring and marks of
+Read with docs/notes/source-width-2026-11-21.md. The scoring and marks of
 docs/notes/year-scale-2026-11-21/y2_followup.py, with marks for feed and owner ads (StreetEasy's
 source type on the ad's latest stored record; no ask is read). Run from this folder.
 """
