@@ -221,6 +221,12 @@ subagent's model and effort to be picked by its task.
   the model's price than on higher floors), with or without the snapshot's garden flag.
   This confirms the first-floor level of `docs/notes/duplex-scale-2026-11-18.md`, already on
   the TODO list of terms for the next base refit.
+- Large-unit wording on held-out history (no fit, `docs/notes/large-unit-text-2026-11-21.md`).
+  Full floor and renovation wording show no excess, and duplex wording is in both tails.
+  Named finishes mark buildings whose large units the model prices low: at 3+ bedrooms the
+  gap runs from −0.011 at building share 0 to +0.006 and +0.010 over 0.5, and it is flat at
+  1 to 2 bedrooms. Queued as a base-refit term. The image item now covers only the high
+  tail's photos.
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
 

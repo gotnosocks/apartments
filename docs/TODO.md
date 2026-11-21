@@ -266,10 +266,11 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   with no ad in training").
 - [ ] U2: a Student-t distribution for the unit's lasting level, on U1's winner. Predicted
   to close with over 8 degrees of freedom and under 100 elpd.
-- [ ] Read floor plans and photos of large units for the qualities the record lacks (a
-  second level, a full floor, a renovation), on Sonnet or Haiku readers. No check in the
-  sprint read them, and the recorded attributes leave the persistent sd of large units at
-  0.091 against 0.026 for mid-sized units.
+- [ ] Photos of the 1,411 large held-out ads above the 95% point, on Haiku readers, only if
+  the finish term among the base-refit terms leaves the high tail as it is. The text of large
+  ads covers the second level (duplex, queued), the full floor and renovation (no excess in
+  either tail), and the low tail's images were read on Nov 18
+  (`docs/notes/large-unit-text-2026-11-21.md`).
 - [ ] Backtests on 2024-11-10 and 2025-05-10, each a fit of the served design with the
   day's open ads held out. The served median is 0.47% above the held-out asks of the
   latest split, and in 2022 and 2023 most of that comes with the split: a unit's last ad is an ask low
@@ -378,7 +379,11 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   bedrooms; the first-floor level and the duplex factor of
   `docs/notes/duplex-scale-2026-11-18.md`, the level confirmed on the model's own floor
   snapshot by `docs/notes/four-traits-2026-11-21.md`, with a floor-1 scale term as the second
-  candidate if the level leaves the low tail wide. None changes enough of the Deals list for a fit
+  candidate if the level leaves the low tail wide; a level for 3+ bedroom rows rising with
+  the building's share of ads naming finishes (marble, a chef's kitchen, named appliances),
+  taken from the building's earlier ads: −0.011 at share 0 and +0.006 to +0.010 over 0.5,
+  about half of it inside a tier of predicted rent
+  (`docs/notes/large-unit-text-2026-11-21.md`). None changes enough of the Deals list for a fit
   of its own (the changed-count and three-bath classes hold about 60 of 425 low-tail ads on
   the backtest).
 - [x] Deals page: a first ask below the 5% point closes sooner for studios and one-bedrooms
