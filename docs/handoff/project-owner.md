@@ -15,7 +15,7 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
-### State at about 4:40 PM ET on Nov 20, after the closing-raise score
+### State at about 9 PM ET on Nov 20, after the closing-raise score
 
 - Deals is live from `range-m3` (published Nov 20 at 4:16 PM ET, 6,502 ads, backtest `range-j`;
   results in `docs/notes/market-refresh-2026-11-20.md`).
@@ -80,6 +80,16 @@ subagent's model and effort to be picked by its task.
   are in `/data1/apartments/tmp/deals-backup/20261120-1950`. A publish now takes about 3
   minutes, against 2 before.
 - Modal spend is unchanged at $80.43 of $100. Nothing is running or queued.
+- Plan-type misses (#1486, merged as `e90e1c52`, no fit,
+  `docs/notes/plan-type-misses-2026-11-20.md`): new buildings' units of two or more bedrooms
+  share 23% of their backtest gap variance within building and bedroom count (0.0046, se
+  0.0013; 431 ads, 221 buildings; 19% and 32% by half; 30% without the five named buildings).
+  The unit line adds nothing stable (excess 0.0124 on half A, 0.0006 on half B, 30 pairs), and
+  blind ad readings of 302 ads gave no text code that holds on history. The plan image's excess
+  is steady but small (0.0022, se 0.0007). So there is no new column, and the building x
+  bedroom-count level (LN1, written, unfit) stays a candidate for the next base refit. The 307
+  open ads on pages whose previous ad has another bedroom count are still unread (open TODO
+  item).
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
 
