@@ -1,0 +1,12 @@
+38 unit-filled ads in the sample
+       more_beds       sizes_differ      
+             sum count          sum count
+dir                                      
+high           2     9            2     9
+inside         1    13            4    13
+low            2    16            2    16
+dir        high  inside  low
+size_beds                   
+1.0           0       5    8
+2.0           1       0    2
+3.0           1       1    0
