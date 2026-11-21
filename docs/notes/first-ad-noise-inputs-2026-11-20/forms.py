@@ -2,7 +2,8 @@
 
 Usage: forms.py TAG. A form marks an ad `busy` from rows before its first day. For each
 form the factors of the busy and quiet first-ad ads are fitted on one half of the buildings
-and scored on the other, as in heldout.py. The form is picked by the gain inside half 0.
+and scored on the other, as in heldout.py. The form is picked by the gain inside half 0,
+but the list of forms was written with both halves in view, since both are printed.
 """
 
 import sys

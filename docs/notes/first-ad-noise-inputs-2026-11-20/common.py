@@ -17,7 +17,11 @@ def half(buildings) -> np.ndarray:
 
 
 def bins(t: pd.DataFrame) -> pd.DataFrame:
-    """The inputs as groups. Cut points are round numbers fixed before any outcome was read."""
+    """The inputs as groups, at round cut points.
+
+    The cut points were not fixed beforehand: every script prints both halves of the
+    buildings together, so groups and cuts were chosen with both in view.
+    """
     o = pd.DataFrame(index=t.index)
     o["label"] = t.label_st
     o["label seen before"] = np.where(t.lab_ads > 0, "yes", "no")

@@ -1,7 +1,8 @@
 # Which first-day inputs mark the wide asks of units with no earlier ad (no fit)
 
 2026-11-20. No fit was run and nothing was published. Scripts and short logs are in
-`docs/notes/first-ad-noise-inputs-2026-11-20/`. Each figure below names its log.
+`docs/notes/first-ad-noise-inputs-2026-11-20/`. Each figure below names its log. The note
+was revised in review the same day: the conclusion changed, and the changed passages say so.
 
 ## Summary
 
@@ -16,17 +17,29 @@
 - The unit label failing the label standard does not mark the wide asks (factor 0.99 and
   0.96 on 78 and 86 ads). Neither does the lister's reposting so far, counted over all the
   lister's ads.
-- The building's ad history marks only buildings with under five earlier ads (factor 1.22
+- The building's count of all earlier ads marks only buildings with under five (factor 1.22
   and 1.36), and they hold 142 and 168 ads, too few to trust alone.
-- One input separates on both halves, on both models and on the training rows. Take a
+- A lister input separates on both halves, on both models and on the training rows. Take a
   first-ad unit, and ask whether its lister closed an ad of the same bedroom and bath counts
   under another label in the same building in the 30 days before this ad opened. Where the
-  lister did not (43% of first-ad ads), the factor is 1.23 and 1.32 and the 80% range covers
-  71.2% and 66.2%. Where the lister did, the factor is 0.99 and 0.91 and coverage is 79.8%
-  and 80.8%.
-- A factor for the first group, chosen on one half and scored on the other, is worth 12.2
-  (SE 11.9) and 37.8 (SE 9.2) elpd, 50 in all on 9,346 ads. It is proposed as a candidate
-  for the next base refit. The size of the gain rests on one backtest day.
+  lister did not (43% of first-ad ads, "quiet"), the factor is 1.23 and 1.32 and the 80%
+  range covers 71.2% and 66.2%. Where the lister did, the factor is 0.99 and 0.91 and
+  coverage is 79.8% and 80.8%. A factor for the quiet group, fitted on one half and scored
+  on the other, is worth 12.2 (SE 11.9) and 37.8 (SE 9.2) elpd, 50 in all on 9,346 ads.
+- Review found that this mark is largely thin support for the building at that bedroom
+  count. Among quiet first ads the factor is 1.52 and 1.65 where the building has no
+  earlier ad of the same bedroom count, 1.27 and 1.43 at 1 to 4, 1.18 and 1.28 at 5 to 19,
+  and 1.10 and 1.10 at 20 or more. Forms with no lister in them do about as well: "no
+  same-bedroom ad opened in the building in 365 days" gains 17.8 (SE 9.2) and 31.3 (SE
+  9.5), and "under 20 earlier same-bedroom ads in the building" 18.2 (SE 7.9) and 22.9 (SE
+  8.6). The lister's turnover still adds a little at 20 or more (busy first ads 0.94 and
+  0.90).
+- That is the gap the proposed level for building and bedroom count addresses (LN1,
+  `docs/notes/plan-type-misses-2026-11-20.md`). The candidate for the next base refit is
+  therefore: fit LN1 first, then test whether a factor by thin same-bedroom building
+  history is still needed. The lister form is a secondary candidate.
+- The evidence is suggestive only. It is one backtest day, and every grouping and form,
+  the reviewer's included, was chosen with both halves in view. No unread test exists.
 
 ## What the model does now
 
@@ -43,8 +56,10 @@ uses anything about the label, the lister or the building's history to set the w
 ## Evidence used, and why not the latest split
 
 `latest.py` counts the held-out ads of the latest-split run `l2bt` whose unit has no
-training ad: 0 of 189,647. The split holds out the last ad of each unit with two or more
-ads. So the question was taken to two other places.
+training ad: 0 of 189,647. The split holds out the last ad of a random 10% of the units
+with two or more ads (`latest_split` in `frontier/src/rentfrontier/splits.py`), so every
+held-out ad's unit keeps at least one training ad, which is why it has no first-ad units.
+So the question was taken to two other places.
 
 1. The market backtest as of 2025-11-10: every ad open on that day is held out, and the model
    is fitted to ads that closed before it. Two runs are scored on the same 9,346 ads
@@ -58,8 +73,16 @@ ads. So the question was taken to two other places.
    one day recurs over the years, not to size a factor.
 
 Halves. Buildings are split by the first byte of sha1("first-ad-noise-2026-11-20" + building
-id), even to half 0 and odd to half 1 (`common.py`). Cut points and forms were chosen on
-half 0. Both halves are reported everywhere. Standard errors are clustered by building.
+id), even to half 0 and odd to half 1 (`common.py`). Standard errors are clustered by
+building.
+
+Forking, stated plainly. Nine groupings of the inputs (`common.py`) and ten two-group forms
+(`forms.py`) were tried, and review added seven more forms (`xtab.py`). Every script prints
+both halves together, so the groupings, their cut points and the forms were all chosen with
+both halves in view. The one choice made on half 0 alone is 30 days over 7 days, by 0.1
+elpd. A gain "fitted on one half and scored on the other" therefore guards the size of a
+factor against overfitting, and does not guard the choice of form. With one backtest day and
+forms seen on both halves, the evidence is suggestive, and no unread test exists.
 
 Scale factor. As in `docs/notes/history-scan-2026-11-18.md`, each held-out ad's predictive
 is approximated by a Student t centred on the median, with scale from the quartiles and the
@@ -90,7 +113,8 @@ held-out row. No input reads a rent.
 - **Lister's turnover here ("closed").** Whether the same lister closed an ad in the building
   under another label, with the same bedroom and bath counts or any counts, in the 7 or 30
   days before this ad opened. The join takes only ads opened before the first day and closed
-  on or before it.
+  on or before it. A close on the ad's first day itself counts (`build.py`, the `pr` join),
+  so the input assumes the close is known by the time the ad is priced that day.
 
 Test in code. `check.py` rebuilds the inputs from a copy of the data cut at a day: ads opened
 after the day are dropped, records dated after it are dropped, and any later close day is
@@ -218,20 +242,24 @@ separate. Listers with 1,000 or more earlier ads hold 78% of first-ad ads and ne
 1.07. Listers whose share of repostings under a new label is over 5% hold 92% and need 1.07
 and 1.08. The smaller groups have under 100 ads a half and disagree between halves.
 
-**(c) The building's ad history.** Only buildings with under five earlier ads stand out
-(1.22 and 1.36, 3.03% and 2.61% beyond six scales in the 1 to 4 group), on 142 and 168 ads
-with SEs of 0.13 to 0.19. From five ads up the factor falls from about 1.1 to 1.04 with no
-step. The proxy shows no such pattern (0.52% to 0.68% for buildings under 100 ads), though
-it leaves out most small cells. Years in the data add nothing beyond the count.
+**(c) The building's ad history.** Counted over all the building's ads, only buildings with
+under five earlier ads stand out (1.22 and 1.36, 3.03% and 2.61% beyond six scales in the 1
+to 4 group), on 142 and 168 ads with SEs of 0.13 to 0.19. From five ads up the factor falls
+from about 1.1 to 1.04 with no step. The proxy shows no such pattern (0.52% to 0.68% for
+buildings under 100 ads), though it leaves out most small cells. Years in the data add
+nothing beyond the count. The count of earlier ads of the same bedroom count is a different
+matter. It was not among the inputs first tried, and it separates well (see "The mark
+against the building's same-bedroom history").
 
 **The input that separates: the lister's turnover in the building.** What the candidates
 were reaching for is whether this ad is one of a stream from a lister who is working the
 building. A first ad that opens just after the same lister closed the same bedroom and bath
 counts under another label is either the same apartment under a new label or the next unit
 of a lease-up, and the model has fresh asks of its neighbours. A first ad with no such close
-before it is a one-off, and it is where the wide asks are. The mark does nothing for units
-with an earlier ad: factors 0.95 and 0.99 without the close, 1.01 and 1.00 with it
-(`logs/forms-crj.log`).
+before it is where the wide asks are. The mark does nothing for units with an earlier ad:
+factors 0.95 and 0.99 without the close, 1.01 and 1.00 with it (`logs/forms-crj.log`).
+Review showed that most of this separation is the building's history at the same bedroom
+count, not the lister (see "The mark against the building's same-bedroom history").
 
 ## Forms compared
 
@@ -263,8 +291,61 @@ within one SE of zero, the half 1 figure is four SEs from it.
 With the other half's factor, the 80% range of the marked ads covers 83.1% and 78.1% (from
 71.2% and 66.2%) and the 95% range 95.5% and 93.9% (from 87.8% and 87.6%).
 
-Within the marked group the building's count of ads adds nothing: 1.23 and 1.32 for
-buildings with 20 or more earlier ads and 1.23 and 1.32 for fewer.
+Within the marked group the building's count of all earlier ads adds nothing: 1.23 and 1.32
+for buildings with 20 or more earlier ads and 1.23 and 1.32 for fewer. That is true of all
+the building's ads and false of its ads of the same bedroom count, as the next section
+shows.
+
+## The mark against the building's same-bedroom history (added in review)
+
+The reviewer of this note counted, for each held-out ad, the building's earlier ads of the
+same bedroom count, by any lister and under any label (`xtab.py`, `logs/xtab.log`, Deals
+model backtest). The rerun here reproduces the reviewer's figures exactly. Among the marked
+("quiet") first ads the factor falls steadily with that count, and among the rest it does
+not.
+
+| First-ad group | Earlier same-bedroom ads | Ads h0, h1 | m h0 | m h1 | 80% cover |
+| --- | --- | --- | --- | --- | --- |
+| Quiet | 0 | 113, 138 | 1.52 | 1.65 | 63.7, 52.2 |
+| Quiet | 1 to 4 | 145, 150 | 1.27 | 1.43 | 74.5, 67.3 |
+| Quiet | 5 to 19 | 147, 160 | 1.18 | 1.28 | 69.4, 68.1 |
+| Quiet | 20 or more | 241, 254 | 1.10 | 1.10 | 73.9, 72.0 |
+| Busy | 0 | 0, 0 | | | |
+| Busy | 1 to 4 | 73, 80 | 1.02 | 0.93 | 75.3, 78.8 |
+| Busy | 5 to 19 | 215, 252 | 1.12 | 0.93 | 72.6, 79.0 |
+| Busy | 20 or more | 636, 564 | 0.94 | 0.90 | 82.7, 81.9 |
+
+So the quiet group's 1.23 and 1.32 is an average over 1.52 and 1.65 where the building has no
+ad at that bedroom count and 1.10 where it has 20 or more. A busy first ad has such an ad by
+construction, since the lister just closed one.
+
+Forms that use no lister do about as well as the lister form. Each gives first-ad units two
+factors, fitted on one half and scored on the other, as in `forms.py`. Apart from the
+first row, each marked group is defined by the building's ads of the same bedroom count.
+
+| Marked group | Marked ads | m marked | m rest | Gain (SE) h0 | Gain (SE) h1 |
+| --- | --- | --- | --- | --- | --- |
+| The note's lister form, 30 days | 646, 702 | 1.23, 1.32 | 0.99, 0.91 | 12.2 (11.9) | 37.8 (9.2) |
+| None opened in 365 days | 234, 289 | 1.39, 1.47 | 1.04, 1.00 | 17.8 (9.2) | 31.3 (9.5) |
+| Under 20 earlier | 693, 780 | 1.21, 1.22 | 0.98, 0.96 | 18.2 (7.9) | 22.9 (8.6) |
+| Under 5 earlier | 331, 368 | 1.30, 1.40 | 1.03, 1.00 | 14.5 (9.9) | 28.2 (9.4) |
+| No earlier | 113, 138 | 1.52, 1.65 | 1.05, 1.03 | 16.6 (9.3) | 27.9 (9.3) |
+| None closed in 30 days | 525, 591 | 1.23, 1.32 | 1.02, 0.95 | 10.3 (10.2) | 29.8 (8.7) |
+
+Summed over halves the lister form is worth 50.0 elpd, the 365-day form 49.1 and the
+under-20 form 41.1, with SEs near 12 to 15, so they cannot be told apart. The lister-free
+forms are steadier between halves. These forms were written by the reviewer with both
+halves in view, like the note's own, so their gains are no cleaner than the lister form's.
+
+The lister's turnover still adds a little where the building has plenty of history: at 20
+or more same-bedroom ads the quiet first ads need 1.10 and 1.10 and the busy ones 0.94 and
+0.90.
+
+Reading. The mark is largely thin support for the building at that bedroom count. The model
+prices a first-ad unit from its building level and its columns, and where the building has
+few or no asks at that bedroom count the building level says little about this unit. That
+is the gap the proposed level for building and bedroom count (LN1,
+`docs/notes/plan-type-misses-2026-11-20.md`) addresses.
 
 The proxy agrees over all years (`logs/proxy.log`). Here far6 is the share of rows beyond six
 yardsticks.
@@ -280,62 +361,86 @@ yardsticks.
 
 First rows that follow the lister's close of the same counts are tighter than later rows of
 known units. The far asks of first-ad units sit in the other group, at five times the rate.
+The proxy was not rerun by the same-bedroom count, so it does not say whether the lister or
+the thin history carries this.
 
 ## Candidate for the next base refit
 
-Coding. For a row whose unit has no earlier ad, set `quiet` to 1 when no ad satisfies all of
-these: same lister, same building, a different label, the same bedroom and bath counts,
-opened before this ad's first day, closed on or before it and at most 30 days before it. Set
-it to 0 otherwise, and for every row of a unit with an earlier ad. A row with no lister is
-quiet.
+Revised in review. The first draft of this note proposed the lister form as the candidate.
+The cross-tab above changes the order.
 
-Ads. 1,348 of the backtest's 9,346 held-out ads (14.4%), 42.6% of its first-ad ads. In the
-training data, 41% of first rows with a proxy cell.
+1. Fit LN1 first. The wide first ads are largely ads of a building with little or no
+   history at that bedroom count, and that is the gap a level for building and bedroom
+   count addresses (`docs/notes/plan-type-misses-2026-11-20.md`; LN1 is
+   `drift-building-phase-line`, whose line is building, bedrooms and full baths). Under LN1
+   a first ad in a cell with no earlier ad draws its cell level from the population of cell
+   levels, which widens its range, and a first ad in a cell with many ads gets a level
+   learned from them. LN1 is written and not fit, and its GPU rehearsal did not converge,
+   so that comes first under the rules.
+2. Then test whether a factor by thin same-bedroom history is still needed. Score LN1 on a
+   market backtest and tabulate the scale factor of first ads by the building's count of
+   earlier same-bedroom ads, as `xtab.py` does. On the Deals model now the factors are 1.52
+   and 1.65 at no such ad, 1.27 and 1.43 at 1 to 4, 1.18 and 1.28 at 5 to 19 and 1.10 and
+   1.10 at 20 or more (quiet first ads), and 1.21 and 1.22 for all first ads under 20.
+3. The lister form is a secondary candidate, to be tried only if a gap remains after the
+   first two steps. Its coding: for a row whose unit has no earlier ad, set `quiet` to 1
+   when no ad satisfies all of these: same lister, same building, a different label, the
+   same bedroom and bath counts, opened before this ad's first day, closed on or before it
+   and at most 30 days before it. A row with no lister is quiet. It marks 1,348 of the
+   backtest's 9,346 held-out ads (14.4%), 42.6% of its first-ad ads.
 
-Size. The predictive scale of a quiet first ad should be about 1.25 times what the Deals
-model gives now (1.23 and 1.32; 1.25 and 1.34 on the phase model). The other first ads are
-at 0.99 and 0.91, so they need no widening and may want a little less.
-
-Expected on the 2025-11-10 backtest. About 50 elpd on 9,346 ads (SE about 15, halves 12 and
-38), against 15 for one factor for all first-ad units. The 80% coverage of quiet first ads
-rises from 68.6% to about 80% and the 95% coverage from 87.7% to about 95%. Ads of units
-with an earlier ad do not change.
+Coding of the thin-history input, if step 2 calls for it. For a row whose unit has no
+earlier ad, count the ads of the same building and bedroom count, of any lister and label,
+opened before this ad's first day. `xtab.py` computes it in duckdb from the ads table, and
+it reads no ask. It has not been through `check.py`'s cut test, which it would need before
+a fit.
 
 Form in the model, open. A new unit's range comes mostly from the unit sd (0.06) and little
 from the row scale (0.019 to 0.029), so a factor on the row scale alone cannot widen the
-range by a quarter. The factor would have to act on the level of a new unit, for example a
-second unit sd for quiet first ads, or on the whole predictive scale of the row. That choice
-belongs to whoever writes the fit's note. No model code was written here.
+range by a quarter. Under LN1 the width for a thin cell comes from the sd of the cell
+levels. Any further factor would have to act on the level of a new unit or on the whole
+predictive scale of the row. That choice belongs to whoever writes the fit's note. No model
+code was written here.
 
-Scoring. The latest split holds no first-ad units, so it cannot score this change. The fit
-has to be judged on the market backtest, and a second backtest day would test whether the
-gain of one day recurs.
+Scoring. The latest split holds no first-ad units, so it cannot score a change for them.
+LN1 itself is judged on the latest split as usual. The question of this note has to be
+judged on a market backtest, so LN1 needs a backtest fit as well, and a second backtest day
+would test whether the pattern of one day recurs.
 
-Draft of the written prediction for the fit.
+Draft of a prediction, for whoever writes LN1's fit note. It is a draft only. It was
+written after seeing both halves of this backtest, and the figures are guesses to be
+replaced when that note is written.
 
-> One change to the base: first ads whose lister closed no ad of the same counts under
-> another label in the building in the 30 days before opening get their own spread for the
-> new unit's level. Predicted on the 2025-11-10 backtest against the base on the same 9,346
-> ads: the spread for quiet first ads is 1.15 to 1.40 times that of other new units; elpd
-> rises by 20 to 70, most likely 40; 80% coverage of the 1,348 quiet first ads rises from
-> 68.6% to between 76% and 83%; elpd on the 6,178 ads of units with an earlier ad moves by
-> less than 5 either way; the median's error does not change by more than 0.0005; the fit
-> passes the gate. The change fails if the elpd gain is under 15 or the ratio's 90% interval
-> includes 1.
+> Draft. LN1 against the base on the 2025-11-10 backtest, same 9,346 ads. For first-ad
+> units with under 20 earlier ads of the same bedroom count in the building (693 and 780
+> ads on the two halves), the scale factor falls from 1.21 and 1.22 to between 1.00 and
+> 1.12 on each half. For those with no such ad (113 and 138 quiet ads) it falls from 1.52
+> and 1.65 to between 1.00 and 1.30. The 80% coverage of all first-ad units rises from
+> 76.2% and 74.4% to between 77% and 82%. The factor for units with an earlier ad stays
+> within 0.03 of 0.98 and 1.00. A separate factor by thin same-bedroom history is taken to
+> a fit of its own only if the under-20 group still needs more than 1.10 on both halves
+> under LN1. The lister form is tested after that, and only if quiet first ads with 20 or
+> more same-bedroom ads still need more than 1.05 on both halves.
 
 ## What is uncertain
 
-- One backtest day, open ads only, 3,168 first-ad ads. The half 0 gain is within one SE of
-  zero. The proxy supports the direction over all years but cannot size the factor.
+- One backtest day, open ads only, 3,168 first-ad ads. The half 0 gain of the lister form is
+  within one SE of zero. The proxy supports the direction over all years but cannot size a
+  factor.
+- Forking. Nine groupings and ten forms were tried in the note, and seven more forms in
+  review, all with both halves in view. The cross-half gains are not from an unread test,
+  and none exists here.
+- The lister mark and thin same-bedroom history overlap heavily, and one day cannot say how
+  much of the mark is the lister. Within 20 or more same-bedroom ads the lister mark still
+  separates (1.10 and 1.10 against 0.94 and 0.90).
+- Whether LN1 closes the gap is a prediction, not a result. LN1 has not been fit, and its
+  GPU rehearsal did not converge.
 - The t approximation stands in for the model's predictive. It matches the stored mean log
-  density to 0.001, but a fitted factor inside the model may differ from 1.25.
+  density to 0.001, but a fitted factor inside the model may differ from the ones here.
 - The 7-day and 30-day windows are tied on half 0. Thirty days was picked by a margin of 0.1
   elpd.
 - The ads table holds final values of each earlier ad's lister, label and counts. The cut
   test shows the code reads no later row. It cannot show that a stored field was not edited
   after the ad's first day.
-- The mark is partly a mark of large managed buildings. Within the quiet group the
-  building's size made no difference, but lister and building are hard to pull apart on one
-  day.
 - The backtest's first-ad units include ads still open on 2025-11-10, whose asks may yet be
   cut. That applies to every group here alike.

@@ -53,12 +53,18 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   Needs a note with predictions, and a check that each input reads no later ad.
   Outcome of the free check, 2026-11-20 (`docs/notes/first-ad-noise-inputs-2026-11-20.md`):
   the latest split holds no first-ad units, so the test ran on the 2025-11-10 backtest. The
-  label standard and the lister's totals do not mark the wide asks, and building history
-  marks only buildings with under five ads. A first ad whose lister closed no ad of the same
-  counts under another label in the building in the prior 30 days needs a scale factor of
-  1.23 and 1.32 on the two halves, the other first ads 0.99 and 0.91. Still to do: a fit
-  note with the prediction drafted there, the form of the factor in the model, and a second
-  backtest day.
+  label standard and the lister's totals do not mark the wide asks. A first ad whose lister
+  closed no ad of the same counts under another label in the building in the prior 30 days
+  needs a scale factor of 1.23 and 1.32 on the two halves, the other first ads 0.99 and
+  0.91. Review showed the mark is largely thin history of the building at that bedroom
+  count: among those ads the factor runs from 1.52 and 1.65 with no earlier same-bedroom ad
+  in the building to 1.10 and 1.10 with 20 or more, and forms with no lister in them gain
+  as much. That is the gap LN1 (the level for building and bedroom count,
+  `docs/notes/plan-type-misses-2026-11-20.md`) addresses. Still to do, in order: fit LN1
+  with a market backtest; tabulate the factor of first ads by same-bedroom history under
+  it; a factor by thin same-bedroom history only if one is still needed; the lister form
+  after that. The evidence is one backtest day with every form seen on both halves, so it
+  is suggestive and a second backtest day is wanted.
 - [ ] A renovation step dated from the unit's own ads: a column set from the first ad of a
   unit whose text says renovated or gut renovated when an earlier ad of the unit lacked the
   words. Ads switching the words on sit +0.009 to +0.012 over the model, and ads dropping
