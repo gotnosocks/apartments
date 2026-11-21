@@ -16,8 +16,9 @@ No fit was run and no money was spent. The script and log are in `joint-terms-20
 Student-t on its median with the scale from its quartiles; 7 degrees of freedom match the
 stored elpd best. Every ad's scale is multiplied by exp(a · x) and its centre moved by b · x,
 where x holds an intercept and the marks below. a and b are fitted on one half of the
-buildings (the history scan's halves) and scored on the other, both ways. The intercept alone (one scale and one shift
-for every ad) is the control, and the terms' gain is the full fit's gain over it.
+buildings (the history scan's halves) and scored on the other, both ways. The intercept alone
+(one scale and one shift for every ad) is the control, and the terms' gain is the full fit's
+gain over it.
 
 The marks read coded fields, the floor snapshot or the text, never the ask:
 
@@ -101,6 +102,6 @@ from live ads by another fit, so the turnover is a guide to how far its low end 
 
 The base-refit item in TODO gets the joint size: about +1,300 elpd on held-out ads from 2022
 on, building-clustered SE 70, beside an overall predictive about 4% too wide that belongs to
-the noise term. The four-bedroom level and the share-0 flag can be dropped, each worth about 10. The
-refit stays Ben's decision (about $22). A note with its predictions goes on master before
-the fit, and these sizes are its starting point.
+the noise term. The four-bedroom level and the share-0 flag can be dropped, each worth about
+10. The refit stays Ben's decision (about $22). A note with its predictions goes on master
+before the fit, and these sizes are its starting point.
