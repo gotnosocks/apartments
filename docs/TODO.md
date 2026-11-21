@@ -269,14 +269,22 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   "Observed attributes of large units"), so the scale comes first. The mean already
   reads the unit's size (`unit:log_size_rel`), and the scales read none, so the size goes
   to the sampler's unit steps through a module of its own. Predictions are in the sprint
-  note (`gamma` 0.3 to 0.6, elpd +150 to +500). U4 runs ahead of it.
+  note (`gamma` 0.3 to 0.6, elpd +150 to +500). U4 runs ahead of it. Sized on stored
+  predictions on 2026-11-21 (`docs/notes/unit-scale-2026-11-21.md`): a scale on `L` gains
+  +30 (SE 10) from 2022 on l2bt's latest split with slope 0.16 to 0.20, and +46 (SE 12)
+  beside U4 on the served backtest with slope 0.27 to 0.53; predict `gamma` 0.15 to 0.5 and
+  elpd +20 to +80. It leaves 0-1-bedroom ads over 1,000 sq ft at 0.70 coverage.
 - [ ] U4: a unit scale by bedroom count, a factor on the sd of a unit's lasting level for
   2 bedrooms and for 3 or more. For units with no ad in training the 80% interval covers
   0.733, 0.693 and 0.663 of final asks at 2, 3 and 4 or more bedrooms in the backtest j9
   against 0.818 for 1-bedrooms, and 2,244 of those 2,845 ads state no size, so a scale
   on size alone leaves them where they are. Predictions are in the sprint note (factors
   1.2 to 1.6 and 1.4 to 2.0, new-unit coverage for 2 or more bedrooms from 0.72 to
-  between 0.76 and 0.80, elpd +100 to +500).
+  between 0.76 and 0.80, elpd +100 to +500). Sized on the served backtest's stored
+  predictions on 2026-11-21 (`docs/notes/unit-scale-2026-11-21.md`): +21 (SE 10.5), factors
+  1.08 to 1.20 and 1.31 to 1.47, new 3+ bd coverage 0.711 to 0.810; predict elpd +10 to
+  +80 on a backtest. l2bt's re-listed 3+ bd ads already cover 0.822, and the latest split
+  holds out no new unit, so U4 on l2bt's design is read only by a backtest of that design.
 - [ ] U3: a building-level term for large units, on U1's winner. Either a coefficient per
   building on `max(0, log(sqft / 1000))`, or a level per building for its apartments of
   2 or more bedrooms. Different large units of one building share 25% of the persistent

@@ -225,6 +225,13 @@ subagent's model and effort to be picked by its task.
   marks the source marks gain +22 (SE 9) on all years and +29 (SE 12) from 2022 on, feed
   scale 0.98 to 1.01. b9's +140 most likely came from feed ads being most of the pre-2020
   ads. The TODO item is closed with no term.
+- Unit scales U4 and U1 (no fit, `docs/notes/unit-scale-2026-11-21.md`). The latest split
+  holds out no new unit, so U4 was read on the served design's backtest: +21 (SE 10.5), new
+  3+ bd coverage 0.711 to 0.810, factors 1.08 to 1.20 and 1.31 to 1.47. On l2bt, re-listed
+  3+ bd ads already cover 0.822 and a mark narrows them (+69 from 2022). U1 is modest: +30
+  on l2bt from 2022 (slope 0.16 to 0.20), +46 beside U4 on the backtest. Both stay on the
+  refit's list with predictions revised down. Reading U4 on l2bt's design needs a backtest of
+  that design, which costs money; that is Ben's call.
 - Year scale (Y1) on stored predictions (no fit, `docs/notes/year-scale-2026-11-21.md`):
   l2bt's design (best on the latest split; Deals reads the range model) leaves it whole,
   +1,174 (SE 60) on all years with 2020 and 2021 about 25% wider than 2024. From 2022 on it

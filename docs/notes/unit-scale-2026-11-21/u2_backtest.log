@@ -1,0 +1,39 @@
+ads 9346 ; new units 3168 ; with a size 4718
+ads with L > 0: 1236 ; new with L > 0: 387
+by half: [4819, 4527] ; stored elpd 10042.1
+t df, picked on the backtest: 7 ; t elpd 10047.2
+
+intercept only: cross-fit gain    -1.0 (SE   5.9)
+
+reference: intercept + new: cross-fit gain     9.4 (SE  13.1)
+  new mark:   10.4 (SE  10.9); by half [np.float64(-4.5), np.float64(14.9)]
+    by group: {'new 0-1 bd': -5.4, 'new 2 bd': 4.0, 'new 3+ bd': 12.0, 'repeat 0-1 bd': 4.1, 'repeat 2 bd': -3.3, 'repeat 3+ bd': -1.1}
+    new        scale (fit on A, on B) 1.031 1.160; shift +0.0101 +0.0140
+
++ U4: cross-fit gain    30.4 (SE  16.4)
+  U4 over the reference:   21.0 (SE  10.5); by half [np.float64(6.1), np.float64(14.9)]
+    by group: {'new 0-1 bd': 11.6, 'new 2 bd': 1.9, 'new 3+ bd': 7.4, 'repeat 0-1 bd': 0.0, 'repeat 2 bd': 0.0, 'repeat 3+ bd': 0.0}
+    new, 2 bd  scale (fit on A, on B) 1.203 1.084; shift -0.0037 -0.0114
+    new, 3+ bd scale (fit on A, on B) 1.308 1.470; shift -0.0013 +0.0208
+
++ U4 + bedroom marks for every ad: cross-fit gain    44.9 (SE  18.1)
+  bedroom marks for every ad beside U4:   14.5 (SE   7.7); by half [np.float64(10.9), np.float64(3.7)]
+    by group: {'new 0-1 bd': -0.0, 'new 2 bd': 0.0, 'new 3+ bd': 0.0, 'repeat 0-1 bd': 5.9, 'repeat 2 bd': 3.7, 'repeat 3+ bd': 5.0}
+    2 bd       scale (fit on A, on B) 1.113 1.094; shift -0.0015 -0.0056
+    3+ bd      scale (fit on A, on B) 1.155 1.083; shift -0.0187 -0.0104
+
++ U4 + U1: cross-fit gain    76.6 (SE  20.2)
+  U1 over U4:   46.2 (SE  12.1); by half [np.float64(26.8), np.float64(19.4)]
+    by group: {'new 0-1 bd': 2.9, 'new 2 bd': 9.9, 'new 3+ bd': 8.6, 'repeat 0-1 bd': 8.5, 'repeat 2 bd': -0.6, 'repeat 3+ bd': 17.0}
+    L          scale (fit on A, on B) 1.693 1.433; shift -0.0069 -0.0019
+    new x L    scale (fit on A, on B) 0.890 0.911; shift +0.0556 +0.0990
+
+80% coverage by group (own: the stored predictive's 10% and 90% quantiles):
+                 own      t    ref     U4  U4+U1   ads
+group                                                 
+new 0-1 bd     0.796  0.809  0.839  0.806  0.805  1665
+new 2 bd       0.743  0.751  0.772  0.782  0.783   987
+new 3+ bd      0.672  0.686  0.711  0.810  0.804   516
+repeat 0-1 bd  0.822  0.827  0.811  0.811  0.802  3695
+repeat 2 bd    0.795  0.798  0.786  0.786  0.789  1745
+repeat 3+ bd   0.780  0.789  0.778  0.778  0.809   738
