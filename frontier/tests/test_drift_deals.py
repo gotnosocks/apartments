@@ -551,6 +551,7 @@ def test_cautions_come_from_the_text_the_flag_the_beds_and_the_status(tmp_path):
             "not_home": 1,
             "owners_only": 0,
             "takeover": 0,
+            "short_lease": 0,
             "beds": 1,
             "rooms_up": 0,
             "net_ask": 0,

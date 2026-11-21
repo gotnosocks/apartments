@@ -128,6 +128,16 @@ TEXT = {
         r"|lease[- ](?:re-?)?assignment"
         r"|(?:re-?)?assign(?:ment of|ing)? (?:my |the |our )?lease)"
     ),
+    # A lease under 12 months by its length in months ("6-month lease", "10 mo term",
+    # "nine month sublet"). Both halves of the latest split's held-out buildings hold an
+    # excess of low asks with it, though one scan printed both halves at once
+    # (docs/notes/short-lease-2026-11-21.md). The guard in front keeps "13-month" and
+    # "1.5 month" from matching on their last digit; the one after "rental" keeps out fees.
+    "short_lease": (
+        r"(?<![\d.-])\b(?:[1-9]|1[01]|one|two|three|four|five|six|seven|eight|nine|ten"
+        r"|eleven)[- ]?(?:month|mo)s?[- ](?:lease|term|stay|sublet"
+        r"|rental(?! (?:fee|deposit|bonus|credit|concession|incentive)))"
+    ),
 }
 # Every code, in the order a row lists them.
 CODES = (

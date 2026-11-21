@@ -37,6 +37,14 @@ from rentfrontier import cautions
         ("Takeover of the lease through August 31", ["takeover"]),
         ("Lease take-over: taking over my lease gets you a low rent", ["takeover"]),
         ("Gut reno lease takeover, lease re-assignment by the landlord", ["takeover"]),
+        ("$17,500 for a 6-month lease or $19,995 with 1 month free", ["short_lease"]),
+        ("Price advertised is on 10 month leases!", ["short_lease"]),
+        ("9-mo lease available now", ["short_lease"]),
+        ("available for: nine month term or eighteen month term", ["short_lease"]),
+        (
+            "this is a 4\u2013month sublet or lease assignment",
+            ["takeover", "short_lease"],
+        ),
         # Ordinary wording gives no code.
         ("Income must be 40x the monthly rent. Guarantors welcome.", []),
         ("Minimum annual income: 40x the monthly rent", []),
@@ -48,6 +56,13 @@ from rentfrontier import cautions
         ("Flexible home office space. Gym for Owners only. Sorry.", []),
         ("Two Bedroom Two Bathroom Available Now! Central A/C (Per Room)", []),
         ("Income requirement: 40x the monthly rent", []),
+        ("1 month free on a 13-month lease", []),
+        ("1.5 month lease credit on a 12 month lease", []),
+        ("2 months free on a 24 month term", []),
+        ("One month security deposit, one month broker fee", []),
+        ("one month rental fee due at signing", []),
+        ("1 month rental deposit required", []),
+        ("Ask about our 6-month rental option", ["short_lease"]),
         (
             "Income Requirements: Tenants should earn an average yearly income of 40 x",
             [],

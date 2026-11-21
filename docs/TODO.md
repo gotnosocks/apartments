@@ -477,8 +477,11 @@ first.
     The texts table now keeps the chosen record's deposit; publish refuses one without it
     and `ops/deals-refresh publish` rewrites such a cached table. On `range-m3` it marks 75 of the 6,502 ads, 50 with no other caution, 4 in the
     first 60 and 11 in the first 300 of the default view.
-- [ ] A short-lease Deals caution for text that prices a lease under 12 months (one case
+- [x] A short-lease Deals caution for text that prices a lease under 12 months (one case
   in the first 60, "$17,500 for a 6-month lease").
+  - 2026-11-21: `short_lease` on the "N-month lease" form, whose excess of low asks holds
+    on both halves of the latest split's held-out buildings; one scan printed both halves at
+    once, so half B was not held back (`docs/notes/short-lease-2026-11-21.md`). 8 live ads.
 - [ ] Extend the `beds` caution or the bedroom text reader to "convertible", "alcove
   studio" and "wall not yet installed" on ads coded one bedroom or more.
 - [ ] If the `deposit_net` caution goes in, decide whether a free-months and lease-term fill
