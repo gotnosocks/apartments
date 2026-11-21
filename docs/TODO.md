@@ -482,8 +482,16 @@ first.
   - 2026-11-21: `short_lease` on the "N-month lease" form, whose excess of low asks holds
     on both halves of the latest split's held-out buildings; one scan printed both halves at
     once, so half B was not held back (`docs/notes/short-lease-2026-11-21.md`). 8 live ads.
-- [ ] Extend the `beds` caution or the bedroom text reader to "convertible", "alcove
+- [x] Extend the `beds` caution or the bedroom text reader to "convertible", "alcove
   studio" and "wall not yet installed" on ads coded one bedroom or more.
+  - 2026-11-21: no caution (`docs/notes/flex-wording-2026-11-21.md`). Wording the reader
+    misses holds no steady excess, and flagged flex wording is near the unmarked rate. Ads
+    coded 1 bedroom or more whose text reads as a studio are 12.5% and 17.5% low on the two
+    halves, but a third of the 24 live readings are reader errors.
+- [ ] A term for a studio reading on an ad coded 1 bedroom or more, beside
+  `ad:bed_text_smaller`, with `b0bedtext` fixes for amenity names ("wellbeats studio") and
+  "the size of a ... studio". One change for the next base refit, with a note and
+  predictions first (`docs/notes/flex-wording-2026-11-21.md`).
 - [ ] If the `deposit_net` caution goes in, decide whether a free-months and lease-term fill
   for exact fits (733 Lincoln, The Lightwell Dumbo) is worth a screen. It keeps the target
   net; a gross rent from the deposit would break it. The mark reads the page price, so it may
