@@ -418,6 +418,19 @@ def previous(frame: pd.DataFrame, held: np.ndarray) -> pd.DataFrame:
     return found.set_index("index")[cols].reindex(frame.index[held])
 
 
+def previous_columns(frame: pd.DataFrame, held: np.ndarray) -> dict[str, np.ndarray]:
+    """`previous` as the columns `prev_ask`, `prev_day` (a "YYYY-MM-DD" string, or None)
+    and `prev_bedrooms`, one value per held-out row in their order. The diagnostics table
+    and the Deals table (`drift_deals.deals`) both take them from here."""
+    before = previous(frame, held)
+    day = pd.to_datetime(before.latest_day).dt.strftime("%Y-%m-%d")
+    return {
+        "prev_ask": before.latest_ask.to_numpy(float),
+        "prev_day": day.where(day.notna(), None).to_numpy(object),
+        "prev_bedrooms": before.bedrooms.to_numpy(float),
+    }
+
+
 def run_ads(
     run_dir: Path, source: str, registry: pd.DataFrame | None
 ) -> tuple[pd.DataFrame, pd.DataFrame, np.ndarray]:
@@ -445,11 +458,8 @@ def run_ads(
         np.where(out.building_ads >= BUILDING_BASIS, "building", "area"),
     )
     key = apartment(frame)
-    before = previous(frame, held)
-    out["prev_ask"] = before.latest_ask.to_numpy(float)
-    day = pd.to_datetime(before.latest_day).dt.strftime("%Y-%m-%d")
-    out["prev_day"] = day.where(day.notna(), None).to_numpy(object)
-    out["prev_bedrooms"] = before.bedrooms.to_numpy(float)
+    for name, values in previous_columns(frame, held).items():
+        out[name] = values
     counts = frame.bedrooms.groupby(key).nunique()
     out["_beds_conflict"] = (key[held].map(counts).fillna(0) > 1).to_numpy()
     return out, frame, held

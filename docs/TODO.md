@@ -104,10 +104,16 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   runs, 7,540 of 195,423 rows change `prev_ask` or `prev_day` (7,385 had read another
   piece, 934 a held-out ad, 162 an ad of the same day). The published folder is unchanged
   until the next `publish`.
-- [ ] Deals: the previous-ask ring reads `diagnostics/ads.parquet` by listing id, so it
+- [x] Deals: the previous-ask ring reads `diagnostics/ads.parquet` by listing id, so it
   comes from the diagnostics fits (2026-11-09), not the fit Deals publishes, and 2,462 of
   6,502 live deals have no diagnostics row. Republish diagnostics from the Deals fit's
   pair of runs, or give `deals.json` its own previous ad from `drift_diagnostics.previous`.
+  Done 2026-11-20 in code: `drift_deals.deals` gives each deal `prev_ask` and `prev_day`
+  from `drift_diagnostics.previous` on the run's own rows and held-out mask, and the page
+  draws the ring from them (an older `deals.json` still reads the diagnostics). A dry run
+  on the live run gives 4,380 of the 6,502 deals a ring, against 2,805 now: 1,575 gain one,
+  none lose one, and 3 of the 2,805 move. Every other field of `deals.json` is the same.
+  The live page is unchanged until the next `publish`.
 - [ ] Size-fill order, for the next base refit (read done 2026-11-20, no fit:
   `docs/notes/size-fills-read-2026-11-20.md`). The blanking rule proposed by the outlier
   sprint is rejected in two of its three clauses. Line fills more than 20% to 60% over the

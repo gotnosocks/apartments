@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from rentfrontier import drift_deals
+from rentfrontier import drift_deals, drift_diagnostics
 from rentfrontier.b0data import sha256
 
 
@@ -328,6 +328,34 @@ def test_publish_writes_the_sites_folder_from_the_runs_manifests(tmp_path, monke
     )
     with pytest.raises(SystemExit, match="not on this machine"):
         drift_deals.publish(run, out)
+
+
+def test_each_deal_carries_its_units_previous_ad_from_the_runs_own_dataset(tmp_path):
+    def change(rows):
+        # Listing 1, the training ad of unit a/u1, is from May. Unit b/u3 holds listing 3,
+        # an earlier ad held out by the fit, and listing 5, a training ad of the same day
+        # as listing 4: neither is listing 4's previous ad.
+        rows.loc[0, "latest_day"] = date(2026, 5, 1)
+        rows.loc[2, ["unit_id", "latest_day"]] = ["u3", date(2026, 10, 1)]
+
+    run, _, reg = _scored(tmp_path, change=change)
+    out = tmp_path / "deals"
+    drift_deals.publish(run, out, reg)
+    rows = {r["listing_id"]: r for r in json.loads((out / "deals.json").read_text())}
+    assert {k: (r["prev_ask"], r["prev_day"]) for k, r in rows.items()} == {
+        "2": (3000.0, "2026-05-01"),
+        "3": (None, None),
+        "4": (None, None),
+        "6": (None, None),
+    }
+    # The table is `drift_diagnostics.previous` on the run's rows and held-out mask.
+    frame, _, held = drift_deals._held_frame(run)
+    t = drift_deals.deals(run, tmp_path / "ads.parquet").set_index("listing_id")
+    before = drift_diagnostics.previous(frame, held)
+    expect = pd.Series(before.latest_ask.to_numpy(), frame.listing_id[held].to_numpy())
+    pd.testing.assert_series_equal(
+        t.prev_ask.loc[expect.index], expect, check_names=False
+    )
 
 
 def test_publish_refuses_runs_in_the_wrong_places(tmp_path):
