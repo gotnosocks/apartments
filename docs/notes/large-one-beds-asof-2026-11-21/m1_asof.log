@@ -1,0 +1,33 @@
+text flags 31
+dataset ads 1896471 ; no flags row: 2671
+held-out ads 189647 ; new units 0 ; with a size 99772
+new-unit share by year: {2014: 0.0, 2015: 0.0, 2016: 0.0, 2017: 0.0, 2018: 0.0, 2019: 0.0, 2020: 0.0, 2021: 0.0, 2022: 0.0, 2023: 0.0, 2024: 0.0, 2025: 0.0, 2026: 0.0}
+ads with L > 0: 22564 ; mean L there 0.32
+
+from 2022: the group's residual and tails (stored cdf) by half
+  all       n    618 res -0.0256 low 0.231 high 0.102 | n    512 res -0.0212 low 0.229 high 0.117
+  stated    n    446 res -0.0128 low 0.209 high 0.114 | n    396 res -0.0109 low 0.194 high 0.136
+  filled    n    172 res -0.0585 low 0.291 high 0.070 | n    116 res -0.0564 low 0.345 high 0.052
+  studio    n     60 res -0.0279 low 0.267 high 0.100 | n     45 res -0.0127 low 0.289 high 0.156
+  1 bd      n    558 res -0.0253 low 0.228 high 0.102 | n    467 res -0.0220 low 0.223 high 0.113
+  other ads n  62333 res -0.0051 low 0.106 high 0.082 | n  66398 res -0.0056 low 0.107 high 0.079
+  share of the group's misses below the 10% point: 0.679
+
+t df, picked on ads from 2022: 7
+from 2022: reference: cross-fit gain   2504.0 (SE  92.7)
+from 2022: + group marks: cross-fit gain   2575.9 (SE  94.8)
+  group marks over the reference:    71.9 (SE  14.6); by half [np.float64(42.0), np.float64(29.9)]
+    by group: {'group, filled': 40.4, 'group, stated': 31.3, 'other': 0.1}
+    group      scale (fit on A, on B) 1.266 1.266; shift -0.0164 -0.0128
+from 2022: + split by source and studio: cross-fit gain   2585.8 (SE  95.2)
+  split marks over the group marks:     9.9 (SE   6.6); by half [np.float64(3.9), np.float64(6.0)]
+    by group: {'group, filled': 8.6, 'group, stated': 2.3, 'other': -1.0}
+    group      scale (fit on A, on B) 1.230 1.243; shift -0.0093 -0.0041
+    group, filled scale (fit on A, on B) 1.083 1.043; shift -0.0245 -0.0329
+    group, studio scale (fit on A, on B) 1.010 1.082; shift -0.0079 -0.0152
+  80% coverage by group, from 2022:
+                 own  reference  + group  + split     ads
+group                                                    
+group, filled  0.625      0.656    0.774    0.806     288
+group, stated  0.673      0.684    0.804    0.796     842
+other          0.813      0.801    0.800    0.800  128731

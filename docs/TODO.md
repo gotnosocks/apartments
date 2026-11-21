@@ -144,7 +144,10 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   are 12% to 21% below the 5% point against 10% to 12% for stated sizes, about twice the
   share, and predicted rent does not explain it (stated sizes reweighted to the fills' mix
   of predicted rent are 9.0% and 9.8% low). The checked size has a slope of 0.8 on the
-  filled one on the later check (same note). One change per fit.
+  filled one on the later check (same note). One change per fit. On l2bt's stored
+  predictives, 0-1-bedroom ads with a filled model size over 1,000 sq ft have residual
+  −0.058 and −0.056 by half, and a mark of their own adds +9.9 (SE 6.6) beside the large
+  0-1-bedroom mark (`docs/notes/large-one-beds-asof-2026-11-21.md`).
 - [ ] For Modeling: extend `label_key` in `pipeline/models/analysis/label_units.py` to
   labels with "apt" or "unit" typed after or inside the unit ("garden-apt", "3apt",
   "5c-unit") and to penthouse labels with a leading zero ("0phb"). Of 19,481 page pairs
@@ -276,7 +279,9 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   elpd +20 to +80. It leaves 0-1-bedroom ads over 1,000 sq ft at 0.70 coverage.
   Those ads were read on 2026-11-21 (`docs/notes/large-one-beds-2026-11-21.md`): a scale
   and shift mark for them gains +65 (SE 14) from 2022 on l2bt, scale 1.25, coverage to
-  0.80, and no kind of apartment holds a block of the misses. Carry that mark beside U1.
+  0.80, and no kind of apartment holds a block of the misses. Carry that mark beside U1,
+  defined on the sizes the fit reads: there it gains +72 (SE 15), scale 1.27, coverage
+  0.68 to 0.80 (`docs/notes/large-one-beds-asof-2026-11-21.md`).
 - [x] Size fills across bedroom counts (2026-11-21,
   `docs/notes/size-fill-beds-2026-11-21.md`): unit fills draw on another bedroom count at
   0.189 and line fills at 0.086, and a matched fill would take a size from 3.6% of listings.
