@@ -20,8 +20,8 @@ ad the model fits has gap near -0.004 and low and high near 0.05 to 0.06. The ma
 fields or the text, never the ask. Each script printed both halves at once, so half B was not
 held back from the choices below.
 
-- The walk-up mark is the ads dataset's `elevator` False, by the first entry of `regions` (a
-  crawl region, not a borough).
+- The walk-up mark is the ads dataset's `elevator` False, by the first entry of `regions`, which
+  names a crawl region.
 - The doorman mark is the coded `doorman_type`.
 - The condo mark is "condo", "condominium" or "co-op" in the text; the owner mark is "owner",
   "owned by", "privately owned" or "my apartment".
@@ -33,9 +33,9 @@ held back from the choices below.
 
 ## Results (`fx5_fields.py`, `fx6_floor1.py`)
 
-**Walk-ups: no steady excess of low asks.** In each region the coded walk-ups run a slightly
-lower median than the elevator buildings, most below 59th Street (gap -0.012 and -0.010, se
-0.003) and around Prospect Park (-0.011 and -0.012), but the low share does not hold: 8.5%
+**Walk-ups: no steady excess of low asks.** In most regions the coded walk-ups run a slightly
+lower mean error than the elevator buildings, most below 59th Street (gap -0.012 and -0.010, se
+0.003 and 0.002) and around Prospect Park (-0.011 and -0.012), but the low share does not hold: 8.5%
 on half A below 59th and 6.5% on B, 5.9% and 5.4% around Prospect Park. Part of the gap is
 floor 1, below.
 
@@ -43,17 +43,18 @@ floor 1, below.
 doormen at 6.5% and 6.4%.
 
 **Condo or co-op text: a small two-sided excess.** 8,583 and 8,464 ads, low 7.0% and 7.0%
-and high 5.7% and 5.5%, against 5.9% and 5.7% low and 4.9% and 5.0% high for the rest. The
-median is close (gap -0.007 and -0.005 against -0.004), so the interval is a little narrow for
+and high 5.7% and 5.4%, against 5.9% and 5.7% low and 4.9% and 5.0% high for the rest. The
+mean error is close (gap -0.007 and -0.005 against -0.004), so the interval is a little narrow for
 these units, which fits units let by many small owners. Owner wording adds nothing on its own
 (4.6% and 4.2% low).
 
-**Garden wording: nothing beyond the floor.** Garden wording on coded floor 1 is 5.2% and 6.9%
-low on 134 and 102 ads. The excess is in coded floor 1 itself, with or without the wording.
+**Garden wording: no excess.** Garden wording on coded floor 1 is 5.2% and 6.9% low, gap
+-0.004 (se 0.007 and 0.009), on 134 and 102 ads, too few to tell. The excess below is in the
+coded floor-1 ads without the wording.
 
 **Floor 1: a steady excess of low asks, on both halves.**
 
-| Coded `label_floor` | Ads (A, B) | Gap (A, B), se | Low (A, B) | High (A, B) |
+| Coded `label_floor`, no garden wording | Ads (A, B) | Gap (A, B), se | Low (A, B) | High (A, B) |
 |---|---|---|---|---|
 | 1 | 6,328, 6,471 | -0.012, -0.011, 0.001 | 8.3%, 8.0% | 5.5%, 5.2% |
 | 2-3 | 20,123, 20,138 | -0.004, -0.004 | 5.3%, 5.2% | 4.5%, 4.8% |
@@ -70,24 +71,25 @@ without the garden flag:
 | elevator not coded in the ads dataset | 5,152, 5,041 | -0.011, -0.011 (se 0.001) | 7.4%, 7.6% |
 | garden flag on floor 1 | 450, 402 | -0.019, -0.016 (se 0.005) | 8.0%, 8.2% |
 
-Floor 2 in elevator buildings is 5.9% low on both halves, gap -0.004. So the model prices a
-floor-1 unit about 1% above where its held-out asks fall, and the low tail is wider there. The
+Floor 2 in elevator buildings is 5.9% low on both halves, gap -0.004. So floor-1 asks fall about 1%
+further below the model's median than asks on higher floors (gap -0.012 against -0.004), and
+the low tail is wider there. The
 `unit:garden` flag does not take it up.
 
 ## Why floor 1 might run low
 
-The served model's floor curve is pinned at zero on floor 1 and draws floors 2 and up from a
+The served model's floor curve is held at zero on floor 1 and draws floors 2 and up from a
 Gaussian process on log floor (`building_zones_floor.py`), with a lengthscale prior centred
 on 0.7, about the distance from log 1 to log 2. A smooth curve can only partly follow a step
 between the ground floor and the next. A broker would add that ground-floor units vary more:
 street noise, a window onto a shaft or a back yard, bars on the windows, a duplex with a
-cellar. Both readings fit a lower median and a wider low tail.
+cellar. Both readings fit a lower mean and a wider low tail.
 
 ## Decision
 
 No caution: floor 1 is a trait of the unit, and a lower price for it is what a renter expects.
 The next base refit gets a candidate change: a `unit:floor1` step outside the Gaussian process,
-with the Normal(0, 0.5) prior the floor flags carry, so floor 1 can sit apart from the curve.
+with the Normal(0, 0.5) prior the floor flags carry, so floor 1 can step away from the curve.
 It goes in as one change, with its own note and predictions first. A floor-1 scale term is the
 second candidate if the step leaves the low tail wide. The condo text is a weaker lead for a
 scale term. Walk-ups, the virtual doorman and garden wording are closed.

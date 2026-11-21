@@ -505,7 +505,7 @@ first.
   (7 against 1), and garden or ground-floor wording against the floor field (18 against 11).
   - 2026-11-21: walk-ups, the virtual doorman and garden wording hold no steady excess.
     Condo or co-op text holds a small two-sided one. Coded floor 1 runs low on both halves
-    (8.3% and 8.0% low, gap -0.012 and -0.011), garden flag or not
+    (8.3% and 8.0% low, gap -0.012 and -0.011), with or without the snapshot's garden flag
     (`docs/notes/four-traits-2026-11-21.md`).
 - [ ] For the next base refit: a `unit:floor1` step outside the floor curve's Gaussian
   process, as one change with its own note and predictions. A floor-1 scale term is the
