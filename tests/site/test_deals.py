@@ -9,6 +9,7 @@ import re
 from pathlib import Path
 
 import duckdb
+from markupsafe import escape
 
 from apartments.site import deals, tags
 
@@ -435,6 +436,11 @@ def test_url_filters_for_hoods_beds_rent_sqft_floor_and_toggles(client, site_roo
     assert "45% of the time for studios against 30% for mid-range asks" in html
     assert "39% against 29% for one bedroom" in html
     assert "no sooner (24% against 24%)" in html
+    # The cautioned toggle's tooltip names every caution label.
+    assert f'title="{escape(deals.CAUTIONED_TITLE)}"' in html
+    assert all(
+        label in deals.CAUTIONED_TITLE for label in deals.CAUTION_LABELS.values()
+    )
     # Column headers carry explanatory title tooltips.
     assert '<th scope="col" class="num" title="Dollars per month below' in html
 
