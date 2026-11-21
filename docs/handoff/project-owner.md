@@ -226,7 +226,8 @@ subagent's model and effort to be picked by its task.
   +1,174 (SE 60) on all years with 2020 and 2021 about 25% wider than 2024. From 2022 on it
   gains +329 (SE 32) beside the gap bins and counts, about 1.4 times the counts, with 2026
   at 0.97 of a year-flat scale. It goes to the base refit's list and needs a new module on
-  l2bt's design (the merged `drift-building-phase-year` extends L1). L1 and L2 marked done in the TODO.
+  l2bt's design (the merged `drift-building-phase-year` extends L1). L1 and L2 marked done
+  in the TODO.
 - Renovation step and rewritten descriptions (no fit,
   `docs/notes/renovation-step-2026-11-21.md`): a lasting renovation step adds little (+48, SE
   12). An ad whose text changed in 3 or more of the 31 scan flags since the unit's last ad

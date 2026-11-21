@@ -98,7 +98,7 @@ cross-fitted; scales and shifts are fitted on half A, then on B, against 2024.
 - On all years the fitted 2026 scale is 0.930 and 0.925 of the all-years intercept, so in
   l2bt's design a year-flat noise scale makes a 2026 ad's interval about 7% too wide. From
   2022 on, beside the gap bins and counts, the same ratio is 0.971 and 0.974, about 3%: the
-  2026 ads are wide against the older years more than against 2022 to 2025. The Deals model
+  year-flat scale is too wide for 2026 ads mostly because of the years before 2022. The Deals model
   has no year or phase scale and its backtest covers 0.792 at 80% (`docs/model/drift.md`),
   so these figures do not say its intervals are too wide. A common factor on the row noise
   would keep the order of Deals ads by `below_share` nearly as it is, since the parameter
@@ -159,15 +159,17 @@ the intercept without year marks over the base alone, and 0.972 and 0.975 beside
 and counts.
 
 80% coverage from the stored predictive's own 10% and 90% quantiles runs 0.730 (2021) to
-0.846 (2019), within 0.008 of the t from its quartiles in every year: 0.738 and 0.730 in 2020
-and 2021, 0.760 in 2022, 0.816 to 0.826 in 2024 to 2026.
+0.846 (2019): 0.738 and 0.730 in 2020 and 2021, 0.760 in 2022, 0.816 to 0.826 in 2024 to
+2026. It is within 0.008 of the follow-up's t from the quartiles (7 degrees of freedom) in
+every year, and up to 0.016 apart from the first reading's column (5 degrees of freedom):
+0.015 in 2020 and 0.016 in 2023.
 
 - The gap bins and counts take none of the year scale: the marks gain a little more beside
   them (+329 against +303).
 - Ads of 2022 hold 59% of that gain and 2023 another 13%. The 2026 ads add +70, from a scale
   about 2.5% narrower than 2024's.
-- The year scale and the flag-change counts are separate terms of about the same size on
-  current ads; the base refit should carry both.
+- The year scale and the flag-change counts are separate terms on current ads, the year
+  scale about 1.4 times the counts; the base refit should carry both.
 
 ## Follow-up predictions scored
 
@@ -175,6 +177,7 @@ and 2021, 0.760 in 2022, 0.816 to 0.826 in 2024 to 2026.
    right (+303; +329 beside them, 109%).
 2. Ads of 2022 and 2023 hold at least 70% of the gain beside the gap bins and counts: right,
    narrowly (73%).
-3. Own 80% coverage within 0.015 of the t from the quartiles in every year: right (at most
-   0.008 apart).
+3. Own 80% coverage within 0.015 of the t from the quartiles in every year: wrong against
+   the column the prediction named, the first reading's t with 5 degrees of freedom (0.015
+   in 2020, 0.016 in 2023); right against the follow-up's t with 7 (at most 0.008).
 4. 2026 scale 0.96 to 0.99 of the intercept without year marks: right (0.962 to 0.975).

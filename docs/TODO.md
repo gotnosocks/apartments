@@ -423,7 +423,8 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   22), mostly a 12% wider scale for ads within 180 days of the unit's last ad
   (`docs/notes/renovation-step-2026-11-21.md`). Beside them goes Y1's noise scale by
   calendar year, +1,174 (SE 60) on all years and +329 (SE 32) from 2022 on beside the gap
-  bins and counts, about 1.4 times the counts on the same ads (`docs/notes/year-scale-2026-11-21.md`, item Y1 above).
+  bins and counts, about 1.4 times the counts on the same ads
+  (`docs/notes/year-scale-2026-11-21.md`, item Y1 above).
 - [x] Deals page: a first ask below the 5% point closes sooner for studios and one-bedrooms
   (45% and 39% within 7 days against 30% and 29%) and no sooner for four or more bedrooms
   or for ads with coded free months (`docs/notes/history-scan-2026-11-18.md`, last table). A page note or
