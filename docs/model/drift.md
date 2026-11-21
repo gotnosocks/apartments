@@ -406,6 +406,12 @@ comes from a few odd rows, and the model then prices the building's next ad too 
 latest split, 14.4% and 14.1% of such held-out ads in the two halves of the buildings were
 below the model's 5% point, against 5.9% of all (`docs/notes/thin-level-caution-2026-11-20.md`).
 The level and the count come from the training rows, so the ad's own ask enters neither.
+`new_counts` marks an ad whose bedrooms and baths are new to its unit: the model's unit has
+an earlier ad among the training rows and none of its earlier ads has the ad's counts. The
+model's range is too narrow for such an ad on both sides: on the Deals backtest 11.2% of 161
+such ads were below the 5% point and 12.4% above the 95% point, and they need a scale 1.52
+times as wide (se 0.13) (`docs/notes/new-counts-caution-2026-11-20.md`). Only coded counts
+and dates enter.
 A caution changes
 no score. The Deals page leaves cautioned ads out of its list unless asked, and says how
 many. The text patterns were kept or dropped by reading every ad on the market that a
@@ -432,14 +438,15 @@ The Deals page leaves cautioned ads out of its list, so `validation.json` also h
 same table over the ads with no caution, under `uncautioned`. The backtest's ads get their
 cautions from the code that cautions the published table, and the tenths are those of the
 full table, so each row is the uncautioned part of the full table's row. On the backtest of
-2025-11-10 the lowest tenth has 604 ads and 36.3% of them were raised before closing; 361
-of the 604 carry no caution, and 24.7% of those were raised. The `raised` caution reads
+2025-11-10 the lowest tenth has 604 ads and 36.3% of them were raised before closing; 358
+of the 604 carry no caution, and 24.3% of those were raised. The `raised` caution reads
 only what was knowable on the backtest day: an open ad counts at its first ask. The backtest
 is published without its ads' texts, so the cautions read from a text (`income` by wording,
 `not_home`, `owners_only`, `takeover`) are not made there and `texts_read` is false. Two
 cautions are not as of the day: `net_ask` reads the ad's final page price, which was not
 knowable then (3 ads), and `off_market` cannot be made on a backtest (0 ads). `thin_level`
-reads the backtest fit's own levels and training rows, so it is as of the day (12 ads). The
+reads the backtest fit's own levels and training rows, so it is as of the day (12 ads), and
+`new_counts` reads the counts and dates of training rows, so it is too (161 ads). The
 same holds for `first_net`, which reads the final page price and months free
 (`docs/notes/first-net-concessions-2026-11-20.md`). The page shows
 the full table for now.

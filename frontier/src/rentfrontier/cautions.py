@@ -48,6 +48,15 @@ own latest text and from the dataset's rows.
   mean gap was -0.070 and -0.056 (`docs/notes/thin-level-caution-2026-11-20.md`). The
   level is fitted on training rows only and the ad is held out, so no ask of the ad
   enters; earlier ads of the ad's own apartment are training rows and count.
+- `new_counts`: the ad's bedrooms and baths are new to its apartment: the model's unit
+  has an earlier ad among the fit's training rows and none of its earlier ads has the
+  ad's bedrooms and baths (`new_counts`). The unit's level was learned on another layout,
+  and the model's range is too narrow for such an ad on both sides. On the latest split's
+  held-out ads from 2022 on, 13.6% and 14.1% of such ads in the two halves of the
+  buildings were below the model's 5% point and 15.1% and 15.5% above its 95% point; on
+  the Deals backtest of 2025-11-10, 11.2% and 12.4% of 161 ads
+  (`docs/notes/new-counts-caution-2026-11-20.md`). Only coded counts and dates enter:
+  no ask and no text.
 - `off_market`: the ad's status is temporarily off the market.
 
 The text patterns were chosen by reading: 237 of the 6,774 ads on the market of 2026-11-09
@@ -114,7 +123,16 @@ TEXT = {
     ),
 }
 # Every code, in the order a row lists them.
-CODES = (*TEXT, "beds", "rooms_up", "net_ask", "raised", "thin_level", "off_market")
+CODES = (
+    *TEXT,
+    "beds",
+    "rooms_up",
+    "net_ask",
+    "raised",
+    "thin_level",
+    "new_counts",
+    "off_market",
+)
 # Free months and lease lengths, in months, that `net_ask` tries.
 NET_FREE = (1, 2, 3)
 NET_LEASES = (*range(12, 19), 24)
@@ -206,3 +224,37 @@ def thin_level(level, train_ads):
     level, count = np.asarray(level, float), np.asarray(train_ads, float)
     with np.errstate(invalid="ignore"):
         return (level > THIN_LEVEL) & (count <= THIN_ADS)
+
+
+def new_counts(unit, bedrooms, baths, day, held):
+    """A boolean array over the held-out rows, true where an ad's counts are new to its unit.
+
+    The arrays hold every row of the dataset, one entry each: the model's unit (missing
+    where the unit is unknown), the bedrooms, the baths (full baths plus half of the half
+    baths), the day of the row's ask, and whether the fit held the row out. A held-out ad
+    is marked when its unit has a training row dated strictly before it and no such row
+    has both its bedrooms and its baths. An ad with an unknown unit, a unit with no
+    earlier training row, or a missing count is not marked. No ask is read."""
+    import numpy as np
+    import pandas as pd
+
+    held = np.asarray(held, bool)
+    d = pd.DataFrame(
+        {
+            "unit": np.asarray(unit, object),
+            "bedrooms": np.asarray(bedrooms, float),
+            "baths": np.asarray(baths, float),
+            "day": pd.DatetimeIndex(day),
+        }
+    )
+    h = d[held].assign(row=np.arange(int(held.sum()))).dropna()
+    earlier = (
+        d[~held & d.unit.isin(set(h.unit))].drop(columns="day").assign(day_t=d.day)
+    )
+    m = h.merge(earlier, on="unit", suffixes=("", "_t"))
+    m = m[m.day_t < m.day]
+    same = (m.bedrooms == m.bedrooms_t) & (m.baths == m.baths_t)
+    seen = same.groupby(m.row).any()
+    out = np.zeros(int(held.sum()), bool)
+    out[seen.index[~seen.to_numpy()]] = True
+    return out

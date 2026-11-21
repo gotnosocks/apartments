@@ -190,3 +190,25 @@ def test_thin_level_needs_a_high_level_and_few_training_ads():
     ]
     assert (cautions.THIN_LEVEL, cautions.THIN_ADS) == (0.3, 5)
     assert cautions.thin_level([], []).tolist() == []
+
+
+def test_new_counts_needs_an_earlier_ad_of_the_unit_and_none_with_the_ads_counts():
+    day = ["2026-01-01", "2026-02-01", "2026-11-01", "2026-11-01", "2026-03-01"]
+    day += ["2026-11-01"] * 6
+    # Unit a: earlier ads of 1 and 2 bedrooms. Unit b: one earlier ad. Unit c: a training
+    # ad dated on the held-out ad's day.
+    unit = ["a", "a", "a", "a", "b", "b", "b", "c", "c", None, "d"]
+    bedrooms = [1.0, 2, 3, 1, 1, 1, 1, 1, 2, 1, 1]
+    baths = [1.0, 1, 1, 1, 1, 1, 1.5, 1, 1, 1, 1]
+    held = [False, False, True, True, False, True, True, False, True, True, True]
+    # Held-out rows in order: a with 3 bedrooms (new), a with 1 (the unit had it before
+    # its latest ad of 2), b unchanged, b with another half bath (new), c (no ad strictly
+    # earlier), an unknown unit, and d with no training ad.
+    want = [True, False, False, True, False, False, False]
+    assert cautions.new_counts(unit, bedrooms, baths, day, held).tolist() == want
+    # A missing count marks nothing.
+    gone = [*bedrooms[:2], float("nan"), *bedrooms[3:]]
+    got = cautions.new_counts(unit, gone, baths, day, held)
+    assert got.tolist() == [False, False, False, True, False, False, False]
+    none = cautions.new_counts(unit[:2], bedrooms[:2], baths[:2], day[:2], held[:2])
+    assert none.tolist() == []

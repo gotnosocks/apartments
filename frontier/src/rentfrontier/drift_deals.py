@@ -172,6 +172,16 @@ def _thin(run_dir: Path, frame, held) -> np.ndarray:
     )
 
 
+def _new_counts(frame, held, unit_key) -> np.ndarray:
+    """`cautions.new_counts` for the held-out rows: the model's unit (`unit_key`, read
+    only where the unit is known), the coded bedrooms and baths, and the day of each
+    row's ask. A held-out row's ask does not enter."""
+    unit = unit_key.where(frame.unit_id.notna()).to_numpy(object)
+    day = pd.DatetimeIndex(pd.to_datetime(frame.price_at, utc=True)).tz_localize(None)
+    baths = frame.full_baths + 0.5 * frame.half_baths.fillna(0)
+    return cautions_module.new_counts(unit, frame.bedrooms, baths, day, held)
+
+
 def texts(run_dir: Path, records: dict | None = None) -> pd.DataFrame:
     """Each held-out ad's own description (`descriptions.record_descriptions`) from the
     checked records file `records`, by default the pipeline's newest clean build. A build
@@ -196,11 +206,12 @@ def texts(run_dir: Path, records: dict | None = None) -> pd.DataFrame:
 
 
 def _cautions(
-    frame, h, held, unit_key, texts: Path | None, ads_sha: str, net, raised, thin
+    frame, h, held, unit_key, texts: Path | None, ads_sha: str, net, raised, thin, new
 ) -> tuple[list, int | None]:
     """Each held-out row's caution codes, and how many of the rows have a text (None
     without `texts`). `net` marks the rows `cautions.net_ask` found, `raised` those
-    `cautions.raised` found and `thin` those `cautions.thin_level` found. `texts` must be
+    `cautions.raised` found, `thin` those `cautions.thin_level` found and `new` those
+    `cautions.new_counts` found. `texts` must be
     the table `texts` wrote for the build whose ads file has the SHA-256 `ads_sha`."""
     known = frame.unit_id.notna().to_numpy()
     counts = frame.bedrooms[known].groupby(unit_key[known]).nunique()
@@ -239,8 +250,8 @@ def _cautions(
         if not with_text:
             raise SystemExit(f"{texts} has no text for any ad of the run")
     out = []
-    for text, income, beds, grew, away, netted, rose, bare in zip(
-        described, flagged, varied, more, off, net, raised, thin
+    for text, income, beds, grew, away, netted, rose, bare, fresh in zip(
+        described, flagged, varied, more, off, net, raised, thin, new
     ):
         codes = cautions_module.from_text(text)
         # The dataset's flag stands in only where there is no text to read.
@@ -250,6 +261,7 @@ def _cautions(
         codes += ["net_ask"] * bool(netted)
         codes += ["raised"] * bool(rose)
         codes += ["thin_level"] * bool(bare)
+        codes += ["new_counts"] * bool(fresh)
         codes += ["off_market"] * bool(away)
         out.append(cautions_module.ordered(codes))
     return out, with_text
@@ -274,6 +286,7 @@ def _run_cautions(
         cautions_module.net_ask(a.first_ask, a.page_price, a.months_free),
         _raised(frame, held, ads, bool(market.get("backtest"))),
         _thin(run_dir, frame, held),
+        _new_counts(frame, held, unit_key),
     )
 
 

@@ -72,6 +72,10 @@ CAUTIONS: dict[str, str] = {
     "net_ask": "the rent shown looks net of free months the listing does not state",
     "raised": "another listing in this building opened within the past year and was raised 15% or more",
     "thin_level": "the model prices this building high from five or fewer earlier ads",
+    "new_counts": (
+        "this apartment's earlier ads list other bedroom or bath counts, "
+        "so the range is less reliable"
+    ),
     "off_market": "temporarily off the market",
 }
 CAUTION_LABELS: dict[str, str] = {
@@ -84,6 +88,7 @@ CAUTION_LABELS: dict[str, str] = {
     "net_ask": "net rent shown",
     "raised": "building raises opening asks",
     "thin_level": "few building ads",
+    "new_counts": "new room counts",
     "off_market": "off market",
 }
 PEERS = "peers"

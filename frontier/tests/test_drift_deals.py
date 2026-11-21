@@ -416,6 +416,7 @@ def test_the_beds_caution_reads_the_pieces_of_a_split_unit_together(tmp_path):
     # bedrooms than the apartment's previous ad.
     run, ads, reg = _run(tmp_path / "one", change=lambda rows: change(rows, 2.0))
     got = drift_deals.deals(run, ads, reg).set_index("listing_id").cautions.to_dict()
+    # A piece is a unit of its own to the model, with no earlier ad: no `new_counts`.
     assert got == {"2": [], "3": [], "4": ["rooms_up"], "6": []}
 
 
@@ -430,7 +431,13 @@ def test_the_rooms_up_caution_marks_more_beds_or_baths_than_the_previous_ad(tmp_
 
     run, ads, reg = _run(tmp_path, change=change)
     got = drift_deals.deals(run, ads, reg).set_index("listing_id").cautions.to_dict()
-    assert got == {"2": [], "3": [], "4": ["rooms_up"], "6": []}
+    # Both units' held-out ads have counts their earlier ads lack: `new_counts` too.
+    assert got == {
+        "2": ["new_counts"],
+        "3": [],
+        "4": ["rooms_up", "new_counts"],
+        "6": [],
+    }
 
 
 def test_cautions_come_from_the_text_the_flag_the_beds_and_the_status(tmp_path):
@@ -445,7 +452,7 @@ def test_cautions_come_from_the_text_the_flag_the_beds_and_the_status(tmp_path):
     plain = drift_deals.deals(run, ads, reg).set_index("listing_id")
     assert plain.attrs["ads_with_text"] is None
     assert plain.cautions.to_dict() == {
-        "2": ["beds"],
+        "2": ["beds", "new_counts"],
         "3": ["income"],
         "4": ["income"],
         "6": ["off_market"],
@@ -467,7 +474,7 @@ def test_cautions_come_from_the_text_the_flag_the_beds_and_the_status(tmp_path):
     # The scores and the order are the same with and without the texts.
     assert t.listing_id.tolist() == drift_deals.deals(run, ads, reg).listing_id.tolist()
     assert t.set_index("listing_id").cautions.to_dict() == {
-        "2": ["income", "beds"],
+        "2": ["income", "beds", "new_counts"],
         "3": [],
         "4": ["income"],
         "6": ["not_home", "off_market"],
@@ -486,6 +493,7 @@ def test_cautions_come_from_the_text_the_flag_the_beds_and_the_status(tmp_path):
             "net_ask": 0,
             "raised": 0,
             "thin_level": 0,
+            "new_counts": 1,
             "off_market": 1,
         },
         "ads_with_text": 3,
@@ -561,6 +569,32 @@ def test_raised_marks_the_held_out_ads_of_a_building_with_a_raised_ad(tmp_path):
     # Out of a backtest the raised ad marks the building's other ads and not itself.
     got = drift_deals._raised(frame, held, tmp_path / "ads.parquet")
     assert got.tolist() == [False, True, True, False]
+
+
+def test_new_counts_marks_an_ad_whose_counts_its_units_earlier_ads_lack(tmp_path):
+    def change(rows):
+        # Unit u1's earlier ad, listing 1, has a second bath that its held-out ad, listing
+        # 2, lacks. Listing 4 has the counts of its unit's earlier ad, listing 5.
+        rows.loc[0, "full_baths"] = 2.0
+
+    run, ads, reg = _run(tmp_path, change=change)
+    frame, _, held = drift_deals._held_frame(run)
+    key = frame.building + "|" + frame.unit_id
+    # Held-out listings 2, 3, 4, 6: listings 3 and 6 have no earlier ad of their unit.
+    assert drift_deals._new_counts(frame, held, key).tolist() == [True] + [False] * 3
+    table = drift_deals.deals(run, ads, reg).set_index("listing_id")
+    assert table.cautions.to_dict() == {"2": ["new_counts"], "3": [], "4": [], "6": []}
+    # A held-out row's ask changes no mark.
+    frame.loc[held, "latest_ask"] = 1.0
+    assert drift_deals._new_counts(frame, held, key).tolist() == [True] + [False] * 3
+    # An earlier ad dated on the ad's own day is no earlier ad.
+    frame.loc[0, "price_at"] = frame.price_at[1]
+    assert not drift_deals._new_counts(frame, held, key).any()
+    # A row with an unknown unit is not marked, whatever its building's other rows hold.
+    frame, _, _ = drift_deals._held_frame(run)
+    frame.loc[[0, 1], "unit_id"] = None
+    key = frame.building + "|" + frame.unit_id.astype(str)
+    assert not drift_deals._new_counts(frame, held, key).any()
 
 
 def test_thin_level_reads_the_runs_levels_and_the_training_rows(tmp_path, monkeypatch):

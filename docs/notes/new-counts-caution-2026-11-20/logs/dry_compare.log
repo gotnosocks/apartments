@@ -1,0 +1,24 @@
+ads 6502 6502 runs drift-building-bedtext-layout-range-b0-market-6cd1f12b-range-m3 drift-building-bedtext-layout-range-b0-market-6cd1f12b-range-m3
+same order True
+same rows but for cautions True
+other cautions unchanged True
+new_counts ads 108 buildings 103
+in the first 100 of all ads 4
+in the first 300 of all ads 13
+with another caution 84
+their other cautions {'raised': 14, 'rooms_up': 59, 'net_ask': 1, 'beds': 38, 'off_market': 15, 'income': 1, 'thin_level': 1}
+uncautioned before 4884 after 4860
+in the first 100 uncautioned before 1
+in the first 300 uncautioned before 1
+50 24 5197490 0.0129 1.0
+meta differs: cautions 
+meta differs: deals_sha256 ('4f5eb665f92d9fb67d3df65bb3e38980e99495e2f57079736ae0d294798a748d', '058fde6b720030e2a42f7ffde1adbd0b9275eafce6dfb0bf4e19b779b0726085')
+meta differs: published ('2026-11-21T02:24:50Z', '2026-11-21T00:49:20Z')
+meta differs: validation_sha256 
+meta cautions new {'ads': 1642, 'by_code': {'income': 58, 'not_home': 1, 'owners_only': 1, 'takeover': 15, 'beds': 286, 'rooms_up': 286, 'net_ask': 6, 'raised': 655, 'thin_level': 16, 'new_counts': 108, 'off_market': 585}, 'ads_with_text': 6500}
+meta cautions old {'ads': 1618, 'by_code': {'income': 58, 'not_home': 1, 'owners_only': 1, 'takeover': 15, 'beds': 286, 'rooms_up': 286, 'net_ask': 6, 'raised': 655, 'thin_level': 16, 'off_market': 585}, 'ads_with_text': 6500}
+validation differs: uncautioned
+new backtest uncautioned 7589 1757
+new lowest tenth {'place': '0.0 to 0.1', 'ads': 358, 'median_days_on_market': 29.5, 'mean_days_on_market': 105.85754189944134, 'share_within_14_days': 0.21508379888268156, 'share_cut': 0.19273743016759776, 'share_raised': 0.2430167597765363, 'median_change_pct': 0.0, 'mean_change_pct': 2.114077959082352}
+old backtest uncautioned 7636 1710
+old lowest tenth {'place': '0.0 to 0.1', 'ads': 361, 'median_days_on_market': 29.0, 'mean_days_on_market': 105.07479224376732, 'share_within_14_days': 0.2188365650969529, 'share_cut': 0.19113573407202217, 'share_raised': 0.24653739612188366, 'median_change_pct': 0.0, 'mean_change_pct': 2.1854019203848707}

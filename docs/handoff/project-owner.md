@@ -113,6 +113,13 @@ subagent's model and effort to be picked by its task.
   mark for the next base refit. The next base refit now has four candidates gathered in the
   TODO item on refit terms (LN1, the thin-history factor if needed, the counts-new-to-the-unit
   factor, the level shrinkage `--level-dof 8`), and it needs budget beyond the $19.57 left.
+- The `new_counts` caution is built and awaits publish (PR open, no fit, no spend,
+  `docs/notes/new-counts-caution-2026-11-20.md`). It marks an ad whose bedrooms and baths no
+  earlier ad of its model unit has. Backtest: 161 ads, 11.2% low, 12.4% high, factor 1.52 (se
+  0.13). Staging against the live table: 108 of 6,502 ads, 84 of them already cautioned, 1 of
+  the first 300 uncautioned ads; order, scores and other cautions unchanged. To publish:
+  merge, deploy the site (it holds the words for the new code), then
+  `ops/deals-refresh publish` to staging, compare, and publish.
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
 

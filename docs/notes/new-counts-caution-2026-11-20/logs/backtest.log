@@ -1,0 +1,70 @@
+held-out ads 9346 marked 161
+marked buildings 151
+marked ads with an unknown unit 0
+
+all ads
+                 n     sd    low   high  tails      m   m_se
+mark                                                        
+new_counts   161.0  0.151  0.112  0.124  0.236  1.516  0.129
+the rest    9185.0  0.101  0.044  0.060  0.104  0.989  0.011
+
+by half
+                      n     sd    low   high  tails      m   m_se
+mark       half                                                  
+new_counts A       84.0  0.182  0.143  0.143  0.286  1.718  0.220
+           B       77.0  0.107  0.078  0.104  0.182  1.324  0.140
+the rest   A     4430.0  0.099  0.045  0.057  0.102  0.985  0.017
+           B     4755.0  0.102  0.044  0.063  0.106  0.994  0.017
+
+ads with unit history
+                 n     sd    low   high  tails      m   m_se
+mark                                                        
+new_counts   161.0  0.151  0.112  0.124  0.236  1.516  0.129
+the rest    6017.0  0.076  0.043  0.042  0.085  0.942  0.013
+
+ads with unit history, by half
+                      n     sd    low   high  tails      m   m_se
+mark       half                                                  
+new_counts A       84.0  0.182  0.143  0.143  0.286  1.718  0.220
+           B       77.0  0.107  0.078  0.104  0.182  1.324  0.140
+the rest   A     2891.0  0.075  0.049  0.037  0.086  0.947  0.020
+           B     3126.0  0.077  0.037  0.046  0.083  0.938  0.019
+
+ads with a first ask 9346 marked 161
+marked with another caution 114
+
+first ask below the 5% point
+                n  median_days  within_14_days    cut  raised  median_change_pct
+mark                                                                            
+new_counts   18.0         24.0           0.278  0.389   0.333                0.0
+the rest    341.0         25.0           0.258  0.126   0.422                0.0
+
+first ask in the lowest tenth
+                n  median_days  within_14_days    cut  raised  median_change_pct
+mark                                                                            
+new_counts   26.0         26.5           0.231  0.385   0.231                0.0
+the rest    578.0         26.0           0.249  0.159   0.369                0.0
+
+first ask in the lowest tenth, no other caution
+                n  median_days  within_14_days    cut  raised  median_change_pct
+mark                                                                            
+new_counts    3.0         10.0           0.667  0.000   0.667             15.385
+the rest    358.0         29.5           0.215  0.193   0.243              0.000
+
+first ask above the 95% point
+                n  median_days  within_14_days    cut  raised  median_change_pct
+mark                                                                            
+new_counts   27.0         83.0           0.037  0.593   0.037             -3.204
+the rest    924.0         72.5           0.063  0.652   0.027             -4.545
+
+all first asks
+                 n  median_days  within_14_days    cut  raised  median_change_pct
+mark                                                                             
+new_counts   161.0         45.0           0.174  0.441   0.124                0.0
+the rest    9185.0         49.0           0.125  0.419   0.101                0.0
+
+first asks below the 5% point and above the 95% point, by mark
+               n    low   high
+mark                          
+new_counts   161  0.112  0.168
+the rest    9185  0.037  0.101
