@@ -31,9 +31,8 @@ subagent's model and effort to be picked by its task.
 - Open free work from `docs/notes/deals-closingraise-2026-11-20/plan.md`: the stale parts of
   `docs/model/drift.md`. Dating concessions in `first_net` cannot be built from
   `priceChanges` (`docs/notes/first-net-concessions-2026-11-20.md`).
-  From review: quantiles could invert the exact cdf (`drift_today.SAMPLES` is 32 too, with
-  `CHUNK` 2,500; the next Today publish runs about 7 minutes longer). A base refit with free
-  scales, roughly $22, needs Ben's decision.
+  From review: quantiles could invert the exact cdf. That is done for Deals (#1484, below).
+  A base refit with free scales, roughly $22, needs Ben's decision.
 - The R-hat audit of the kept quantities is done (`docs/notes/kept-rhat-audit-2026-11-20.md`,
   no fit): `pred_loc` matches independent draws (no live ad over 1.05, 2 backtest ads, neither
   near the low end), so no 1.01 gate on it. 51 live and 72 backtest buildings did not mix
@@ -66,6 +65,21 @@ subagent's model and effort to be picked by its task.
   Recommendation: do not fit now, since the backtest's 100 such ads cannot show the gain and
   `thin_level` covers the false deals.
 - Gemini roles: Carbon for modeling and research questions only; Neon for code and review.
+- Exact Deals quantiles are live (`docs/notes/exact-quantiles-2026-11-20.md`, no fit). #1483
+  (merged) tests the Today table at block edges, with no change in behaviour. #1484 (merged as
+  `4e044e73`) makes the Deals bounds exact: they come from inverting the same mixture cdf as
+  `below_share` (module `rentfrontier.drift_quantiles`, a safeguarded Newton step with
+  bisection). `--sampled` keeps the old path. The Today table stays sampled unless `--exact`
+  is given; its cost on Modal is estimated at 20 to 40 minutes and was not run. `score_run`
+  stays sampled, so fit scores and validation are unchanged.
+- Deals was republished on Nov 20 at 7:50 PM ET from run
+  `drift-building-bedtext-layout-range-b0-market-6cd1f12b-range-m3` with the same backtest.
+  The order, `below_share`, cautions and `validation.json` are identical to before. Only the
+  bounds, the median and `discount_pct` changed: the bounds moved by a median of 0.05% to
+  0.21% and at most 1.46%, and 105 of 6,502 ads change side of a bound. The files it replaced
+  are in `/data1/apartments/tmp/deals-backup/20261120-1950`. A publish now takes about 3
+  minutes, against 2 before.
+- Modal spend is unchanged at $80.43 of $100. Nothing is running or queued.
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
 
