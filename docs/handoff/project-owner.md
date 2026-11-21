@@ -223,8 +223,8 @@ subagent's model and effort to be picked by its task.
   the TODO list of terms for the next base refit.
 - Width by ad source (no fit, `docs/notes/source-width-2026-11-21.md`): beside the year
   marks the source marks gain +22 (SE 9) on all years and +29 (SE 12) from 2022 on, feed
-  scale 0.98 to 1.01. b9's +140 most likely came from feed ads being most of the pre-2020 ads. The
-  TODO item is closed with no term.
+  scale 0.98 to 1.01. b9's +140 most likely came from feed ads being most of the pre-2020
+  ads. The TODO item is closed with no term.
 - Year scale (Y1) on stored predictions (no fit, `docs/notes/year-scale-2026-11-21.md`):
   l2bt's design (best on the latest split; Deals reads the range model) leaves it whole,
   +1,174 (SE 60) on all years with 2020 and 2021 about 25% wider than 2024. From 2022 on it
