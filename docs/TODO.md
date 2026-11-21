@@ -451,12 +451,14 @@ No fit was run for these.
   mean gap +0.097 with ledger-named ads kept in). A blind read of all 195 rows that meet both
   marks agrees with the text on 181; 120 of those also have most of the unit's other counted
   ads agreeing and are drafted as ledger bedroom sets.
-- [ ] Import the 120 drafted bedroom sets in
+- [ ] Import the 119 drafted bedroom sets in
   `docs/notes/zero-bed-apartments-2026-11-21/candidate_rows.ndjson` with the next base refit
   (section 6 of `docs/notes/zero-bed-apartments-2026-11-21.md`). They overlap neither the
   commercial sweep's nor the building-level read's candidate files. Their agreeing ads are on
-  the same page and in other fit units (`docs/notes/label-reuse-2026-11-21.md`), so check the
-  19 read as mixed again first, and check each set row's fit unit after the split runs.
+  the same page and in other fit units (`docs/notes/label-reuse-2026-11-21.md`), so check each
+  set row's fit unit after the split runs. The 19 read as mixed were checked again on
+  2026-11-21: 17 confirmed, one dropped as a 1-bedroom with a convertible living room, one
+  kept (end of section 6).
 - [x] Study unit labels reused across layouts: in 9 of 10 reads of 0 bed ads whose unit's
   other ads all code 2 or more, those ads describe a different apartment
   (`docs/notes/zero-bed-apartments-2026-11-21.md`, section 2). Done 2026-11-21

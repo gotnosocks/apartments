@@ -1,0 +1,20 @@
+id,listing_id,verdict,count,quote,reason
+M01,2412551,confirm,2,Beautiful 2 bedroom in ELEVATOR building,"One specific unit with a king and a queen bedroom, both with closets and windows."
+M02,2871660,confirm,3,3 bed 2 bath huge triplex penthouse,Describes one penthouse unit as 3 bed 2 bath (photos from a similar unit do not change the count).
+M03,3908303,confirm,2,"this 2 bedroom receives amazing natural light, is on the second floor of a walk up",One unit on the second floor with bedrooms and closets described.
+M04,2376917,confirm,2,Gorgeous Two Bedroom Apartment in Prime Location!,Single two-bedroom unit with its own feature list.
+M05,3878875,confirm,2,2 BEDROOM APARTMENT ON HAUSMAN STREET,"One two-bedroom, one-bath apartment with a single bath and rent terms."
+M06,3353822,confirm,2,"Super spacious 2BR/2BA HH included. One room is mega huge with private entrance, the other one is smaller",Describes this unit's two rooms; the other 2 bed with backyard is a separate aside.
+M07,3470826,confirm,2,2 bed,One duplex unit with a stated two-bed layout and bath count.
+M08,2506763,confirm,2,Fully renovated true 2-bedroom apartment,One unit with two great size bedrooms with closets and a separate living room.
+M09,4284443,confirm,2,Fully Renovated split layout 2-bedroom in the heart of Hell’s Kitchen.,One split two-bedroom with king and queen size bedrooms.
+M10,2319036,confirm,2,Huge NO FEE 2Bdr,"Terse broker ad, but it consistently names one 2Bdr unit with laundry in the building."
+M11,4923194,confirm,2,2 bedroom high ceiling renovated apartment in the back of clean building,Short but specifically a 2 bedroom apartment in the back of the building.
+M12,2121505,confirm,2,A True 2 Bed King Size Bedroom And Will Fit all Your Furniture 2nd Room Queen,One unit with a king bedroom and a queen second room.
+M13,4874398,confirm,3,Three bedrooms,Apartment 1F is described room by room: one bedroom upstairs and two in the basement.
+M14,3887726,doubtful,,"The apartment features a small bedroom in the back of the apartment, but many NYU students convert the living room into a second bedroom","Headline says 2 bedrooms, but the body admits one real bedroom plus a living room that is converted by tenants."
+M15,4998994,confirm,2,2 Bed / 1 Bath at 1 Duffield St,"One unit with specific address, bath count and finishes."
+M16,3334555,confirm,3,COMPLETELY RENOVATED REAL 3BR FOR ONLY $X AND NO FEE!,"Very short, but it states one real 3BR unit and a price."
+M17,3462215,confirm,3,completely renovated real 3br - priced to rent quickly!,"Very short, but it states one real 3br unit."
+M18,1856896,doubtful,,2 king-sized interior bedrooms and another street-facing room which can be used as a 3rd bedroom or office,"Headline says 3 bedroom, but the third room is a flex room, so the unit could be a 2 bedroom plus office."
+M19,1528912,confirm,2,This ground floor unit features two bedrooms plus a finished basement,One new-development unit with two bedrooms; the basement is extra recreation space.
