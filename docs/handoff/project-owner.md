@@ -238,6 +238,10 @@ subagent's model and effort to be picked by its task.
   that holds a block of the misses; lofts lead at 1.29 times their share inside. Filled
   sizes are 21 of the 30 lowest misses, and both fill layers mix bedroom counts, so a data
   check on the fill is the next item in the TODO.
+- Size fills across bedroom counts (no fit, `docs/notes/size-fill-beds-2026-11-21.md`):
+  unit fills borrow a size from another bedroom count at 0.189 and line fills at 0.086. On
+  l2bt those borrowed fills are not the low misses (coverage 0.833, marks −1.3, SE 3.0), so
+  the matched fill stays off the base refit's list.
 - Year scale (Y1) on stored predictions (no fit, `docs/notes/year-scale-2026-11-21.md`):
   l2bt's design (best on the latest split; Deals reads the range model) leaves it whole,
   +1,174 (SE 60) on all years with 2020 and 2021 about 25% wider than 2024. From 2022 on it

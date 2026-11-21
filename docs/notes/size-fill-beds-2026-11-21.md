@@ -118,3 +118,51 @@ read from 2022 on.
 4. The two marks gain +5 to +40 over the reference, positive on both halves, most of it
    from the mark inside the group.
 5. Under the reference the group's flagged ads cover under 0.75 of their 80% interval.
+
+### Results
+
+`f2_marks.log` holds the output. Residuals are on the log scale and the tails are the
+stored predictive's 10% and 90% points, from 2022 on, by half of buildings (A | B).
+
+| ads                          | n (A, B) | residual       | below 10%    | above 90%    |
+|------------------------------|----------|----------------|--------------|--------------|
+| group, fill from other count | 102, 84  | −0.020, +0.004 | 0.186, 0.167 | 0.157, 0.131 |
+| group, other fill            | 124, 91  | −0.050, −0.051 | 0.298, 0.341 | 0.065, 0.044 |
+| group, stated size           | 446, 396 | −0.013, −0.011 | 0.209, 0.194 | 0.114, 0.136 |
+| other, fill from other count | 1839, 1777 | −0.003, −0.003 | 0.123, 0.116 | 0.106, 0.101 |
+| other                        | 60440, 64562 | −0.005, −0.006 | 0.105, 0.107 | 0.081, 0.079 |
+
+Of the group's filled ads, 0.464 draw on another bedroom count. The two fill marks change
+the cross-fitted elpd by −1.3 (SE 3.0) over the reference, −1.7 and +0.4 by half. Their
+scales come out near one: 1.034 and 1.008 inside the group, 0.993 and 0.953 outside it.
+
+Coverage of the 80% interval:
+
+| ads                          | stored | reference | + fill marks | ads     |
+|------------------------------|--------|-----------|--------------|---------|
+| group, fill from other count | 0.677  | 0.833     | 0.833        | 186     |
+| group, other fill            | 0.628  | 0.767     | 0.767        | 215     |
+| group, stated size           | 0.673  | 0.804     | 0.798        | 842     |
+| other, fill from other count | 0.777  | 0.812     | 0.801        | 3,616   |
+| other                        | 0.814  | 0.799     | 0.800        | 125,002 |
+
+### Predictions scored
+
+1. Right. 0.464 of the group's filled ads draw on another bedroom count.
+2. Wrong. The flagged ads' residual is below the stated sizes' on half A (−0.020 against
+   −0.013) and above it on half B (+0.004 against −0.011), and 0.19 and 0.17 of them fall
+   below the 10% point.
+3. Right. Outside the group the flagged ads' residual is −0.003 on both halves, within
+   0.003 of the other ads'.
+4. Wrong. The marks lose 1.3 (SE 3.0).
+5. Wrong. Under the reference the flagged ads cover 0.833.
+
+## What follows from Step 2
+
+The fills that borrow a size from another bedroom count are not the low misses. Inside the
+group they price no worse than stated sizes, and outside it they price like other ads, so
+the matched fill is not carried into `unit_features` and goes off the base refit's list.
+The group's low misses lean on fills from the same bedroom count: those 215 ads have a
+residual of −0.05 on both halves and a third of them below the 10% point. They are few,
+and `docs/notes/large-one-beds-2026-11-21.md` found that splitting the group's marks by
+size source adds only +0.4, so no further mark is read on them.
