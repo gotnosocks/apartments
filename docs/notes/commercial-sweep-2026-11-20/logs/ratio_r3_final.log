@@ -1,0 +1,35 @@
+first reads {'apartment': 658, 'commercial': 203, 'unclear': 44, 'placeholder': 29}
+second reads 276 agree 253 disagree 23
+answer2        -  apartment  commercial  placeholder  unclear
+answer1                                                      
+apartment    658          0           0            0        0
+commercial     0          0         199            0        4
+placeholder    0          2           0           20        7
+unclear        0          7           3            0       34
+final by set
+set          no word  word  All
+final                          
+apartment        606    59  665
+commercial        99   105  204
+placeholder       27     0   27
+unclear           35     3   38
+All              767   167  934
+final by half
+half           A    B  All
+final                     
+apartment    321  344  665
+commercial   100  104  204
+placeholder   18    9   27
+unclear       22   16   38
+All          461  473  934
+final by set and half
+set         no word      word    
+half              A    B    A   B
+final                            
+apartment       291  315   30  29
+commercial       46   53   54  51
+placeholder      18    9    0   0
+unclear          19   16    3   0
+new lines 231 by reason {'nonresidential': 204, 'bedrooms_unknown': 27} total 254
+overlap with the 23 []
+building-level lines 68 overlap 28 ['1243042', '1266515', '1291724', '1328158', '1340604', '1340904', '1384474', '1386661', '1399345', '1453673', '1460664', '1473987', '1572189', '1637162', '1662712', '1788540', '1810740', '1866527', '1891327', '1993605', '2164893', '2219847', '2555574', '2667827', '2872107', '3519256', '3678054', '5121619']
