@@ -1,0 +1,16 @@
+dataset rows by held-out and first row of the unit
+ held  first_row      n
+False      False 864985
+False       True 889621
+ True      False   6174
+ True       True   3172
+targets joined to the ads table
+ held      n  lister    lot
+False 889621  886090 889401
+ True   9346    9344   9342
+    label_st      n
+        fail  60061
+     no grid  17571
+    no label    131
+        pass 449263
+thin records 371941

@@ -1,0 +1,41 @@
+l2j first-ad held-out ads 3168
+columns: form, half, quiet ads, m quiet, m busy, gain inside the half,
+gain with the other half's factors (SE), 80% and 95% cover of quiet ads then
+same counts, 7 days      h0   814 1.23 0.99   20.4   17.0 ( 9.1)  80.5  96.2
+same counts, 7 days      h1   857 1.28 0.92   33.2   30.4 ( 8.3)  77.5  94.3
+same counts, 30 days     h0   646 1.25 1.02   19.6   13.3 ( 9.6)  81.1  96.3
+same counts, 30 days     h1   702 1.34 0.93   39.0   33.1 ( 8.3)  76.6  94.0
+any counts, 7 days       h0   671 1.19 1.06   13.5   11.0 ( 7.4)  80.6  96.4
+any counts, 7 days       h1   683 1.25 1.00   20.9   18.1 ( 6.6)  77.2  94.4
+any counts, 30 days      h0   510 1.20 1.07   12.8    7.2 ( 7.8)  82.0  96.3
+any counts, 30 days      h1   533 1.32 1.00   25.8   20.0 ( 6.5)  75.2  94.0
+lister ad here, 90 days  h0   374 1.24 1.08   13.7   13.5 ( 6.8)  80.5  95.7
+lister ad here, 90 days  h1   393 1.26 1.06   14.7   14.3 ( 6.4)  79.1  95.9
+lister ads here 1+       h0   185 1.27 1.09   12.6   10.7 ( 7.2)  81.1  96.2
+lister ads here 1+       h1   193 1.42 1.06   18.6   16.5 ( 6.3)  74.1  96.4
+lister ads here 5+       h0   404 1.21 1.08   12.6   12.3 ( 6.5)  80.7  96.5
+lister ads here 5+       h1   447 1.22 1.06   12.8   12.7 ( 6.2)  79.4  96.2
+lister ads here 20+      h0   698 1.14 1.09   10.9   10.4 ( 6.1)  80.5  96.1
+lister ads here 20+      h1   781 1.16 1.06   11.4   10.8 ( 5.9)  77.7  95.9
+building ads 5+          h0   142 1.18 1.11   10.7    9.9 ( 6.9)  81.7  95.8
+building ads 5+          h1   168 1.30 1.09   12.2   10.9 ( 6.2)  77.4  94.0
+building ads 20+         h0   378 1.14 1.11   10.5   10.4 ( 6.2)  80.4  96.6
+building ads 20+         h1   407 1.14 1.09    9.7    9.6 ( 6.0)  78.9  96.6
+picked on half 0: same counts, 7 days
+the picked form in other groups: ads, buildings, sd z, 80% cover, m
+earlier ad, quiet                    h0  2115  1468 0.98  80.0 0.94
+earlier ad, quiet                    h1  2092  1468 1.01  77.3 0.99
+earlier ad, busy                     h0   994   485 0.99  79.9 0.97
+earlier ad, busy                     h1   977   497 0.98  79.6 0.95
+first-ad, quiet                      h0   814   632 1.13  69.7 1.23
+first-ad, quiet                      h1   857   667 1.16  68.0 1.28
+first-ad, busy                       h0   756   382 0.99  80.3 0.99
+first-ad, busy                       h1   741   389 0.94  80.8 0.92
+first-ad, quiet, building ads 20+    h0   531   404 1.14  69.3 1.24
+first-ad, quiet, building ads 20+    h1   556   435 1.15  68.0 1.28
+first-ad, quiet, building ads < 20   h0   283   232 1.10  70.3 1.19
+first-ad, quiet, building ads < 20   h1   301   234 1.17  68.1 1.26
+first-ad, busy, building ads 100+    h0   384   181 0.99  81.2 0.98
+first-ad, busy, building ads 100+    h1   349   163 0.98  78.2 1.00
+first-ad, busy, building ads < 100   h0   372   204 0.99  79.3 1.01
+first-ad, busy, building ads < 100   h1   392   231 0.90  83.2 0.85

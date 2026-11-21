@@ -1,0 +1,8 @@
+drift-building-phase-unitkn-level-b0-market-439f27ad-l2j
+held-out ads 9346 with no training ad of the unit 3168
+quantiles [np.float64(0.025), np.float64(0.05), np.float64(0.1), np.float64(0.25), np.float64(0.75),
+first days 2012-11-27 to 2025-11-10
+kept/phase_scale [1.    1.481 1.07  1.588 1.303 1.03  1.296]
+kept/unit_sd 0.047
+kept/sigma [0.016 0.016 0.018 0.022]
+kept/nu 2.0
