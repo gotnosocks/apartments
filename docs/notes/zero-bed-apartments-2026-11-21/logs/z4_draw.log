@@ -1,0 +1,13 @@
+batch_1.md 10 6b0cf5d798742597
+batch_2.md 10 41ab56a0939d5f66
+batch_3.md 10 baa16729187ce30e
+batch_4.md 10 f701c935322cf87b
+stratum        half
+text and unit  A       5
+               B       5
+text only      A       5
+               B       5
+unit, all 2+   A       5
+               B       5
+unit, mixed    A       5
+               B       5
