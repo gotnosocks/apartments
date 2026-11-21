@@ -1,0 +1,46 @@
+text flags 31
+dataset ads 1896471 ; no flags row: 2671
+ads 189647 ; by year: {2014: 1033, 2015: 2426, 2016: 3292, 2017: 4836, 2018: 6939, 2019: 8010, 2020: 15778, 2021: 17472, 2022: 12760, 2023: 19314, 2024: 26316, 2025: 34531, 2026: 36940}
+t df, picked on ads from 2022 7
+
+from 2022: base: cross-fit gain   1807.1 (SE  78.9)
+
+from 2022: base + year marks: cross-fit gain   2110.0 (SE  85.0)
+  year marks over the base, from 2022:   302.9 (SE  30.7); by half [np.float64(140.8), np.float64(162.1)]
+    by year: {2022: 186.2, 2023: 44.9, 2024: 4.2, 2025: 7.6, 2026: 60.0}
+    2022             scale (fit on A, on B) 1.140 1.160; shift -0.0069 -0.0050
+    2023             scale (fit on A, on B) 1.059 1.068; shift -0.0029 -0.0034
+    2025             scale (fit on A, on B) 0.988 0.994; shift +0.0007 -0.0006
+    2026             scale (fit on A, on B) 0.976 0.980; shift +0.0011 +0.0019
+    2026 scale over the all-years intercept (fit on A): 0.963
+    2026 scale over the all-years intercept (fit on B): 0.962
+
+from 2022: base + gap bins + counts: cross-fit gain   2175.3 (SE  87.1)
+  gap bins and counts over the base, from 2022:   368.1 (SE  35.5); by half [np.float64(192.8), np.float64(175.3)]
+
+from 2022: + year marks: cross-fit gain   2504.0 (SE  92.7)
+  year marks over the gap bins and counts, from 2022:   328.7 (SE  32.1); by half [np.float64(154.6), np.float64(174.1)]
+    by year: {2022: 194.5, 2023: 44.3, 2024: 4.9, 2025: 15.2, 2026: 69.9}
+    2022             scale (fit on A, on B) 1.144 1.163; shift -0.0077 -0.0055
+    2023             scale (fit on A, on B) 1.060 1.067; shift -0.0032 -0.0035
+    2025             scale (fit on A, on B) 0.985 0.990; shift +0.0005 -0.0005
+    2026             scale (fit on A, on B) 0.973 0.976; shift +0.0010 +0.0019
+    2026 scale over the all-years intercept (fit on A): 0.972
+    2026 scale over the all-years intercept (fit on B): 0.975
+
+80% coverage by year: stored predictive's own quantiles, t from stored quartiles
+        own      t
+year              
+2014  0.806  0.813
+2015  0.803  0.806
+2016  0.806  0.807
+2017  0.819  0.824
+2018  0.837  0.841
+2019  0.846  0.852
+2020  0.738  0.746
+2021  0.730  0.735
+2022  0.760  0.767
+2023  0.788  0.795
+2024  0.816  0.823
+2025  0.822  0.828
+2026  0.826  0.833
