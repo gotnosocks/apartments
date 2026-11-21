@@ -15,7 +15,7 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
-### State at about 9 PM ET on Nov 20, after the closing-raise score
+### State at about 10 PM ET on Nov 20, after the closing-raise score
 
 - Deals is live from `range-m3` (published Nov 20 at 4:16 PM ET, 6,502 ads, backtest `range-j`;
   results in `docs/notes/market-refresh-2026-11-20.md`).
@@ -90,6 +90,17 @@ subagent's model and effort to be picked by its task.
   bedroom-count level (LN1, written, unfit) stays a candidate for the next base refit. The 307
   open ads on pages whose previous ad has another bedroom count are still unread (open TODO
   item).
+- First-ad noise inputs (#1488, merged as `e1491d3d`, no fit, no spend,
+  `docs/notes/first-ad-noise-inputs-2026-11-20.md`). The latest split holds no first-ad units,
+  so the check ran on the 2025-11-10 Deals backtest (3,168 first-ad ads of 9,346). The label
+  standard and the lister's totals do not mark the wide asks. A lister mark (no same-counts
+  ad closed in the building in 30 days) gives scale factors of 1.23 and 1.32 against 0.99 and
+  0.91 on the two halves. Review showed it mostly stands for thin building history at the same
+  bedroom count: the factor is 1.52 and 1.65 with no earlier same-bedroom ad, down to 1.10 and
+  1.10 with 20 or more. This is one backtest day with forms seen on both halves, so it is
+  suggestive only. Next, in order: fit LN1 (level for building and bedroom count) with a
+  market backtest at the next base refit, then test a factor by thin same-bedroom history only
+  if it is still needed, and the lister form after that. The $19.57 left has no budget for it.
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
 
