@@ -1,0 +1,39 @@
+dataset ads 1896471 ; no flags row: 2671
+ads 129861 from 2022 ; no unit history row: 0
+marked shares:
+step                         0.2316
+switch                       0.0789
+worded, no bare ad before    0.1865
+t df 7
+
+base: j1's eight kept terms: cross-fit gain   1807.1 (SE  78.9)
+
+base + step: cross-fit gain   1855.2 (SE  80.0)
+  step over the base:    48.0 (SE  11.6); by half [np.float64(17.3), np.float64(30.7)]
+    scale (fit on A, on B) 1.028 1.035; shift +0.0028 +0.0035
+
+base + switch: cross-fit gain   1923.8 (SE  81.0)
+  switch over the base:   116.7 (SE  18.5); by half [np.float64(47.3), np.float64(69.4)]
+    scale (fit on A, on B) 1.081 1.098; shift +0.0073 +0.0079
+
+base + worded, no bare ad before: cross-fit gain   1825.3 (SE  79.2)
+  worded, no bare ad before over the base:    18.2 (SE   8.1); by half [np.float64(11.2), np.float64(6.9)]
+    scale (fit on A, on B) 0.967 0.966; shift -0.0023 -0.0009
+
+base + step: cross-fit gain   1855.2 (SE  80.0)
+                      scale x (fit on A)  scale x (fit on B)  shift (fit on A)  shift (fit on B)
+intercept                         0.8866              0.8832           -0.0035           -0.0041
+changed counts                    1.1902              1.2167            0.0026            0.0044
+changed, 2 baths                  1.0379              1.0149           -0.0074           -0.0120
+3+ baths                          1.1233              1.1096           -0.0349           -0.0354
+2 baths                           1.0425              1.0459           -0.0071           -0.0060
+top 3% predicted                  1.1602              1.2375            0.0074           -0.0015
+floor 1                           1.0596              1.0640           -0.0070           -0.0090
+duplex                            1.0800              1.0588           -0.0022           -0.0044
+3+ bed, finish share              0.9731              0.9328            0.0149            0.0202
+step                              1.0281              1.0346            0.0028            0.0035
+
+low tail (below 5%), base 6792, base + step 6791, left 17, joined 16
+  step                 marked  30071  low  1565 ->  1564  ( 5.2% ->  5.2%)
+  switch               marked  10251  low   507 ->   508  ( 4.9% ->  5.0%)
+  worded, no bare ad before marked  24215  low  1147 ->  1147  ( 4.7% ->  4.7%)

@@ -1,0 +1,86 @@
+dataset ads 1896471 ; no flags row: 2671
+ads 129861 from 2022 ; no unit history row: 0
+marked shares:
+step                         0.2316
+switch                       0.0789
+worded, no bare ad before    0.1865
+words dropped                0.1098
+any earlier ad               1.0000
+dishwasher on                0.0711
+exposed_brick on             0.0189
+high_ceilings on             0.0629
+view on                      0.0399
+no_fee on                    0.0456
+t df 7
+
+base: j1's eight kept terms: cross-fit gain   1807.1 (SE  78.9)
+
+base + step: cross-fit gain   1855.2 (SE  80.0)
+  step over the base:    48.0 (SE  11.6); by half [np.float64(17.3), np.float64(30.7)]
+    scale (fit on A, on B) 1.028 1.035; shift +0.0028 +0.0035
+
+base + switch: cross-fit gain   1923.8 (SE  81.0)
+  switch over the base:   116.7 (SE  18.5); by half [np.float64(47.3), np.float64(69.4)]
+    scale (fit on A, on B) 1.081 1.098; shift +0.0073 +0.0079
+
+base + worded, no bare ad before: cross-fit gain   1825.3 (SE  79.2)
+  worded, no bare ad before over the base:    18.2 (SE   8.1); by half [np.float64(11.2), np.float64(6.9)]
+    scale (fit on A, on B) 0.967 0.966; shift -0.0023 -0.0009
+
+base + words dropped: cross-fit gain   1816.1 (SE  79.1)
+  words dropped over the base:     9.0 (SE   5.4); by half [np.float64(3.4), np.float64(5.7)]
+    scale (fit on A, on B) 1.033 1.033; shift -0.0003 -0.0017
+
+base + any earlier ad: cross-fit gain   1807.3 (SE  79.0)
+  any earlier ad over the base:     0.2 (SE   0.2); by half [np.float64(-0.0), np.float64(0.2)]
+    scale (fit on A, on B) 0.945 0.944; shift -0.0014 -0.0016
+
+base + dishwasher on: cross-fit gain   1880.9 (SE  80.7)
+  dishwasher on over the base:    73.8 (SE  14.9); by half [np.float64(32.3), np.float64(41.5)]
+    scale (fit on A, on B) 1.092 1.107; shift +0.0046 +0.0048
+
+base + exposed_brick on: cross-fit gain   1792.4 (SE  79.1)
+  exposed_brick on over the base:   -14.7 (SE   3.6); by half [np.float64(-5.8), np.float64(-8.9)]
+    scale (fit on A, on B) 1.079 0.964; shift +0.0011 +0.0015
+
+base + high_ceilings on: cross-fit gain   1821.2 (SE  79.5)
+  high_ceilings on over the base:    14.1 (SE   6.9); by half [np.float64(4.8), np.float64(9.3)]
+    scale (fit on A, on B) 1.051 1.050; shift +0.0011 +0.0031
+
+base + view on: cross-fit gain   1817.6 (SE  79.2)
+  view on over the base:    10.5 (SE   7.5); by half [np.float64(10.1), np.float64(0.4)]
+    scale (fit on A, on B) 1.102 1.048; shift +0.0001 +0.0020
+
+base + no_fee on: cross-fit gain   1804.7 (SE  78.9)
+  no_fee on over the base:    -2.5 (SE   7.7); by half [np.float64(5.1), np.float64(-7.5)]
+    scale (fit on A, on B) 1.063 0.986; shift +0.0054 +0.0031
+
+base + step: cross-fit gain   1855.2 (SE  80.0)
+
+base + switch (for the low tail): cross-fit gain   1923.8 (SE  81.0)
+                      scale x (fit on A)  scale x (fit on B)  shift (fit on A)  shift (fit on B)
+intercept                         0.8866              0.8832           -0.0035           -0.0041
+changed counts                    1.1902              1.2167            0.0026            0.0044
+changed, 2 baths                  1.0379              1.0149           -0.0074           -0.0120
+3+ baths                          1.1233              1.1096           -0.0349           -0.0354
+2 baths                           1.0425              1.0459           -0.0071           -0.0060
+top 3% predicted                  1.1602              1.2375            0.0074           -0.0015
+floor 1                           1.0596              1.0640           -0.0070           -0.0090
+duplex                            1.0800              1.0588           -0.0022           -0.0044
+3+ bed, finish share              0.9731              0.9328            0.0149            0.0202
+step                              1.0281              1.0346            0.0028            0.0035
+
+low tail with the switch: 6816, left 26, joined 50
+ads with an earlier ad of the unit: 1.0
+
+low tail (below 5%), base 6792, base + step 6791, left 17, joined 16
+  step                 marked  30071  low  1565 ->  1564  ( 5.2% ->  5.2%)
+  switch               marked  10251  low   507 ->   508  ( 4.9% ->  5.0%)
+  worded, no bare ad before marked  24215  low  1147 ->  1147  ( 4.7% ->  4.7%)
+  words dropped        marked  14263  low   849 ->   849  ( 6.0% ->  6.0%)
+  any earlier ad       marked 129861  low  6792 ->  6791  ( 5.2% ->  5.2%)
+  dishwasher on        marked   9231  low   486 ->   488  ( 5.3% ->  5.3%)
+  exposed_brick on     marked   2450  low   124 ->   125  ( 5.1% ->  5.1%)
+  high_ceilings on     marked   8173  low   467 ->   467  ( 5.7% ->  5.7%)
+  view on              marked   5185  low   294 ->   295  ( 5.7% ->  5.7%)
+  no_fee on            marked   5927  low   269 ->   269  ( 4.5% ->  4.5%)
