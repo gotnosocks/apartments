@@ -1,0 +1,7 @@
+drift-building-bedtext-layout-range-b0-market-190025e7-cr-j
+held-out ads 9346 with no training ad of the unit 3168
+quantiles [np.float64(0.025), np.float64(0.05), np.float64(0.1), np.float64(0.25), np.float64(0.75),
+first days 2012-11-27 to 2025-11-10
+kept/unit_sd 0.06
+kept/sigma [0.021 0.019 0.023 0.029]
+kept/nu 1.722
