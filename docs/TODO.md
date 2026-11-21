@@ -276,12 +276,14 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   elpd +20 to +80. It leaves 0-1-bedroom ads over 1,000 sq ft at 0.70 coverage.
   Those ads were read on 2026-11-21 (`docs/notes/large-one-beds-2026-11-21.md`): a scale
   and shift mark for them gains +65 (SE 14) from 2022 on l2bt, scale 1.25, coverage to
-  0.80, and no kind of apartment takes the misses as a block. Carry that mark beside U1.
-- [ ] Line fills over 1,000 sq ft for 0-1-bedroom ads: of the 30 lowest misses among
-  them, 21 have a filled size, against 16 of 60 ads inside the interval, and readers find
-  line fills of 1,383 to 1,562 sq ft on a building ad and a rent-stabilized studio. Check
-  how the line fill picks its size and whether a cap or a bedroom match is needed, with no
-  rent, before any model term (`docs/notes/large-one-beds-2026-11-21.md`).
+  0.80, and no kind of apartment holds a block of the misses. Carry that mark beside U1.
+- [ ] Size fills across bedroom counts: of the 30 lowest misses among 0-1-bedroom ads
+  over 1,000 sq ft, 21 have a filled size (16 unit, 5 line), against 16 of 60 ads inside
+  the interval. Both fill layers in `unit_features.sizes` mix bedroom counts: `unit` takes
+  the median over all the unit's listings, and `line` files each unit's all-count median
+  under its first listing's bedroom count. Count how often that happens and what a fill
+  matched on bedroom count changes, with no rent, before any model term
+  (`docs/notes/large-one-beds-2026-11-21.md`, `docs/notes/size-fill-beds-2026-11-21.md`).
 - [ ] U4: a unit scale by bedroom count, a factor on the sd of a unit's lasting level for
   2 bedrooms and for 3 or more. For units with no ad in training the 80% interval covers
   0.733, 0.693 and 0.663 of final asks at 2, 3 and 4 or more bedrooms in the backtest j9

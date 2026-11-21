@@ -1,12 +1,13 @@
 38 unit-filled ads in the sample
-       more_beds       sizes_differ      
-             sum count          sum count
-dir                                      
-high           2     9            2     9
-inside         1    13            4    13
-low            2    16            2    16
+traced: the fill equals one of the unit's other stated sizes or their median
+        traced  more_beds   n
+dir                          
+high         3          3   9
+inside       7          1  13
+low         11          2  16
+no other ad of the unit states a size: {'high': 6, 'inside': 5, 'low': 5}
 dir        high  inside  low
 size_beds                   
-1.0           0       5    8
+1.0           0       6    9
 2.0           1       0    2
-3.0           1       1    0
+3.0           2       1    0

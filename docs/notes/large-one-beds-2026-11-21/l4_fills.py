@@ -1,7 +1,8 @@
 """Where the sample's filled sizes come from: the unit's other ads with a stated size.
 
-Reads bedrooms and stated square feet of every ad of the sampled units (no rent), and
-asks whether the size the fill used was stated on an ad with more bedrooms than this one.
+Reads bedrooms and stated square feet of every ad of the sampled units (no rent). A fill is
+traced when it equals one of those sizes or their median, and then asks whether it came
+from an ad with more bedrooms than this one.
 """
 
 import pandas as pd
@@ -22,16 +23,27 @@ rows = []
 for r in s.itertuples():
     o = a[(a.unit_id == r.unit_id) & (a.listing_id.astype(str) != str(r.listing_id))]
     same = o[(o.square_feet - r.sqft).abs() < 1]
+    if len(same):
+        src = same
+    elif len(o) and abs(o.square_feet.median() - r.sqft) < 1:
+        src = o  # the fill is the median of the unit's other stated sizes
+    else:
+        src = o.iloc[:0]
     rows.append(
         dict(
             dir=r.dir,
             stated_ads=len(o),
-            size_beds=same.bedrooms.max() if len(same) else None,
-            more_beds=bool(len(same) and same.bedrooms.max() > r.bd),
-            sizes_differ=o.square_feet.nunique() > 1,
+            traced=len(src) > 0,
+            more_beds=bool(len(src) and src.bedrooms.max() > r.bd),
+            size_beds=src.bedrooms.max() if len(src) else None,
         )
     )
 f = pd.DataFrame(rows)
 print(len(f), "unit-filled ads in the sample")
-print(f.groupby("dir")[["more_beds", "sizes_differ"]].agg(["sum", "count"]).to_string())
+print("traced: the fill equals one of the unit's other stated sizes or their median")
+print(f.groupby("dir")[["traced", "more_beds"]].sum().assign(n=f.groupby("dir").size()))
+print(
+    "no other ad of the unit states a size:",
+    f[f.stated_ads == 0].groupby("dir").size().to_dict(),
+)
 print(pd.crosstab(f.size_beds, f.dir).to_string())
