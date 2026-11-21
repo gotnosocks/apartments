@@ -1,0 +1,4 @@
+ads changed 196 training rows 195 open Deals ads 1
+units 190 buildings 178 listers 102 halves {'A': 105, 'B': 90}
+count set (bed_text) {2.0: 125, 3.0: 57, 4.0: 10, 5.0: 3} equal to the unit's lowest count of 2 or more 151
+text only, left by the rule 443
