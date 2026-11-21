@@ -18,7 +18,7 @@ predictive cdf, `rentfrontier.drift_quantiles`; `--sampled` draws them as before
   level, so its range is narrower than a new unit's;
 - `prev_ask`, `prev_day`: the ask and day of the unit's previous ad in the run's own dataset,
   the latest training row of the same building and unit_id dated strictly before the ad
-  (`rentfrontier.drift_diagnostics.previous`). Missing where the unit has none. The page
+  (`rentfrontier.drift_previous.previous`). Missing where the unit has none. The page
   draws it as a ring on the ad's range;
 - `cautions`: reasons the ask may be low that the model does not know, as the codes of
   `rentfrontier.cautions`. They change no score. The ones read from an ad's text need
@@ -55,7 +55,7 @@ import pandas as pd
 
 from . import cautions as cautions_module
 from . import drift_building_bedtext_layout as layout
-from . import drift_score
+from . import drift_previous, drift_score
 from . import run as run_module
 from .b0data import sha256
 
@@ -303,10 +303,7 @@ def deals(
     unit_key = frame.building.astype(str) + "|" + frame.unit_id.astype(str)
     train_units = unit_key[~held & frame.unit_id.notna().to_numpy()].value_counts()
     codes, with_text = _run_cautions(run_dir, frame, h, held, a, ads, texts)
-    # Imported here: drift_diagnostics imports this module and drift_estimates.
-    from . import drift_diagnostics
-
-    prev = drift_diagnostics.previous_columns(frame, held)
+    prev = drift_previous.previous_columns(frame, held)
     out = pd.DataFrame(
         {
             "listing_id": h.listing_id.astype(str),
