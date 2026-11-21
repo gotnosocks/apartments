@@ -47,8 +47,8 @@ codes l2bt read (`external/listing-codes/20261023-ks`). No mark reads the ask.
 
 ## Results
 
-The base (j1's eight kept terms) gains +1,807 (SE 79) over the stored predictives, as in j1.
-The marks over the base, cross-fitted, with building-clustered SE:
+The base (j1's eight kept terms) gains +1,807 (SE 79) over the stored predictives, against
+j1's +1,833 with all ten. The marks over the base, cross-fitted, with building-clustered SE:
 
 | mark | share of ads | gain over the base | by half (A, B) | scale (fit on A / B) | shift (fit on A / B) |
 |---|---|---|---|---|---|
@@ -65,8 +65,8 @@ out ads, so the furnished mark is the whole text flag.
 
 - l2bt's unit levels carry what the outlier sprint measured. Furnished and full floor keep
   almost no shift, and dishwasher keeps about +0.003.
-- Outdoor space with the box unchecked keeps the most, about +0.006, half the sprint's
-  +0.0154. Its gain comes mostly from half B.
+- Outdoor space with the box unchecked keeps the most, about +0.006, about two fifths of
+  the sprint's +0.0154. Its gain comes mostly from half B.
 - The penthouse wording leaves a small negative shift: ads that say penthouse or top floor
   ask a little less than the model's floor terms give them.
 
@@ -79,19 +79,24 @@ three stay near 5%.
 
 ## Predictions scored
 
-1. Shifts: half right. Outdoor, uncoded is in range on half B and just under it on half A
-   (+0.0046 against +0.006 to +0.015). Dishwasher, uncoded is in range on half A only.
-   Furnished and full floor fall below range. Penthouse has the wrong sign.
-2. Scales: mostly right. Outdoor and dishwasher fall within 0.97 to 1.04, and furnished does
-   on half A only (1.065 on half B). Penthouse is in range on half B and just under it on
-   half A (1.023). Full floor is wrong (0.97, below 1).
+1. Shifts: mostly wrong. Two of the ten half values are in range: outdoor, uncoded on half B
+   (+0.0070) and dishwasher, uncoded on half A (+0.0045). Outdoor on half A is just under
+   range (+0.0046 against +0.006 to +0.015), dishwasher on half B, furnished and full floor
+   fall below range, and penthouse has the wrong sign.
+2. Scales: half right. Five of the ten half values are in range: outdoor on half A (1.010;
+   1.041 on half B is just over 1.04), dishwasher on both halves, furnished on half A (1.065
+   on half B) and penthouse on half B (1.041; 1.023 on half A is just under 1.03). Full floor
+   is wrong on both (0.97, below 1).
 3. Gains: right. Each is under 30 and the five together are under 80.
-4. Low tail: right. 1.1% leave, and no mark is a fit of its own. The prediction allowed at
-   most two for the base refit; the result supports one at most.
+4. Low tail: right. 72 of 6,792 leave (1.1%), and no mark is a fit of its own. The prediction
+   allowed at most two for the base refit, and two are kept as optional below.
 
 ## What follows
 
-No text column is a fit of its own, and four of the five leave the queue: dishwasher,
-furnished, penthouse and full floor change neither the score nor the Deals list. Outdoor space
-with the box unchecked can go to the base refit's list as an optional term (+16, SE 10, a
-shift near +0.006). Penthouse's small negative shift is a matter for the floor terms.
+No text column is a fit of its own. Overall 72 low-tail ads leave and 72 join (about 1% each).
+As a rule for the base refit's list, a mark is kept as an optional term when its gain beside
+the base exceeds 1.5 SE. Two pass: outdoor space with the box unchecked (+15.5, SE 9.9, a
+shift near +0.006, a gain unsteady by half at +2.6 and +12.9) and penthouse (+7.8, SE 5.1,
+steady by half at +4.2 and +3.7, a shift near −0.003 and a scale near 1.03). Penthouse also
+moves the most marked ads out of the low tail (339 to 297). Furnished (1.1 SE), dishwasher
+(0.8 SE) and full floor (0.3 SE) leave the queue.
