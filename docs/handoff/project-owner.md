@@ -206,6 +206,14 @@ subagent's model and effort to be picked by its task.
   75 ads carry it, and the chip renders on the cautioned view (`/deals?all=1`).
 - Cautioned toggle tooltip built from `CAUTION_LABELS` (#1509, merged as `71e53d16`), so it
   names every caution. Deployed at `71e53d1`.
+- `short_lease` caution (#1511, merged as `3b865368`, no fit,
+  `docs/notes/short-lease-2026-11-21.md`). Text naming a lease of 1 to 11 months ("6-month
+  lease", "10 mo term"), with guards against "13-month", "1.5 month" and "1 month rental
+  fee". Deployed at `3b86536` and republished from range-m3 with the range-j backtest at
+  1:18 AM ET on Nov 21 (backup `/data1/apartments/tmp/deals-backup/20261121-0118`): 8 ads.
+- Flex and studio wording (no fit, `docs/notes/flex-wording-2026-11-21.md`). No caution.
+  A studio reading on an ad coded 1 bedroom or more is still 12.5% and 17.5% low under the
+  bedroom-text term. Queued in TODO as a term with reader fixes for the next base refit.
 
 ### State at 11:15 PM ET on Nov 18, after the `raised` caution
 
