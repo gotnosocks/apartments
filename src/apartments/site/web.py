@@ -455,6 +455,7 @@ def create_app(
             basis_words=deals.BASIS_WORDS,
             sorts=deals.SORTS,
             bedrooms=deals.BEDROOMS,
+            cautioned_title=deals.CAUTIONED_TITLE,
         )
 
     @app.get("/")

@@ -91,6 +91,10 @@ CAUTION_LABELS: dict[str, str] = {
     "thin_level": "few building ads",
     "off_market": "off market",
 }
+# Tooltip of the "Cautioned ads" toggle, so it names every caution there is.
+CAUTIONED_TITLE = (
+    "Include ads with a caution: " + ", ".join(CAUTION_LABELS.values()) + "."
+)
 PEERS = "peers"
 PEERS_LABEL = "at building's asks"
 # Tooltip of the Evidence chip, by basis.
