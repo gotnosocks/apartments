@@ -1,8 +1,9 @@
-"""Free check: unit scales by bedroom count (U4) and size (U1) on l2bt's stored predictions.
+"""Free check, part A: bedroom and size scales (U4, U1) on l2bt's stored predictions.
 
 Read with docs/notes/unit-scale-2026-11-21.md. The scoring and marks of
-docs/notes/source-width-2026-11-21/s1_source.py, with marks for new units (no earlier ad of
-the unit in the dataset) by bedroom count and for size over 1,000 sq ft. Run from this folder.
+docs/notes/source-width-2026-11-21/s1_source.py, with marks by bedroom count and for size
+over 1,000 sq ft. The latest split holds out re-listed units only, so no ad is of a new
+unit. Run from this folder.
 """
 
 import sys
@@ -146,22 +147,15 @@ print(
     round(Lsz[Lsz > 0].mean(), 3),
 )
 bd2, bd3 = h.bd == 2, h.bd >= 3
-T["new"] = new.astype(float)
-T["new, 2 bd"] = (new & bd2).astype(float)
-T["new, 3+ bd"] = (new & bd3).astype(float)
 T["2 bd"] = bd2.astype(float)
 T["3+ bd"] = bd3.astype(float)
 T["L"] = Lsz
-T["new x L"] = new * Lsz
-U4 = ["new, 2 bd", "new, 3+ bd"]
 BD = ["2 bd", "3+ bd"]
-U1 = ["L", "new x L"]
 ALL = pd.concat([X, T], axis=1)
 res, half, bld = h.res.to_numpy(), h.half.to_numpy(), h.building.to_numpy()
 year = h.year.to_numpy()
-group = np.where(new, "new", "repeat") + np.where(
-    h.bd >= 3, " 3+ bd", np.where(h.bd == 2, " 2 bd", " 0-1 bd")
-)
+group = np.where(h.bd >= 3, "3+ bd", np.where(h.bd == 2, "2 bd", "0-1 bd"))
+group = np.char.add(group.astype(str), np.where(Lsz > 0, ", over 1,000 sq ft", ""))
 G = {}
 
 
@@ -236,23 +230,14 @@ def coverage(cs, sel, label):
 
 
 def readings(core, sel, label):
-    p0, _, c0 = crossfit(core, f"{label}: reference without new", sel)
-    ref = core + ["new"]
-    pr, thr, cr = crossfit(ref, f"{label}: reference", sel)
-    over(pr, p0, f"new mark, {label}", sel)
-    show(thr, ["new"], ref)
-    p4, th4, c4 = crossfit(ref + U4, f"{label}: + U4", sel)
-    over(p4, pr, f"U4 over the reference, {label}", sel)
-    show(th4, U4, ref + U4)
-    pb, thb, _ = crossfit(
-        ref + U4 + BD, f"{label}: + U4 + bedroom marks for every ad", sel
-    )
-    over(pb, p4, f"bedroom marks for every ad beside U4, {label}", sel)
-    show(thb, BD, ref + U4 + BD)
-    p1, th1, c1 = crossfit(ref + U4 + U1, f"{label}: + U4 + U1", sel)
-    over(p1, p4, f"U1 over U4, {label}", sel)
-    show(th1, U1, ref + U4 + U1)
-    coverage({"before": c0, "ref": cr, "U4": c4, "U4+U1": c1}, sel, label)
+    pr, _, cr = crossfit(core, f"{label}: reference", sel)
+    pb, thb, cb = crossfit(core + BD, f"{label}: + bedroom marks for every ad", sel)
+    over(pb, pr, f"bedroom marks over the reference, {label}", sel)
+    show(thb, BD, core + BD)
+    pl, thl, cl = crossfit(core + ["L"], f"{label}: + L", sel)
+    over(pl, pr, f"L over the reference, {label}", sel)
+    show(thl, ["L"], core + ["L"])
+    coverage({"reference": cr, "+ bedrooms": cb, "+ L": cl}, sel, label)
 
 
 xc = list(X.columns)
