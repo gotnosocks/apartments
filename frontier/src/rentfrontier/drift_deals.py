@@ -23,7 +23,9 @@ predictive cdf, `rentfrontier.drift_quantiles`; `--sampled` draws them as before
 - `cautions`: reasons the ask may be low that the model does not know, as the codes of
   `rentfrontier.cautions`. They change no score. The ones read from an ad's text need
   `--texts`, the table `texts` writes: each ad's own description from the pipeline's
-  records file, which must be the build the run's dataset was made from.
+  records file, which must be the build the run's dataset was made from. `deposit_net`
+  reads the flat security deposit the table keeps from the same record; a table without
+  one, or written before 2026-11-21, marks no ad with it.
 The table is sorted by `below_share`. It is written as deals.parquet and deals.json.
 
 A low ask can mark a bargain or a flaw the ad does not state. `validate` measures which, on
@@ -177,9 +179,10 @@ def _thin(run_dir: Path, frame, held) -> np.ndarray:
 
 
 def texts(run_dir: Path, records: dict | None = None) -> pd.DataFrame:
-    """Each held-out ad's own description (`descriptions.record_descriptions`) from the
-    checked records file `records`, by default the pipeline's newest clean build. A build
-    other than the one the run's dataset was made from is refused: its ads are not these."""
+    """Each held-out ad's own description and flat security deposit
+    (`descriptions.record_descriptions`) from the checked records file `records`, by
+    default the pipeline's newest clean build. A build other than the one the run's
+    dataset was made from is refused: its ads are not these."""
     from . import api_records, descriptions
 
     records = records or api_records.records_file()
@@ -200,10 +203,11 @@ def texts(run_dir: Path, records: dict | None = None) -> pd.DataFrame:
 
 
 def _cautions(
-    frame, h, held, unit_key, texts: Path | None, ads_sha: str, net, raised, thin
-) -> tuple[list, int | None]:
-    """Each held-out row's caution codes, and how many of the rows have a text (None
-    without `texts`). `net` marks the rows `cautions.net_ask` found, `raised` those
+    frame, h, held, unit_key, texts: Path | None, ads_sha: str, a, raised, thin
+) -> tuple[list, int | None, int | None]:
+    """Each held-out row's caution codes, how many of the rows have a text and how many
+    a flat security deposit (both None without `texts`). `a` holds the rows' ads, which
+    `cautions.net_ask` and `cautions.deposit_net` read, `raised` marks the rows
     `cautions.raised` found and `thin` those `cautions.thin_level` found. `texts` must be
     the table `texts` wrote for the build whose ads file has the SHA-256 `ads_sha`."""
     known = frame.unit_id.notna().to_numpy()
@@ -231,6 +235,7 @@ def _cautions(
     )
     off = (h.status.astype(str) == cautions_module.OFF_MARKET).to_numpy()
     described, with_text = [None] * len(h), None
+    deposit, with_deposit = np.full(len(h), np.nan), None
     if texts is not None:
         t = pd.read_parquet(texts)
         if set(t.get("ads_sha256", [None])) != {ads_sha}:
@@ -242,9 +247,21 @@ def _cautions(
         with_text = sum(isinstance(d, str) and bool(d.strip()) for d in described)
         if not with_text:
             raise SystemExit(f"{texts} has no text for any ad of the run")
+        # A table written before the deposit was kept has none, and marks no ad.
+        if "deposit" in t:
+            deposit = (
+                t.set_index("listing_id")
+                .deposit.astype(float)
+                .reindex(h.listing_id.astype(str))
+                .to_numpy()
+            )
+        with_deposit = int(np.isfinite(deposit).sum())
+    first, page, free = a.first_ask, a.page_price, a.months_free
+    net = cautions_module.net_ask(first, page, free)
+    grossed = cautions_module.deposit_net(deposit, first, page, free)
     out = []
-    for text, income, beds, grew, away, netted, rose, bare in zip(
-        described, flagged, varied, more, off, net, raised, thin
+    for text, income, beds, grew, away, netted, by_deposit, rose, bare in zip(
+        described, flagged, varied, more, off, net, grossed, raised, thin
     ):
         codes = cautions_module.from_text(text)
         # The dataset's flag stands in only where there is no text to read.
@@ -252,16 +269,17 @@ def _cautions(
         codes += ["income"] * bool(income and unread) + ["beds"] * bool(beds)
         codes += ["rooms_up"] * bool(grew)
         codes += ["net_ask"] * bool(netted)
+        codes += ["deposit_net"] * bool(by_deposit)
         codes += ["raised"] * bool(rose)
         codes += ["thin_level"] * bool(bare)
         codes += ["off_market"] * bool(away)
         out.append(cautions_module.ordered(codes))
-    return out, with_text
+    return out, with_text, with_deposit
 
 
 def _run_cautions(
     run_dir: Path, frame, h, held, a, ads: Path, texts: Path | None
-) -> tuple[list, int | None]:
+) -> tuple[list, int | None, int | None]:
     """`_cautions` for the held-out rows `h` of the run at `run_dir`, with `a` their rows
     of the ads table `ads`. `deals` and `validate` both call this, so a backtest's ads
     are cautioned by the rules the published table's are."""
@@ -275,7 +293,7 @@ def _run_cautions(
         unit_key,
         texts,
         market["ads_sha256"],
-        cautions_module.net_ask(a.first_ask, a.page_price, a.months_free),
+        a,
         _raised(frame, held, ads, bool(market.get("backtest"))),
         _thin(run_dir, frame, held),
     )
@@ -289,10 +307,11 @@ def deals(
     exact: bool = True,
 ) -> pd.DataFrame:
     """One row per ad on the market, lowest `below_share` first. The frame's
-    `attrs["ads_with_text"]` is how many of the ads `texts` has a description for. The
-    median and the bounds solve cdf(q) = p for the cdf `below_share` comes from, so an ask
-    is under a bound exactly when its `below_share` is under the bound's level; with
-    `exact` false they are sampled (`drift_score.SAMPLES`), as until 2026-11-20."""
+    `attrs["ads_with_text"]` is how many of the ads `texts` has a description for, and
+    `attrs["ads_with_deposit"]` how many it has a flat security deposit for. The median
+    and the bounds solve cdf(q) = p for the cdf `below_share` comes from, so an ask is
+    under a bound exactly when its `below_share` is under the bound's level; with `exact`
+    false they are sampled (`drift_score.SAMPLES`), as until 2026-11-20."""
     frame, h, held = _held_frame(run_dir)
     res = drift_score.score_run(run_dir, exact=exact)
     a = _ads(ads, h.listing_id)
@@ -302,7 +321,9 @@ def deals(
     # The model's unit is the pair of building and unit_id (`drift.unit_index`).
     unit_key = frame.building.astype(str) + "|" + frame.unit_id.astype(str)
     train_units = unit_key[~held & frame.unit_id.notna().to_numpy()].value_counts()
-    codes, with_text = _run_cautions(run_dir, frame, h, held, a, ads, texts)
+    codes, with_text, with_deposit = _run_cautions(
+        run_dir, frame, h, held, a, ads, texts
+    )
     prev = drift_previous.previous_columns(frame, held)
     out = pd.DataFrame(
         {
@@ -356,6 +377,7 @@ def deals(
         out["longitude"] = reg.longitude.to_numpy(float).round(5)
     out = out.sort_values("below_share", kind="stable").reset_index(drop=True)
     out.attrs["ads_with_text"] = with_text
+    out.attrs["ads_with_deposit"] = with_deposit
     return out
 
 
@@ -405,7 +427,7 @@ def validate(
     is false."""
     frame, h, held = _held_frame(run_dir)
     a = _ads(ads, h.listing_id)
-    codes, with_text = _run_cautions(run_dir, frame, h, held, a, ads, texts)
+    codes, with_text, _ = _run_cautions(run_dir, frame, h, held, a, ads, texts)
     plain = ~np.array([bool(c) for c in codes], bool)
     final = h.latest_ask.to_numpy(float)
     free = np.nan_to_num(a.months_free.to_numpy(float)) > 0
@@ -560,6 +582,7 @@ def publish(
                 code: int((listed == code).sum()) for code in cautions_module.CODES
             },
             "ads_with_text": table.attrs["ads_with_text"],
+            "ads_with_deposit": table.attrs["ads_with_deposit"],
         },
         "published": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }

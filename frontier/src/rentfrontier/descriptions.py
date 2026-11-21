@@ -224,6 +224,22 @@ def granular_descriptions(granular: Path) -> pd.Series:
     return pd.Series(text.to_numpy(), index=last.listing_id.astype(str).to_numpy())
 
 
+def security_deposit(ad: dict) -> float | None:
+    """The flat security deposit in dollars of an API listing record, None when the
+    record lists none or lists it another way (a number of months' rent, say)."""
+    for fee in (ad.get("pricing") or {}).get("moveInFees") or []:
+        calc = fee.get("calculation") or {}
+        if (
+            fee.get("typeLabel") == "Security deposit"
+            and calc.get("calculationType") == "FLAT_FEE"
+        ):
+            try:
+                return float(calc.get("feeQuantifier"))
+            except (TypeError, ValueError):
+                return None
+    return None
+
+
 def record_descriptions(records: dict, wanted: set[str]) -> pd.DataFrame:
     """Each wanted listing id's own ad text in the pipeline's records file `records`.
 
@@ -232,7 +248,9 @@ def record_descriptions(records: dict, wanted: set[str]) -> pd.DataFrame:
     fit's target is the ask the ad carried while ACTIVE. A listing with no ACTIVE
     record takes the description of its record fetched last. The frame's index is
     the listing id, `description` holds the text (None when that record has
-    none), and `record` holds `last_active` or `latest` for the record I read."""
+    none), `record` holds `last_active` or `latest` for the record I read, and
+    `deposit` that record's flat security deposit (`security_deposit`, NaN when it
+    has none), which the Deals caution `deposit_net` reads."""
     latest, active = {}, {}
     columns = ["listing_id", "collected_at", "snapshot_id", "raw_listing_json"]
     for r in api_records.captures(records, columns):
@@ -242,7 +260,7 @@ def record_descriptions(records: dict, wanted: set[str]) -> pd.DataFrame:
         key = (r["collected_at"], r["snapshot_id"])
         raw = r["raw_listing_json"]
         ad = (json.loads(raw) or {}) if raw else {}
-        entry = (key, ad.get("description"))
+        entry = (key, ad.get("description"), security_deposit(ad))
         if listing not in latest or key >= latest[listing][0]:
             latest[listing] = entry
         if ad.get("status") == "ACTIVE" and (
@@ -250,14 +268,15 @@ def record_descriptions(records: dict, wanted: set[str]) -> pd.DataFrame:
         ):
             active[listing] = entry
     rows = {
-        listing: (active[listing][1], "last_active")
+        listing: (*active[listing][1:], "last_active")
         if listing in active
-        else (text, "latest")
-        for listing, (_, text) in latest.items()
+        else (text, deposit, "latest")
+        for listing, (_, text, deposit) in latest.items()
     }
-    return pd.DataFrame.from_dict(
-        rows, orient="index", columns=["description", "record"], dtype=object
+    table = pd.DataFrame.from_dict(
+        rows, orient="index", columns=["description", "deposit", "record"], dtype=object
     )
+    return table[["description", "record", "deposit"]].astype({"deposit": float})
 
 
 def build(

@@ -114,6 +114,33 @@ def test_net_ask_marks_an_odd_page_price_that_is_a_round_first_ask_less_free_mon
     assert got.tolist() == [True, True, False, False, False, False, True, False]
 
 
+def test_deposit_net_marks_a_deposit_that_grosses_up_the_page_price():
+    nan = float("nan")
+    cases = [
+        # (deposit, first ask, page price, months free, marked)
+        # 3,600 is 3,900 less 1 month of 13.
+        (3900, 3600, 3600, nan, True),
+        # A deposit equal to the first ask: a cut that left the deposit at the old price.
+        (3900, 3900, 3600, nan, False),
+        # Coded free months.
+        (3900, 3600, 3600, 1, False),
+        # 5,200 is 1.04 of 5,000 and fits half a month of 13: below the ratio.
+        (5200, 5000, 5000, 0, False),
+        # 5,300 is 1.06 of 5,000, and less 1 month of 18 is 5,005.6, within 0.2%.
+        (5300, 5000, 5000, 0, True),
+        # 2,100 is exactly 1.05 of 2,000 and less 1 month of 21 is 2,000.
+        (2100, nan, 2000, nan, True),
+        # No flat deposit, and no page price.
+        (nan, 3600, 3600, nan, False),
+        (3900, 3600, nan, nan, False),
+        # 1.5 times the price fits no lease of 12 to 24 months with 3 months or fewer free.
+        (4500, 3000, 3000, nan, False),
+    ]
+    deposit, first, page, free, want = zip(*cases)
+    got = cautions.deposit_net(deposit, first, page, free)
+    assert got.tolist() == list(want)
+
+
 def test_raised_marks_the_other_ads_of_a_building_with_a_recent_raised_ad():
     building = ["a", "a", "a", "b", "b", "c", "c", "a"]
     unit = ["u1", "u2", "u1", "u3", "u4", "u5", None, None]

@@ -417,17 +417,48 @@ OFFICE = (
 )
 
 
-def _texts(tmp_path, texts, ads=None):
-    """A texts table as `drift_deals.texts` writes it for the build of the ads file."""
+def _texts(tmp_path, texts, ads=None, deposits=None):
+    """A texts table as `drift_deals.texts` writes it for the build of the ads file. With
+    `deposits`, a flat security deposit by listing id, it has the deposit column that
+    tables written before 2026-11-21 lack."""
     path = tmp_path / "texts.parquet"
-    pd.DataFrame(
+    table = pd.DataFrame(
         {
             "listing_id": list(texts),
             "description": list(texts.values()),
             "ads_sha256": sha256(ads or tmp_path / "ads.parquet"),
         }
-    ).to_parquet(path, index=False)
+    )
+    if deposits is not None:
+        table["deposit"] = table.listing_id.map(deposits).astype(float)
+    table.to_parquet(path, index=False)
     return path
+
+
+def test_the_deposit_net_caution_reads_the_deposit_the_texts_table_keeps(tmp_path):
+    run, ads, reg = _run(tmp_path, backtest=True)
+    # Listing 4's page shows 3,300, which is its deposit of 3,575 less 1 month of 13, and
+    # its first ask of 3,600 is not the deposit. Listing 3 codes a free month, listing 6
+    # has no page price and listing 2 no deposit.
+    deposits = {"3": 3521.0, "4": 3575.0, "6": 3250.0}
+    texts = _texts(
+        tmp_path, dict.fromkeys(("2", "3", "4", "6"), "An ad."), None, deposits
+    )
+    table = drift_deals.deals(run, ads, reg, texts)
+    assert table.attrs["ads_with_deposit"] == 3
+    assert table.set_index("listing_id").cautions.to_dict() == {
+        "2": [],
+        "3": [],
+        "4": ["deposit_net"],
+        "6": [],
+    }
+    # A backtest's ads take the same rule.
+    read = drift_deals.validate(run, ads, bins=1, texts=texts)["uncautioned"]
+    assert read["ads"] == 3 and read["cautioned_ads"] == 1
+    # A table without deposits marks none and still validates.
+    bare = _texts(tmp_path, dict.fromkeys(("2", "3", "4", "6"), "An ad."))
+    assert drift_deals.deals(run, ads, reg, bare).attrs["ads_with_deposit"] == 0
+    assert drift_deals.validate(run, ads, bins=1, texts=bare)["uncautioned"]["ads"] == 4
 
 
 def test_the_beds_caution_reads_the_pieces_of_a_split_unit_together(tmp_path):
@@ -512,11 +543,13 @@ def test_cautions_come_from_the_text_the_flag_the_beds_and_the_status(tmp_path):
             "beds": 1,
             "rooms_up": 0,
             "net_ask": 0,
+            "deposit_net": 0,
             "raised": 0,
             "thin_level": 0,
             "off_market": 1,
         },
         "ads_with_text": 3,
+        "ads_with_deposit": 0,
     }
     rows = {r["listing_id"]: r for r in json.loads((out / "deals.json").read_text())}
     assert rows["6"]["cautions"] == ["not_home", "off_market"]
@@ -542,7 +575,11 @@ def test_texts_reads_the_runs_ads_from_the_datasets_own_build(tmp_path, monkeypa
     def record_descriptions(records, wanted):
         asked["wanted"] = wanted
         return pd.DataFrame(
-            {"description": [AFFORDABLE, None], "record": ["last_active", "latest"]},
+            {
+                "description": [AFFORDABLE, None],
+                "record": ["last_active", "latest"],
+                "deposit": [3100.0, np.nan],
+            },
             index=["2", "3"],
         )
 
@@ -554,6 +591,7 @@ def test_texts_reads_the_runs_ads_from_the_datasets_own_build(tmp_path, monkeypa
         "listing_id",
         "description",
         "record",
+        "deposit",
         "ads_sha256",
     ]
     assert table.listing_id.tolist() == ["2", "3"]

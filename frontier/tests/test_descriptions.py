@@ -169,29 +169,37 @@ def test_build_reads_each_rows_ad_from_the_records_file(
 def test_records_give_each_row_its_last_active_ad(
     tmp_path, monkeypatch, records_catalog
 ):
-    """A listing with an ACTIVE record takes the text of its ACTIVE record fetched
-    last, even where a closed record fetched later cut, changed or added text. A
-    listing with none takes its record fetched last. Each evidence line names the
-    record it read."""
+    """A listing with an ACTIVE record takes the text and the flat security deposit of
+    its ACTIVE record fetched last, even where a closed record fetched later cut, changed
+    or added text. A listing with none takes its record fetched last. Each evidence line
+    names the record it read."""
     monkeypatch.setattr(data, "OUTPUT_ROOT", tmp_path / "out")
 
-    def ad(listing, at, status, text):
+    def ad(listing, at, status, text, deposit=None, kind="FLAT_FEE"):
+        fees = [{"typeLabel": "Broker fee", "calculation": {"feeQuantifier": 1}}]
+        if deposit is not None:
+            calc = {"calculationType": kind, "feeQuantifier": deposit}
+            fees.append({"typeLabel": "Security deposit", "calculation": calc})
         return {
             "listing_id": listing,
             "collected_at": at,
-            "record": {"description": text, "status": status},
+            "record": {
+                "description": text,
+                "status": status,
+                "pricing": {"moveInFees": fees},
+            },
         }
 
     records_catalog(
         [
             ad(1, 1.0, "ACTIVE", "Sunny one bedroom"),
             ad(1, 5.0, "RENTED", "."),
-            ad(2, 1.0, "ACTIVE", "First text"),
-            ad(2, 3.0, "ACTIVE", "Second text"),
-            ad(2, 4.0, "DELISTED", None),
-            ad(3, 1.0, "DRAFT", "Draft"),
-            ad(3, 2.0, "IN_CONTRACT", "In contract"),
-            ad(4, 1.0, "ACTIVE", None),
+            ad(2, 1.0, "ACTIVE", "First text", 3000),
+            ad(2, 3.0, "ACTIVE", "Second text", 3250),
+            ad(2, 4.0, "DELISTED", None, 3500),
+            ad(3, 1.0, "DRAFT", "Draft", 2000),
+            ad(3, 2.0, "IN_CONTRACT", "In contract", "2100"),
+            ad(4, 1.0, "ACTIVE", None, 1, "MONTHS_OF_RENT"),
             ad(4, 2.0, "DELISTED", "Added after"),
         ]
     )
@@ -205,11 +213,19 @@ def test_records_give_each_row_its_last_active_ad(
     )
     records = api_records.records_file()
     table = descriptions.record_descriptions(records, {"1", "2", "3", "4"})
-    assert table.to_dict("index") == {
+    assert table.drop(columns="deposit").to_dict("index") == {
         "1": {"description": "Sunny one bedroom", "record": "last_active"},
         "2": {"description": "Second text", "record": "last_active"},
         "3": {"description": "In contract", "record": "latest"},
         "4": {"description": None, "record": "last_active"},
+    }
+    # Listing 1 lists no deposit and listing 4 one in months of rent: neither is flat.
+    assert table.deposit.dtype == float
+    assert table.deposit.fillna(-1).to_dict() == {
+        "1": -1,
+        "2": 3250,
+        "3": 2100,
+        "4": -1,
     }
     out = descriptions.build(None, cohort, "api", "abcdef0123", records=records)
     evidence = [

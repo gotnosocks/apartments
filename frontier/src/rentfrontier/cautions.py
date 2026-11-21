@@ -30,6 +30,22 @@ own latest text and from the dataset's rows.
   code (`net_ask`), so the table compares a net ask with the model's gross rent. Brokers
   reading the first 100 uncautioned ads of 2026-11-18 found 2 such; the rule marks 11 ads
   of that table, 3 of them in its first 100 (`docs/notes/net-ask-caution-2026-11-18.md`).
+- `deposit_net`: the record's flat security deposit is `DEPOSIT_RATIO` or more times the
+  page price and is that price grossed up for free months the record does not code
+  (`deposit_net`). New York caps a deposit at one month's rent (2019), so a deposit above
+  the price says the lease rent is the deposit and the page shows a net rent. A deposit
+  equal to the ad's first ask is a cut that left the deposit at the old price, and is not
+  marked. Over the 6,502 ads of the table of 2026-11-20, 88 had an uncoded deposit 2% or
+  more above the page price that fits a net rent, against 211 whose deposit was the first
+  ask; the fits gathered at the top of the page, 5 in the first 60 (8.3%) and 12 in the
+  first 300 against 0.7% to 0.8% further down, and by building (The Lightwell Dumbo, 733
+  Lincoln). A ratio under 1.05 also fits half a month on a 13-month lease or a stale
+  deposit from an intermediate price, so the mark starts at 1.05
+  (`docs/notes/deals-top-read-2026-11-21.md`). At 1.05 it marks 75 ads of that table, 50
+  with no other caution, 4 of them in the first 60 of the default view and 11 in the
+  first 300. The deposit is read from the record the ad's text comes from
+  (`rentfrontier.descriptions.record_descriptions`); an ad with no deposit there is not
+  marked.
 - `raised`: another ad of the building, opened in the year before the table's day,
   stands 15% or more above its first ask (`raised`). An earlier ad of the same apartment
   counts; the ad itself does not. Such buildings open
@@ -114,10 +130,26 @@ TEXT = {
     ),
 }
 # Every code, in the order a row lists them.
-CODES = (*TEXT, "beds", "rooms_up", "net_ask", "raised", "thin_level", "off_market")
+CODES = (
+    *TEXT,
+    "beds",
+    "rooms_up",
+    "net_ask",
+    "deposit_net",
+    "raised",
+    "thin_level",
+    "off_market",
+)
 # Free months and lease lengths, in months, that `net_ask` tries.
 NET_FREE = (1, 2, 3)
 NET_LEASES = (*range(12, 19), 24)
+# `deposit_net` marks a deposit this many times the page price or more, that is the page
+# price grossed up for `DEPOSIT_FREE` months free over a lease of `DEPOSIT_LEASES` months,
+# within the larger of `DEPOSIT_TOLERANCE` dollars and `DEPOSIT_SHARE` of the price.
+DEPOSIT_RATIO = 1.05
+DEPOSIT_FREE = (0.5, 1.0, 1.5, 2.0, 2.5, 3.0)
+DEPOSIT_LEASES = tuple(range(12, 25))
+DEPOSIT_TOLERANCE, DEPOSIT_SHARE = 2.0, 0.002
 # `raised` counts an ad whose ask is this far above its first ask, opened within this many
 # days of the table's day.
 RAISE, RAISE_DAYS = 0.15, 365
@@ -168,6 +200,31 @@ def net_ask(first_ask, page_price, months_free):
             for free in NET_FREE:
                 fits |= np.abs(first * (lease - free) / lease - page) <= 1.0
     return ~coded & gross & odd & fits
+
+
+def deposit_net(deposit, first_ask, page_price, months_free):
+    """A boolean array, true where an ad's flat security deposit says its page price is net
+    of free months the record does not code.
+
+    The mark needs all of: a deposit (NaN where the record has no flat one); no coded free
+    months; a deposit `DEPOSIT_RATIO` or more times a positive page price; a deposit other
+    than the ad's first ask, which would be a cut; and a deposit that, spread as
+    deposit * (L - m) / L for m of `DEPOSIT_FREE` and L of `DEPOSIT_LEASES`, comes within
+    the larger of `DEPOSIT_TOLERANCE` dollars and `DEPOSIT_SHARE` of the page price."""
+    import numpy as np
+
+    dep, first, page = (np.asarray(v, float) for v in (deposit, first_ask, page_price))
+    coded = np.nan_to_num(np.asarray(months_free, float)) > 0
+    with np.errstate(invalid="ignore"):
+        # A product, so a deposit of exactly `DEPOSIT_RATIO` counts whatever the rounding.
+        over = (page > 0) & (dep >= page * DEPOSIT_RATIO - 1e-9)
+        tolerance = np.maximum(DEPOSIT_TOLERANCE, DEPOSIT_SHARE * page)
+        fits = np.zeros(dep.shape, bool)
+        for lease in DEPOSIT_LEASES:
+            for free in DEPOSIT_FREE:
+                fits |= np.abs(dep * (lease - free) / lease - page) <= tolerance
+    cut = np.isclose(dep, first)
+    return ~coded & over & ~cut & fits
 
 
 def raised(building, unit, listing, first_day, first_ask, ask, day):
