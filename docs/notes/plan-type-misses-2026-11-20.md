@@ -21,8 +21,8 @@ trait that readers found in the ads separates the misses on both halves of the b
   building level is doing its job, and what is missing is a level for the building's units
   of one count.
 - Beyond that, the same line shares more only within the error of a small sample (30 pairs
-  of new units in the backtest). Once a unit has one training ad the excess of a line is at
-  most 0.0007 of variance (sd under 3%).
+  of new units in the backtest). Once a unit has one training ad the excess of a line is
+  0.0007 of variance (se 0.0005, sd under 3%; about 4% at two standard errors).
 - The ads of these buildings are mostly one lister's template for the whole building. A
   third say anything about their own unit, none states square feet in the text, and 6%
   name a plan or line. The traits that do vary within a building (private outdoor space,
@@ -61,8 +61,8 @@ The latest-split run in full is
 `drift-building-phase-unitkn-level-bedtext-b0-latest-c1ffaefd-l2bt`. Sources: `b1.py`
 (`logs/b1.log`) and `b2.py` (`logs/b2.log`).
 
-- The gap is the log ask less the model's median. It is clipped at 0.5 either way before any
-  product or mean.
+- The gap is the log ask less the model's median. Less its stratum's mean, it is clipped
+  at 0.5 either way before any product.
 - Buildings are split in two by a hash of the building id (`b1.half`). **Half A was read**
   and any choice of form was made on it. Half B is the check. 420 Carroll falls in half B and
   was read because the item names it, so it and every other read building leave the half B
@@ -250,8 +250,12 @@ the plan image could refine it later and is not proposed now.
 ## Not sure of
 
 - Same-line pairs of new units are few (30 in the backtest for new two-bedroom units), so a
-  line effect of sd 5% to 8% among new units is not ruled out. It is ruled out at that size
-  for units with a training ad.
+  line effect of sd up to about 12% among new units is not ruled out. It is ruled out at
+  that size for units with a training ad. One of the 30 pairs is the same unit twice;
+  without it the excess is 0.0063 and the shared variance 0.0045.
+- Lawrence Tower supplies 126 of the 470 pairs behind the shared variance. Without the
+  five named buildings the share is 30% (0.0062, se 0.0017; the reviewer's rerun), so the
+  pattern is general.
 - The backtest is one day. The buildings picked from it as missing together all miss high.
 - The latest split has no units new to training, so its figures are for units seen once.
 - Readers saw text only. Floor plan images were used as a key and were not looked at.

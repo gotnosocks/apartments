@@ -238,7 +238,8 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   Seren, Lawrence Tower, Union Channel, 420 Carroll, 12 Halsey St) for prices set by
   floor plan type. Done 2026-11-20 (`docs/notes/plan-type-misses-2026-11-20.md`): the
   shared miss is a level for building and bedroom count among units new to training; the
-  line, the plan image and the ad text add nothing that holds on both halves.
+  line and the ad text add nothing that holds on both halves, and the plan image's excess
+  is steady but small, the size of the bath excess.
 - [ ] Read the 307 open ads on pages whose previous ad has another bedroom count, on
   Sonnet or Haiku readers.
 
