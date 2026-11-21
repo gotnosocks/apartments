@@ -91,9 +91,30 @@ three or more. It changes the size of 17,658 more.
 
 Filled sizes are smaller than stated ones in this group, so large fills are not common;
 the trouble is where they come from. 59% of the large 0-1-bedroom fills borrow a size from
-an ad of another bedroom count, most often a unit that was also listed with more bedrooms,
-and a matched fill keeps only half of them. Whether those borrowed sizes are the deep low
+an ad of another bedroom count of the same unit or line, and a matched fill keeps only half
+of them. Whether those borrowed sizes are the deep low
 misses is the next question: a mark for a fill that draws on another bedroom count, read
 on l2bt's stored predictives as `docs/notes/large-one-beds-2026-11-21.md` reads its group,
 with its predictions written below before the run. If it holds, the matched fill becomes a
 new `unit_features` snapshot for the base refit.
+
+## Step 2: fill marks on l2bt's stored predictives
+
+`f2_marks.py` is `docs/notes/large-one-beds-2026-11-21/l1_read.py` with the flag from
+`f1_fills.py` (a fill that draws on another bedroom count, read from bedrooms, labels and
+stated sizes only). The reference is l1's reference plus its group marks for 0-1-bedroom
+ads over 1,000 sq ft. Two scale and shift marks go over it, one for flagged fills inside
+the group and one for flagged fills outside it, cross-fitted by halves of buildings and
+read from 2022 on.
+
+### Predictions, written before the run
+
+1. Of the group's held-out ads with a filled size from 2022 on, 30% to 60% draw on another
+   bedroom count.
+2. The group's flagged ads have a mean residual below that of its stated sizes on both
+   halves, and over 30% of them fall below the 10% point.
+3. Outside the group the flagged ads' mean residual is within 0.01 of the other ads', as
+   sizes borrowed from more and from fewer bedrooms pull both ways.
+4. The two marks gain +5 to +40 over the reference, positive on both halves, most of it
+   from the mark inside the group.
+5. Under the reference the group's flagged ads cover under 0.75 of their 80% interval.
