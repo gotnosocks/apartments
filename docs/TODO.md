@@ -258,9 +258,12 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   Sonnet or Haiku readers. Done on history 2026-11-20
   (`docs/notes/changed-counts-read-2026-11-20.md`): 300 held-out pairs read; recounts,
   other apartments and coding errors are equally common in the tails and the ordinary ads.
-  The wide tails belong to ads whose most recent training ad has other counts (10% low and
-  9% high on both halves, gap sd 1.5 times the rest). Open: a scale mark for a fresh change
-  of counts in the next base refit.
+  The wide tails belong to ads whose most recent earlier training ad has other counts
+  (10% to 12% low and 10% high by half, scale factor 1.35 and 1.40 against 0.92), and most
+  of all to ads whose counts are new to the unit (factor 1.68 and 1.71). Open: a scale mark
+  for an ad whose counts are new to the unit, as a candidate for the next base refit, to be
+  checked on a market backtest with its form fixed beforehand. No unit-match rule, text
+  mark or data change follows.
 
 **From the Deals list of 2026-11-10** (`docs/notes/drift-2026-11-10.md`). Each is a change
 of the model's inputs or sampler, so each needs a dataset rebuild or a fit of its own.

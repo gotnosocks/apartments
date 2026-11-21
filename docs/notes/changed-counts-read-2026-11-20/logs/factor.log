@@ -1,0 +1,47 @@
+training max day 2025-11-10 00:00:00 held-out days 2025-11-10 00:00:00 2025-11-10 00:00:00
+unit training rows dated on or after the held-out ad 0.0
+
+===== Deals backtest (range-j), held-out ads 9346
+
+by mark
+                       n     sd    low   high  tails      m   m_se
+mark2                                                             
+back               177.0  0.090  0.045  0.034  0.079  0.981  0.066
+counts as before  5783.0  0.075  0.042  0.042  0.084  0.938  0.013
+fresh              218.0  0.140  0.106  0.115  0.220  1.452  0.087
+no unit history   3168.0  0.134  0.047  0.094  0.141  1.088  0.027
+
+by mark and half
+                            n     sd    low   high  tails      m   m_se
+mark2            half                                                  
+back             A       99.0  0.102  0.040  0.051  0.091  1.010  0.097
+                 B       78.0  0.073  0.051  0.013  0.064  0.947  0.092
+counts as before A     2759.0  0.073  0.048  0.037  0.085  0.942  0.021
+                 B     3024.0  0.077  0.037  0.046  0.083  0.934  0.017
+fresh            A      117.0  0.164  0.137  0.111  0.248  1.560  0.140
+                 B      101.0  0.106  0.069  0.119  0.188  1.340  0.110
+no unit history  A     1539.0  0.131  0.038  0.094  0.133  1.063  0.038
+                 B     1629.0  0.137  0.055  0.095  0.150  1.112  0.036
+
+fresh split by counts seen
+                         n     sd    low   high  tails      m   m_se
+mark                                                                
+back                 177.0  0.090  0.045  0.034  0.079  0.981  0.066
+counts as before    5783.0  0.075  0.042  0.042  0.084  0.938  0.013
+fresh, counts new    161.0  0.151  0.112  0.124  0.236  1.516  0.129
+fresh, counts seen    57.0  0.101  0.088  0.088  0.175  1.281  0.144
+no unit history     3168.0  0.134  0.047  0.094  0.141  1.088  0.027
+
+fresh split by counts seen and half
+                              n     sd    low   high  tails      m   m_se
+mark               half                                                  
+back               A       99.0  0.102  0.040  0.051  0.091  1.010  0.097
+                   B       78.0  0.073  0.051  0.013  0.064  0.947  0.092
+counts as before   A     2759.0  0.073  0.048  0.037  0.085  0.942  0.021
+                   B     3024.0  0.077  0.037  0.046  0.083  0.934  0.017
+fresh, counts new  A       84.0  0.182  0.143  0.143  0.286  1.718  0.220
+                   B       77.0  0.107  0.078  0.104  0.182  1.324  0.140
+fresh, counts seen A       33.0  0.093  0.121  0.030  0.152  1.201  0.196
+                   B       24.0  0.105  0.042  0.167  0.208  1.390  0.235
+no unit history    A     1539.0  0.131  0.038  0.094  0.133  1.063  0.038
+                   B     1629.0  0.137  0.055  0.095  0.150  1.112  0.036
