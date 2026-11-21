@@ -382,9 +382,9 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   candidate if the level leaves the low tail wide; a level for 3+ bedroom rows rising with
   the building's share of ads naming finishes (marble, a chef's kitchen, named appliances),
   taken from the building's earlier ads: −0.011 at share 0 and +0.006 to +0.010 over 0.5,
-  about half of it inside a tier of predicted rent
-  (`docs/notes/large-unit-text-2026-11-21.md`). None changes enough of the Deals list for a fit
-  of its own (the changed-count and three-bath classes hold about 60 of 425 low-tail ads on
+  60% to 70% of the step inside a tier of predicted rent
+  (`docs/notes/large-unit-text-2026-11-21.md`). None changes enough of the Deals list for a
+  fit of its own (the changed-count and three-bath classes hold about 60 of 425 low-tail ads on
   the backtest).
 - [x] Deals page: a first ask below the 5% point closes sooner for studios and one-bedrooms
   (45% and 39% within 7 days against 30% and 29%) and no sooner for four or more bedrooms

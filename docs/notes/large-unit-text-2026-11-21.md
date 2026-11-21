@@ -4,8 +4,9 @@ The TODO list asked for a read of floor plans and photos of large units, looking
 qualities the record lacks: a second level, a full floor, a renovation. The recorded attributes
 leave large units' persistent sd at 0.091, against 0.026 for mid-sized units. The image read of
 2026-11-18 (`docs/notes/deals-photos-2026-11-18.md`) already holds 392 ads with 3 or more
-bedrooms, all drawn for the low tail and its controls. Among them a plan on 2 or more levels is
-on 37% of low ads and 13% of controls, which is the duplex finding already queued as a noise
+bedrooms, all drawn for the low tail and its controls (288 low, 104 controls; counted by
+`l1_reuse.py` from that read's Haiku reads). Among them a plan on 2 or more levels is on 37%
+of low ads and 13% of controls, which is the duplex finding already queued as a noise
 factor. No one has read the high tail of large units. Before fetching images, this note scans
 the ad text of every large held-out ad, in both tails, on the two halves of the buildings.
 
@@ -57,7 +58,8 @@ The finish mark is "luxury", "marble", "chef's kitchen", or a named appliance (S
 Miele, Viking, Wolf, Bosch, a wine fridge). I read 30 random matches on the named words
 (`l6_ctx.py`): 27 describe the apartment (marble baths, a chef's kitchen, Sub-Zero and Viking
 appliances), and 3 describe a marble lobby or hallway. The later scripts drop marble lobby,
-hall and entry wording.
+hall and entry wording. The tables of `l3_words.py` and `l5_split.py` above use the mark
+before that refinement, and `l7_refined.py` on use the refined one.
 
 Among 3+ bedroom ads, marked against unmarked, gap difference in log points, A / B
 (`l5_split.py`):
@@ -83,8 +85,10 @@ With the lobby wording dropped, named finishes alone give +0.014 and +0.017 at 3
 
 Inside a building and size class with both marked and unmarked held-out ads, the marked 3+
 bedroom ads sit +0.002 (A, 490 buildings) and −0.001 (B, 535 buildings) from the unmarked
-ones on the named words, and +0.003 and +0.004 with "luxury" added. All are under one
-building-clustered SE (`l8_within.py`). So the mark says little about one unit against its
+ones on the named words, and +0.003 and +0.004 with "luxury" added (`l8_within.py`). Its SE
+is the row sd over the square root of the count of buildings, a rough stand-in for a
+clustered SE, about 0.003: the named-word differences are under one SE and the "luxury"
+ones about 1 to 1.4. So the mark says little about one unit against its
 neighbours. It says which buildings the model prices low for large units.
 
 ### The building's finish share
@@ -115,8 +119,10 @@ Part of this is price. Within quartiles of l2bt's predicted rent, set by year
 | third | +0.008 | +0.016 |
 | highest | +0.006 | +0.014 |
 
-Each cell is 1 to 3 standard errors, and all eight are positive. About half of the band's
-difference stays inside a price tier. The queued factor for the top 3% of predicted rents and
+All eight are positive. Five are over one SE and two under half of one (the SE as in
+`l8_within.py`). Averaged over the four tiers the difference is +0.009 and +0.014, against
++0.016 and +0.021 across all tiers in the same table, so 60% to 70% of it stays inside a
+price tier. The queued factor for the top 3% of predicted rents and
 the level for four or more bedrooms take some of the rest.
 
 ## What follows
@@ -125,9 +131,10 @@ the level for four or more bedrooms take some of the rest.
   that rises with the building's finish share. Compute the share from the building's ads
   dated before the row, so a later renovation's wording does not reach earlier rows. A more
   general form is a building-level deviation for large units, with a hierarchical prior whose
-  mean the share predicts. About +0.01 to +0.02 at shares over 0.2 and −0.011 at share 0. In
-  buildings with 4 or more held-out ads those are about 31% and 58% of large ads. Too small
-  for a fit of its own: large ads in share-0 buildings are priced about 1% too high, which lifts them a little in the Deals
+  mean the share predicts. The gap is −0.011 at share 0 and +0.003 to +0.010 at shares over
+  0.2, so the term spans about 1.5 to 2 points. In buildings with 4 or more held-out ads
+  those are about 58% and 31% of large ads. Too small for a fit of its own: large ads in
+  share-0 buildings are priced about 1% too high, which lifts them a little in the Deals
   ranking and no further.
 - The image read of large units stays open in a narrower form. The text covers the three
   qualities named, and the high tail's photos (1,411 ads) have not been read. A read of them is
