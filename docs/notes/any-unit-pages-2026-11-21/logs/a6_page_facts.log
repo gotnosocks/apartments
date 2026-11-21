@@ -1,0 +1,28 @@
+pages with two or more ads, % with each fact
+half  pages  mixed  sqft_differ  ov_4_10  ovb_4  ova_4_10
+   A 214660   20.2          3.5      1.4    1.1       0.5
+   B 218365   20.4          3.5      1.5    1.2       0.6
+
+half A: phrase pages, % with each fact
+        phrase  pages  mixed  sqft_differ  ov_4_10  ovb_4  ova_4_10
+      any_unit    923   59.7         15.7      4.6    2.9       2.6
+multiple_units    551   49.0          6.9      3.6    2.5       1.6
+   other_units    578   33.2          6.4      4.2    2.9       1.9
+ similar_units  14247   25.2          2.9      1.9    1.5       0.7
+      may_vary    986   35.1          6.8      3.3    2.1       2.0
+ various_units   1764   30.4          4.1      2.9    1.8       1.6
+   prices_vary   4337   10.1          2.2      0.9    0.7       0.3
+representative  15459   19.7          1.8      1.4    1.1       0.5
+
+half B: phrase pages, % with each fact
+        phrase  pages  mixed  sqft_differ  ov_4_10  ovb_4  ova_4_10
+      any_unit    722   47.1          4.7      5.1    4.2       3.3
+multiple_units    446   43.7          2.9      2.2    0.9       1.6
+   other_units    596   32.0          4.0      3.7    2.9       1.5
+ similar_units  14297   29.2          3.2      2.1    1.7       0.8
+      may_vary    824   28.3          5.0      2.5    2.4       0.6
+ various_units   1569   29.5          3.7      2.3    1.8       1.0
+   prices_vary   2291   16.8          2.8      1.7    1.2       0.8
+representative  15776   23.9          2.2      1.7    1.3       0.7
+
+half A: overlap forms, pages and % in buildings with any text phrase page

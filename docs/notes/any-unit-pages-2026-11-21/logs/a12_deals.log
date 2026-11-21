@@ -1,0 +1,8 @@
+deals 6502 with a unit page 6502 page ads 21690
+page ads with a text 21690 with the phrase 56
+m_text           all   26 of 6502 (0.40%) | top 100: 0 | uncautioned 5 of 4884, their top 100: 0
+m_overlap        all   17 of 6502 (0.26%) | top 100: 0 | uncautioned 10 of 4884, their top 100: 0
+m_overlap_other  all   15 of 6502 (0.23%) | top 100: 0 | uncautioned 9 of 4884, their top 100: 0
+m_any            all   42 of 6502 (0.65%) | top 100: 0 | uncautioned 15 of 4884, their top 100: 0
+m_any_other      all   40 of 6502 (0.62%) | top 100: 0 | uncautioned 14 of 4884, their top 100: 0
+marked Deals ads by building: {'bridgeview-dumbo': 9, 'the-rheingold': 7, '42-carlton-avenue-brooklyn': 2, '190-grand-street-house': 2, '270-west-11-street-new_york': 1, '251-west-26-street-new_york': 1, '454-west-58-street-new_york': 1, '10-west-65-street-new_york': 1}

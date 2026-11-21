@@ -197,15 +197,19 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   nonresidential check (`docs/notes/nonresidential-2026-11-14.md`) counts all 3 of S17's
   commercial reads among its candidates and writes no rule. It didn't split by room count,
   so a screen of nonresidential ads at 8 or more rooms is still open.
-- [ ] Screen The Rheingold (10 Monteith St) and buildings like it, where brokers post ads
-  for any unit of the building under arbitrary unit pages: 431 of its 592 pages with two
-  or more kept ads hold two or more bedroom counts. Mixed counts alone do not mark the
-  practice: 489 of the 4,002 buildings with 20 or more such pages have over half of them
-  mixed (loft buildings lead the list, where listers code the same space as 0, 1 or 2
-  bedrooms), and the shared-unit reads found no second apartment in 15 units flagged by
-  bedroom counts alone. Screen on the ads' text ("any unit in the building") and on asks
-  running at once on a page, then decide between leaving those unit levels and dropping
-  them.
+- [x] Screen The Rheingold (10 Monteith St) and buildings like it, where brokers post ads
+  for any unit of the building under arbitrary unit pages. Done 2026-11-21
+  (`docs/notes/any-unit-pages-2026-11-21.md`): a text mark ("any unit in the building", 923
+  and 722 pages by half) and an overlap mark (asks more than 10% apart running 4 or more days
+  at once, 1,177 and 1,236 pages) mark 4,010 pages. Blind reads find several apartments on
+  13 of 40 marked pages (0.33, 0.20 to 0.48) against 4 of 20 unmarked pages in the same
+  buildings. Held-out ads on marked pages show no level gap; coverage falls 4 to 5 points
+  and the low tail rises 1 to 3 points on both halves. 42 of 6,502 Deals ads are marked,
+  none in the top 100. No rule and no caution (thresholds set post hoc); the overlap mark reads asks, so it
+  may screen or caution and may not carry a data rule. Open: a noise scale on the overlap
+  mark, built for each ad from the page's ads that started earlier, read as of its first
+  day with its own ask left out, listed in `READS_EARLIER_RENTS` and scored on the latest
+  split; and a hand `split_unit` read of The Rheingold's pages.
 - [ ] L1: a noise scale by lease phase, a factor on the ad-level scale per group of months
   since the opening of the unit's previous ad (none, under 3, 3 to 9, 10 to 13, 14 to 21,
   22 to 25, 26 or more). The served intervals cover 0.752 of held-out asks at 3 to 9

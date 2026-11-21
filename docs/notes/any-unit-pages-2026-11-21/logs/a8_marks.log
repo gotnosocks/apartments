@@ -1,0 +1,25 @@
+text-marked pages with one candidate ad: [('A', 180), ('B', 150)]
+
+pages with two or more ads by mark and half
+half  pages  n_text  n_overlap  n_both  n_either  either_ads  either_buildings
+   A 214660   923.0     1177.0    24.0    2076.0     15366.0               960
+   B 218365   722.0     1236.0    24.0    1934.0     12396.0              1057
+
+% of pages with each fact: all, text, overlap, either (half B is the check)
+A size differs: all 3.5 text 15.7 overlap 17.1 | mixed beds: all 20.2 text 59.7 | text among overlap 2.04 vs all 0.43 | overlap among text 2.6 vs all 0.55
+B size differs: all 3.5 text 4.7 overlap 17.0 | mixed beds: all 20.4 text 47.1 | text among overlap 1.94 vs all 0.33 | overlap among text 3.32 vs all 0.57
+
+buildings holding the most marked pages
+                       building half  pages  n_text  n_overlap
+                  the-rheingold    A    414   413.0        5.0
+               bridgeview-dumbo    B    142   137.0       23.0
+      205-north-9th-st-brooklyn    A    109   109.0        3.0
+                    the-garnett    A    106   105.0        8.0
+                 leonard-pointe    A     84    76.0       16.0
+        26-west-street-brooklyn    B     69    69.0        0.0
+                   clover-house    B     63    63.0        2.0
+espoir-154-hope-street-brooklyn    B     52    52.0        1.0
+        12-ford-street-brooklyn    B     47    47.0        0.0
+   220-north-10-street-brooklyn    B     34    33.0        1.0
+     167-graham-avenue-brooklyn    B     30    26.0        5.0
+                    river-watch    A     29    29.0        0.0
