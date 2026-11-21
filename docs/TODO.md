@@ -472,7 +472,8 @@ first.
   the page price as a net rent over a 12 to 24 month lease. It would mark 88 of 6,502 live
   ads, 5 in the first 60 and 12 in the first 300. The deposit is in the records file the
   publish already reads for texts. Decide whether to require a ratio of 1.05 or more.
-  - 2026-11-21: built with a ratio of 1.05 on branch `po-deposit-net`, not yet published.
+  - 2026-11-21: merged in #1508 with a ratio of 1.05 and published at 12:59 AM ET on Nov 21
+    from range-m3 with the range-j backtest; 75 ads carry it.
     The texts table now keeps the chosen record's deposit; publish refuses one without it
     and `ops/deals-refresh publish` rewrites such a cached table. On `range-m3` it marks 75 of the 6,502 ads, 50 with no other caution, 4 in the
     first 60 and 11 in the first 300 of the default view.
