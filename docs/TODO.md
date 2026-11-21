@@ -254,8 +254,13 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   shared miss is a level for building and bedroom count among units new to training; the
   line and the ad text add nothing that holds on both halves, and the plan image's excess
   is steady but small, the size of the bath excess.
-- [ ] Read the 307 open ads on pages whose previous ad has another bedroom count, on
-  Sonnet or Haiku readers.
+- [x] Read the 307 open ads on pages whose previous ad has another bedroom count, on
+  Sonnet or Haiku readers. Done on history 2026-11-20
+  (`docs/notes/changed-counts-read-2026-11-20.md`): 300 held-out pairs read; recounts,
+  other apartments and coding errors are equally common in the tails and the ordinary ads.
+  The wide tails belong to ads whose most recent training ad has other counts (10% low and
+  9% high on both halves, gap sd 1.5 times the rest). Open: a scale mark for a fresh change
+  of counts in the next base refit.
 
 **From the Deals list of 2026-11-10** (`docs/notes/drift-2026-11-10.md`). Each is a change
 of the model's inputs or sampler, so each needs a dataset rebuild or a fit of its own.

@@ -1,0 +1,23 @@
+You are reading pairs of New York rental ads. Read the file DOSSIER (JSON, 30 entries) with the Read tool, in full. Do not open any other file, do not search the web, do not run any analysis; this is a reading task only.
+
+Each entry has two ads of what the data treats as ONE apartment (same building, same unit key): `ad_1` and `ad_2`, listed at different dates. Their coded bedroom or bath counts differ (`coded_bedrooms`, `coded_baths`; a half bath counts 0.5). Each ad also has its unit label, coded size and full text (dollar amounts are masked as [amount]). Read the WHOLE text of both ads before you code the pair. Then decide why the coded counts differ, choosing exactly one code:
+
+ a = a recount of the same rooms: the physical apartment is the same and one ad counts a room the other does not (flex / convertible / "can be converted", home office, den, bonus room, alcove, junior 1 / junior 4, "currently used as", a windowless room counted as a bedroom; for baths, e.g. a powder room counted or not counted, the same layout described with a different bath count without evidence of building work).
+ b = a real alteration between the two ads: a wall put up or taken down by building work, two units combined or one split, a gut renovation that changed the layout, a bathroom added. Needs evidence in the text (e.g. "newly gut renovated" with a different layout, "combined", "newly added second bath").
+ c = a different apartment: the two texts describe two different physical apartments sharing the unit key (different unit labels such as 2 vs 2F, different floors, clearly different layouts/features such as one with a terrace duplex and one a ground floor studio, or one text is generic text about the whole building / a different unit / a room in a shared apartment).
+ d = a coding error: the text of one ad clearly states counts that differ from that ad's own coded counts (e.g. coded 1 bedroom, text says "true 2 bedroom"), and the two texts otherwise agree on the apartment. Use d only when the text contradicts the coded field of its own ad.
+ e = nothing visible: the texts do not let you tell (texts are generic building text, too short, or give no room counts).
+
+If two codes apply, choose the one that best explains the difference in the coded counts. Be strict about evidence: do not guess b from the word "renovated" alone, and do not guess c merely because the texts are written differently by different brokers.
+
+Write your result with the Write tool to OUTFILE as a JSON array with one object per entry, in the dossier's order, with exactly these keys:
+ "ad": the entry's `ad` value (string),
+ "code": one of "a","b","c","d","e",
+ "same_apartment": "yes", "no" or "unclear" (do the two texts describe the same physical apartment?),
+ "text_beds_1": the bedroom count the text of ad_1 states (a number, or "flex N" when it says e.g. convertible 2, or "" when the text gives none),
+ "text_beds_2": the same for ad_2,
+ "text_baths_1": the bath count the text of ad_1 states, or "",
+ "text_baths_2": the same for ad_2,
+ "quote": one short verbatim quote (at most 25 words) from one of the two texts that supports your code, prefixed with `Ad text:` and with which ad it is from at the end, e.g. `Ad text: "second bedroom can easily be created" (ad_2)`. For code e write `Ad text: none`.
+
+All 30 entries must be coded. Make sure the file is valid JSON (escape double quotes inside the quote). When done, reply with only the count of each code.

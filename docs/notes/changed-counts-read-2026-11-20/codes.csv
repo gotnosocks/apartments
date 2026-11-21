@@ -1,0 +1,301 @@
+listing_id,o_listing,building,half,group,dir,fresh,label_differs,code,same_apartment,text_beds_1,text_beds_2,text_baths_1,text_baths_2,quote
+4871743,4372286,the-stockton,B,low,baths only,True,False,d,yes,2,2,2,2,"Ad text: ""6O – 2 Bed 2 Bath with Balcony"" (ad_1)"
+5059706,4540525,128-manhattan-avenue-brooklyn,B,mid,baths only,False,False,d,yes,2,2,1.5,,"Ad text: ""HUGE 2 bed / 1.5 bath + Duplex with PRIVATE ROOFTOP"" (ad_1)"
+4658045,5002967,2288-atlantic-avenue-brooklyn,B,high,beds down,True,False,e,unclear,1,,,,Ad text: none
+4735389,4956252,402-east-78-street-new_york,B,mid,beds up,True,False,c,no,3,1,2,,"Ad text: ""RENOVATED one-bedroom apartment on a tree-lined block right off of First Avenue"" (ad_2)"
+5083200,4632186,321-wythe-avenue-brooklyn,A,low,beds down,True,False,e,yes,,,,,Ad text: none
+4750655,2872842,5-delevan-street-brooklyn,A,high,beds up,False,False,a,yes,1,,,,"Ad text: ""Large open living space with separate bedroom and sleeping loft"" (ad_1)"
+5093211,4635137,70-kosciuszko-street-brooklyn,A,mid,beds down,True,False,d,yes,0,0,,,"Ad text: ""Studio available to rent ASAP"" (ad_2)"
+4678079,1353090,207-east-33-street-new_york,B,low,beds up,False,False,a,yes,1,flex 1,1,,"Ad text: ""Alcove Studio/One Bedroom"" (ad_2)"
+4844983,2077345,101-west-end-avenue-new_york,B,low,baths only,True,True,e,unclear,1,,,,Ad text: none
+5117885,3976276,183-ainslie-street-brooklyn,B,high,baths only,True,False,d,yes,2,2,2,2,"Ad text: ""2 Bed + 2 Bath & Private Balcony"" (ad_1)"
+5160205,4069140,96-steuben-street-brooklyn,B,low,beds up,False,False,d,unclear,2,1,1,,"Ad text: ""Beautiful One Bedroom Apartment Available Now!"" (ad_2)"
+5095284,4738209,304-linden-street-brooklyn,B,mid,baths only,True,False,c,no,4,4,2,4,"Ad text: ""HUGE 4 BEDROOM 4 BATHROOM UNIT EACH ROOM HAS ITS OWN BATHROOM"" (ad_2)"
+5106444,2371964,291-stockholm-street-brooklyn,A,mid,baths only,False,False,e,unclear,,4,,2,Ad text: none
+4839391,4257969,218-east-13-street-new_york,B,low,baths only,True,False,d,yes,2,2,1.5,1.5,"Ad text: ""a half bath and the 2nd bedroom"" (ad_1)"
+4953169,4598850,164-south-3-street-brooklyn,B,mid,beds up,True,False,c,no,2,0,,1,"Ad text: ""Phenomenal Studio/1 Bath apartment in a brand new boutique building"" (ad_2)"
+4851150,4609580,espoir-154-hope-street-brooklyn,A,high,beds up,True,False,c,no,,1,,,"Ad text: ""AWESOME SPACIOUS 700SQFT 1 BEDROOM UNIT!"" (ad_2)"
+4915047,4176874,137-east-38-street-new_york,A,mid,beds up,False,False,e,unclear,,,,,Ad text: none
+5074868,4994632,200-stanton-street-new_york,B,low,beds down,True,False,d,yes,1,1,1,1,"Ad text: ""large renovated 1 bedroom/1 bathroom apartment with super high ceilings"" (ad_2)"
+4709981,3842530,21-east-66-street-new_york,A,high,baths only,True,False,a,yes,2,flex 3,2,3,"Ad text: ""easily convertible in a three-bedroom home with three full baths"" (ad_2)"
+4970101,4134787,190-5-avenue-brooklyn,A,mid,beds up,False,False,a,yes,2,2,,,"Ad text: ""The 2nd bedroom/Office is accessed through the master"" (ad_2)"
+4629248,4988109,328-east-66-street-new_york,A,low,beds up,True,False,b,yes,2,1,,,"Ad text: ""NEWLY GUT RENOVATED 1BR W TONS OF WINDOWS IN UNIT"" (ad_2)"
+5148863,5043177,casa-dumbo,A,high,beds up,True,False,c,no,3,2,,,"Ad text: ""Exclusive 2 bed apt, a unique architectural masterpiece!"" (ad_2)"
+5097779,4116023,11-east-32-street-new_york,B,high,baths only,True,False,e,yes,1,1,1,,Ad text: none
+5174368,3640288,467-hicks-street-brooklyn,B,high,baths only,True,False,e,yes,2,2,2,,Ad text: none
+4793699,3742955,20-broad-street,A,mid,beds down,True,False,e,unclear,,,,,Ad text: none
+4722295,4838778,228-berry-street-brooklyn,B,low,beds up,True,False,c,no,2,1,2,,"Ad text: ""Stunning 2 Bedroom 2 Bath Unit apartment with Private Balcony/Terrace"" (ad_1)"
+4858162,5023345,38-cooper-street-brooklyn,B,mid,beds down,True,False,c,no,1,2,1,1,"Ad text: ""Modern 2-Bedroom Apartment with Private Backyard in a Boutique Brooklyn Building"" (ad_2)"
+5172350,4110921,214-east-111-street-new_york,B,low,baths only,True,False,e,unclear,,,,,Ad text: none
+4858383,1353451,19-west-89-street-new_york,A,high,beds down,False,False,a,yes,flex 2,2,,1,"Ad text: ""large at-home office that can be used as a second bedroom"" (ad_1)"
+5109000,1427410,154-8-avenue-new_york,B,mid,beds up,False,True,a,yes,1,,,,"Ad text: ""Currently configured as an open loft with an interior bedroom"" (ad_1)"
+4839935,1707540,112-emerson-place-brooklyn,A,low,beds up,False,False,e,unclear,2,1,,,Ad text: none
+5181233,2275501,200-grand-street-new_york,B,high,beds down,False,False,c,no,0,,,,"Ad text: ""i have studio 1950"" (ad_2)"
+4730049,1509406,203-spring-street-new_york,B,low,beds up,False,False,e,unclear,3,1,,,Ad text: none
+5115917,5177359,922-3-avenue-new_york,A,high,beds down,True,False,a,yes,,flex 2,,,"Ad text: ""can easily be arranged as a second bedroom"" (ad_2)"
+4921627,4731637,141-joralemon-street-brooklyn,B,low,beds up,True,False,e,unclear,,,,,Ad text: none
+5143777,1517273,245-kingsland-avenue-brooklyn,A,mid,beds down,False,False,e,unclear,2,3,2,2,Ad text: none
+5069526,3314827,109-eldridge-street-new_york,B,mid,baths only,False,False,e,yes,2,2,,,Ad text: none
+5026830,1463949,316-12-street-brooklyn,B,high,baths only,True,False,e,unclear,3,3,2,,Ad text: none
+5156407,4449293,the-wave-40-north-4-street-brooklyn,A,high,beds up,True,False,a,yes,1,0,,,"Ad text: ""1 BED + LOFT"" (ad_1); ""Lofted Studio"" (ad_2)"
+4619487,4379532,the-rheingold,A,mid,beds down,True,False,e,unclear,,,,,Ad text: none
+4714682,2534305,6-peter-cooper-road-new_york,A,high,beds up,False,False,e,unclear,,,,,Ad text: none
+5132496,4831979,74-north-first-street-brooklyn,A,mid,beds down,True,False,c,no,0,2,,2,"Ad text: ""Spacious Studio apt with balcony!"" (ad_1)"
+4959253,3899187,88-fulton,A,high,beds down,False,False,d,yes,1,1,,,"Ad text: ""One-bedroom footprint PLUS a"" (ad_1)"
+5121405,3756251,260-gold,A,mid,beds up,False,False,e,unclear,2,,1,,Ad text: none
+5003255,3069535,396-bedford-avenue-brooklyn,B,mid,beds up,False,False,e,unclear,2,1,,,Ad text: none
+4675973,2643884,965-willoughby-avenue-brooklyn,B,mid,beds up,False,False,e,unclear,3,,2,,Ad text: none
+5132572,4306925,130-allen-street-new_york,A,low,beds up,False,False,e,unclear,,1,,,Ad text: none
+4963379,3463300,448-west-46-street-new_york,A,high,beds down,True,False,d,yes,1,1,,,"Ad text: ""a beautifully gut-renovated one-bedroom home"" (ad_1)"
+4851392,5168434,210-cook-street-brooklyn,B,low,beds up,True,False,e,unclear,,,,,Ad text: none
+5139291,4231022,818-lexington-avenue-brooklyn,B,high,beds up,False,False,e,unclear,2,1,,,Ad text: none
+5030702,3189751,411-east-118-street-new_york,A,mid,beds down,False,False,e,unclear,,2,,,Ad text: none
+4702571,4143117,247-mulberry-street-new_york,A,mid,beds down,False,False,e,unclear,2,4,,2,Ad text: none
+4983503,1818877,1474-bushwick-avenue-brooklyn,B,mid,baths only,False,False,e,yes,3,,1,,Ad text: none
+4626871,1539663,73-montrose-avenue-brooklyn,B,mid,beds up,False,False,e,unclear,3,,2,,Ad text: none
+5113231,3526857,219-east-10-street-new_york,A,mid,beds up,False,False,a,unclear,1,flex 1,,,"Ad text: ""Spacious two-room studio/convertible one-bedroom apartment"" (ad_2)"
+4811701,1554859,11-carmine-street-new_york,A,mid,beds down,False,False,e,unclear,1,2,,,Ad text: none
+4705236,4690630,85-john-street-new_york,A,high,beds down,True,False,a,yes,,flex 3,,2,"Ad text: ""THE PERFECT CONVERTIBLE-3BR / 2 FULL BATHS!"" (ad_2)"
+4964545,3341270,223-east-82-street-new_york,A,mid,beds down,False,False,a,yes,0,1,,,"Ad text: ""Beautiful Large Studio Located in Upper East Side"" (ad_1)"
+5048676,3760884,1510-gates-avenue-brooklyn,B,low,baths only,False,False,e,yes,3,3,1.5,,Ad text: none
+4947149,4860081,1499-bedford-avenue-brooklyn,B,high,beds down,True,False,e,unclear,,,,,Ad text: none
+4753452,4154889,436-wilson-avenue-brooklyn,B,mid,baths only,True,False,a,yes,3,3,2,3,"Ad text: ""Two pristine, renovated bathrooms"" (ad_2)"
+4732052,4351789,323-west-96-street-new_york,B,high,baths only,True,False,e,unclear,flex 3,,,,Ad text: none
+5094951,4464942,165-avenue-a-new_york,B,high,beds up,True,False,c,no,4,1,1,,"Ad text: ""Queen Sized Bedroom -Balcony"" (ad_2)"
+4871062,4255634,162-carlton-avenue-brooklyn,A,mid,beds down,True,False,a,yes,1,3,2,2,"Ad text: ""The Bedroom fits a King bed, has a full ensuite bathroom"" (ad_1)"
+4875325,4499311,18-st-charles-place-brooklyn,A,mid,beds down,True,False,c,no,0,1,,,"Ad text: ""This 2nd floor east facing apartment is guaranteed lots of natural light."" (ad_2)"
+4802299,2764734,443-east-88-street-new_york,A,high,beds up,False,False,e,unclear,3,,1,,Ad text: none
+4827104,3917273,the-leyton,B,mid,baths only,False,True,e,yes,,,,,Ad text: none
+4800275,1335541,gotham-west,A,high,baths only,True,False,e,unclear,,,,,Ad text: none
+4726297,2309119,1-spencer-court-brooklyn,B,low,beds up,False,False,e,unclear,,0,,,Ad text: none
+5131005,4895485,248-mc-kibbin-street-brooklyn,B,high,beds up,True,False,c,no,2,1,,,"Ad text: ""massive sunlit 2 Bedroom loft duplex + massive closets"" (ad_1)"
+4757635,4664004,294-harman-street-brooklyn,B,high,beds down,True,False,d,yes,2,2,,,"Ad text: ""Spacious 2-bedroom apartment with high ceilings and hardwood floors"" (ad_1)"
+4657485,4614455,137-frost-street-brooklyn,B,high,baths only,True,False,d,yes,2,2,2,2,"Ad text: ""2 Bed / 2 Bath with Giant Private Roof Deck!"" (ad_2)"
+4905237,5169553,223-east-96-street-new_york,B,high,beds up,True,False,a,yes,3,2,,,"Ad text: ""Each of the three queen-size bedrooms offers generous space"" (ad_1)"
+4685848,3062399,304-evergreen-avenue-brooklyn,B,low,baths only,True,False,a,unclear,4,4,4,4.4,"Ad text: ""Massive four bedroom, four full bathroom duplex with a spacious basement."" (ad_1)"
+5046975,3490109,429-east-73-street-new_york,A,mid,beds up,False,False,e,unclear,,1,,,Ad text: none
+5177512,5103164,bridgeview-dumbo,A,low,beds up,True,False,e,unclear,,,,,Ad text: none
+5071651,4796008,254-palmetto-street-brooklyn,A,low,beds down,False,False,e,unclear,,,,,Ad text: none
+5034048,2265664,109-west-105-street-new_york,A,high,beds down,False,False,d,yes,2,2,,,"Ad text: ""the two separate bedrooms offer much needed space and privacy"" (ad_1)"
+4685040,1493591,362-3-avenue-new_york,B,mid,beds up,False,False,e,unclear,2,1,,,Ad text: none
+4897412,3331316,411-11-street-brooklyn,A,mid,beds up,False,False,e,unclear,4,3,2,,Ad text: none
+5158698,3048163,15-west-103-street-new_york,A,mid,beds up,False,False,d,yes,2,,1.5,1.5,"Ad text: ""4 room apartment with a private garden."" (ad_2)"
+5065613,4046200,36-saint-marks-place-new_york,B,high,baths only,True,False,d,yes,3,3,1.5,1.5,"Ad text: ""beautifully renovated, true 3 Bedroom, 1.5 Bath gem in the heart of the East Village"" (ad_2)"
+4678407,3865869,278-south-2-street-brooklyn,B,mid,beds up,False,False,e,unclear,2,1,,,Ad text: none
+4683152,4299366,376-graham-avenue-brooklyn,A,high,baths only,True,False,d,yes,2,2,2,2,"Ad text: ""2-Bed, 2-Bath Right by the Graham L Train"" (ad_1)"
+5096513,4142228,80-madison-avenue-new_york,B,mid,beds down,True,False,a,yes,2,flex 3,1,1,"Ad text: ""Spectacular new already flexed 3 bedroom apartment at True North NoMad"" (ad_2)"
+4917301,1935456,200-prospect-park-west-brooklyn,B,low,baths only,False,False,e,unclear,3,3,2,,Ad text: none
+4750513,3826963,165-east-35-street-new_york,B,low,beds up,True,False,e,unclear,,,,,Ad text: none
+5031793,1900973,265-east-66th-street-new_york,B,mid,beds up,False,False,e,unclear,3,2,2,,Ad text: none
+5167472,2775857,1264-lexington-avenue-new_york,A,high,beds down,False,False,c,no,0,4,,,"Ad text: ""Brand new 4BR apartment in a well maintained elevator building"" (ad_2)"
+4682320,2244220,43-bushwick-avenue-brooklyn,B,low,baths only,False,False,e,unclear,3,3,1.5,,Ad text: none
+4707812,4598789,431-grand-street-brooklyn,A,mid,beds down,True,False,c,no,2,4,1,2,"Ad text: ""4 Bedroom 2 Full Baths Duplex + Terrace Apartment"" (ad_2)"
+4829275,1511845,471-central-park-west-new_york,A,low,beds up,False,False,e,unclear,1,0,,,Ad text: none
+5179237,2594640,flora-310-east-12-street-new_york,B,mid,beds up,False,False,a,unclear,2,1,2,,"Ad text: ""There is another large room off the kitchen that can be a dining room or home office."" (ad_2)"
+4862242,3713251,53-3-street-brooklyn,A,low,beds up,False,False,d,yes,2,2,2,2,"Ad text: ""open plan living, dining, and kitchen area dividing two bedrooms on opposite sides of the apartment"" (ad_2)"
+5055748,4204125,manhattan-place,B,high,beds down,True,False,a,yes,1,flex 2,1,,"Ad text: ""1 bedroom (converted to 2 bed)"" (ad_2)"
+5059088,2384723,171-washington-park-brooklyn,B,mid,beds down,False,False,a,yes,0,flex 1,,,"Ad text: ""CAN BE RENTED AS AN ALCOVE STUDIO OR CLOSED OFF TRUE ONE BEDROOM."" (ad_2)"
+5070949,5001305,the-exchange,A,high,beds up,True,False,e,yes,,,,,Ad text: none
+5110136,1902644,640-broadway-new_york,A,high,beds up,False,False,e,unclear,3,,2.5,,Ad text: none
+5170505,4119834,156_158-2-avenue-new_york,A,low,baths only,False,False,d,yes,,3,,2,"Ad text: ""True 3 BED | 2 BATH"" (ad_2)"
+5116785,4491526,12-underhill-avenue-brooklyn,A,high,beds down,True,False,a,unclear,3,,,,"Ad text: ""Beautiful 3 Bedroom plus an extra lofted room with direct roof access!!"" (ad_1)"
+4889791,2148390,539-marcy-avenue-brooklyn,A,mid,beds down,False,False,e,unclear,,3,,,Ad text: none
+4839099,4153045,7-worth-street-new_york,A,low,beds up,True,False,a,yes,3,2,2,2,"Ad text: ""This is a two bedroom only. No temporary walls are allowed please."" (ad_2)"
+4907141,4320436,379-south-1-street-brooklyn,B,low,beds down,False,False,e,unclear,1,2,1,1,Ad text: none
+4931626,3615459,1488-1-avenue-new_york,B,mid,beds down,False,False,a,yes,1,flex 2,,,"Ad text: ""Very Large Converted 2 BR"" (ad_2)"
+4800508,4335704,59-malcolm-x-boulevard-brooklyn,A,high,beds down,True,False,e,yes,,,1.5,1.5,Ad text: none
+4687194,1558208,790-metropolitan-avenue-brooklyn,A,high,beds up,False,False,e,unclear,2,1,1,,Ad text: none
+4878341,4792042,259-west-19-street-new_york,A,high,baths only,True,False,a,yes,2,2,1.5,2,"Ad text: ""Renovated 2-bedroom with 1.5 baths and Washer/Dryer!"" (ad_1)"
+5127762,1347241,55-clifton-place-brooklyn,B,low,baths only,True,False,a,yes,5,5,3,,"Ad text: ""five-bedroom, two-and-a-half-bath duplex"" (ad_1)"
+4779733,4276903,889-bushwick-avenue-brooklyn,B,mid,beds down,True,False,c,no,1,2,,1.5,"Ad text: ""PLEASE NOTE : Unit is located on the first floor"" (ad_2)"
+4999346,4406333,81-beadel-llc,B,high,baths only,False,False,a,unclear,2,flex 2.5,2,3,"Ad text: ""Brand New 2 Bed 2 Bath + Office space"" (ad_1)"
+5174757,2691044,29-brooklyn-avenue-brooklyn,A,low,baths only,False,False,c,no,3,3,,2,"Ad text: ""3 Bed / 2 Bath at 31 Brooklyn Ave - Unit: 3C"" (ad_2)"
+4657959,4084413,752-9-avenue-new_york,A,low,beds up,True,False,c,no,2,1,,,"Ad text: ""the unit is one flight up"" (ad_1)"
+5132159,1472263,159-prince-street-new_york,B,high,beds up,False,False,e,unclear,1,,,,Ad text: none
+4886856,4453075,20a-starr-street-brooklyn,A,low,beds down,True,False,a,yes,3,4,2,2,"Ad text: ""All 3 bedrooms can accommodate queen beds"" (ad_2)"
+5144784,4831643,1239a-putnam-avenue-brooklyn,A,high,beds down,True,False,b,yes,2,3,1,1,"Ad text: ""The owner is converting the layout into a true 2-bedroom."" (ad_1)"
+5093032,2911198,180-nassau-street-brooklyn,A,low,baths only,False,False,d,yes,2,2,2,2,"Ad text: ""spacious two bedroom, two full bathroom with a private balcony"" (ad_2)"
+5067449,4755344,754-grand-street-brooklyn,A,mid,beds up,False,False,e,unclear,,3,,1.5,Ad text: none
+4640441,4270234,344-east-9-street-new_york,B,low,beds up,True,False,a,yes,1,0,,,"Ad text: ""Charming studio apartment in the heart of East Village"" (ad_2)"
+4696189,4862299,328-east-6-street-new_york,B,mid,beds up,True,False,a,unclear,1,0,,,"Ad text: ""Amazing Studio with extra room"" (ad_2)"
+4830738,1387000,130-barrow-street-new_york,A,high,beds up,True,False,a,unclear,2,1,,,"Ad text: ""two raised areas suitable for setting up a home office, alternative sleeping spaces"" (ad_2)"
+4842309,4364114,558-gates-avenue-brooklyn,A,low,baths only,True,False,a,yes,,,,,"Ad text: ""can be turned into an office space, storage, or another room"" (ad_1)"
+5132809,3481254,223-east-10-street-new_york,A,mid,beds down,False,False,a,unclear,0,0,,1,"Ad text: ""Huge 2 room Studio in beautiful brownstone building."" (ad_2)"
+5068893,4430152,203-east-14-street-new_york,B,mid,baths only,True,False,a,yes,2,2,1,2,"Ad text: ""Large Office with it's own bathroom"" (ad_1)"
+5173042,4103633,54-noll-street-brooklyn,B,low,beds up,False,False,e,unclear,,,,,Ad text: none
+5144325,3784313,978-kent-avenue-brooklyn,A,mid,beds up,False,False,e,unclear,3,,2,,Ad text: none
+4921823,2466530,54-noll-street-brooklyn,B,low,beds up,True,False,a,unclear,flex 2,,,,"Ad text: ""FLEX 2 BED LAYOUT"" (ad_1)"
+4844500,2998886,the-posthouse,B,low,baths only,True,False,e,yes,2,,2,,Ad text: none
+5127181,4848518,345-eldert-street-brooklyn,A,high,beds down,True,False,a,unclear,1,,,,"Ad text: ""MASSIVE 1BEDROOM + massive loft!!"" (ad_1)"
+4632547,4305796,701-union-street-brooklyn,B,high,beds down,True,False,d,yes,0,0,1.5,1.5,"Ad text: ""great storage space, and 1.5 baths!"" (ad_1)"
+5121451,4814648,98-india-street-brooklyn,B,high,baths only,True,False,a,yes,3,3,2.5,3,"Ad text: ""TRUE 3BR/3BATH Duplex on one of the best blocks in the area"" (ad_2)"
+4981523,3008936,409-7-avenue-brooklyn,A,low,beds up,False,False,e,unclear,2,,1,,Ad text: none
+5174274,2143330,windsor-court,B,mid,baths only,False,False,a,yes,0,0,,,"Ad text: ""Bright studio with southern views and lots of natural light"" (ad_2)"
+5014528,2777993,516-east-12-street-new_york,B,mid,beds down,False,False,c,no,1,4,,2,"Ad text: ""True 4 bedroom 2 full bathrooms apartment in the heart of the East Village!"" (ad_2)"
+4817067,3098181,913-st-johns-place-brooklyn,B,mid,beds up,False,False,a,unclear,4,3,1.5,,"Ad text: ""Stunning Three Bedroom Duplex in Prime Crown Heights!"" (ad_2)"
+4694743,2606583,1679-sterling-place-brooklyn,A,mid,beds down,False,False,d,yes,3,3,,1.5,"Ad text: ""Recently renovated three-bedroom apartment in Crown Heights."" (ad_1)"
+5174942,5163308,141-meserole-street-brooklyn,B,low,baths only,True,False,e,unclear,,3,,2.5,Ad text: none
+5021451,3225194,83-sackman-street-brooklyn,A,high,beds down,False,False,c,no,,2,,3,"Ad text: ""This listing is for the Garden floor apartment + access to backyard"" (ad_1)"
+4649536,4925126,328-east-93-street-new_york,A,mid,beds down,True,False,e,unclear,,,,,Ad text: none
+5046603,4855693,845-grand-street-brooklyn,A,mid,beds up,True,False,e,yes,,,,,Ad text: none
+5095363,3799943,1436-pacific-street-brooklyn,B,mid,beds up,False,False,e,unclear,4,,2,,Ad text: none
+5100830,3364814,254-palmetto-street-brooklyn,A,low,beds down,False,False,e,unclear,,3,,,Ad text: none
+5076458,4856457,1499-bedford-avenue-brooklyn,B,high,baths only,True,False,e,yes,,,,,Ad text: none
+5170910,4272007,321-pulaski-street-brooklyn,A,mid,beds up,False,False,d,yes,2,2,1,1,"Ad text: ""Gorgeous, newly renovated 2 Bedroom, 1 Bath apartment"" (ad_2)"
+5049489,3792513,368-west-46-street-new_york,B,high,baths only,True,True,e,unclear,3,3,,2,Ad text: none
+5055850,2294635,321-west-94-street-new_york,A,low,beds up,False,False,e,unclear,3,2,2,,Ad text: none
+4819187,4483113,1019-putnam-avenue-brooklyn,B,low,baths only,True,False,e,unclear,2,2,1,,Ad text: none
+4826834,1591435,42-carlton-avenue-brooklyn,A,low,baths only,False,False,e,unclear,2,2,2,1,Ad text: none
+4668311,3436123,202-knickerbocker-avenue-brooklyn,B,mid,baths only,False,False,e,unclear,2,2,2,,Ad text: none
+4832455,2566165,203-east-14-street-new_york,B,high,baths only,False,False,e,unclear,3,3,2,,Ad text: none
+5118975,4735678,589-knickerbocker-avenue-brooklyn,A,low,baths only,True,False,e,unclear,3,3,,,Ad text: none
+4893497,4180840,456-west-22-street-new_york,A,high,beds down,True,False,a,yes,flex 2,2,1,,"Ad text: ""this could easily be used as a two bedroom"" (ad_1)"
+5076109,3538325,56-frost-street-brooklyn,A,mid,beds up,False,False,d,unclear,,1,,1.5,"Ad text: ""1 bed/ 1.5 bath DUPLEX"" (ad_2)"
+5085004,4165322,315-avenue-c-new_york,B,high,beds down,False,False,e,unclear,,,,,Ad text: none
+4917986,4638448,2075-pacific-street-brooklyn,A,high,baths only,True,False,e,unclear,,,,,Ad text: none
+4899872,1471955,88-fulton,A,low,beds down,False,False,e,unclear,,,,,Ad text: none
+4938028,4604648,996-carroll-street-brooklyn,B,mid,beds up,False,False,c,no,3,1,1.5,,"Ad text: ""NEW LUXURY 3 Bed / 1.5 Baths!!"" (ad_1)"
+5071271,2750923,1310-dean-street-brooklyn,A,mid,beds up,False,False,a,yes,1,flex 1,,,"Ad text: ""Studio/convertible 1/ and 1 bedroom apartment"" (ad_2)"
+4726413,4838191,584-fourth,B,mid,beds down,True,False,c,no,1,2,1,1,"Ad text: ""2 Bed / 1 Bath at 584 4th Ave - Unit: 505"" (ad_2)"
+5024362,3966356,125-riverside-drive-new_york,B,low,beds down,False,False,a,yes,2,3,2,,"Ad text: ""Large 3 Bedroom Apartment Available!"" (ad_2)"
+5092397,4763076,354-east-87-street-new_york,B,high,beds up,True,False,a,yes,3,2,,,"Ad text: ""MASSIVE 2BR with STUDY/GUEST ROOM"" (ad_2)"
+5124462,4799218,345-eldert-street-brooklyn,A,high,beds down,True,False,e,unclear,,,,,Ad text: none
+5072094,3193917,134-east-7-street-new_york,A,low,beds up,False,False,a,yes,1,0,,,"Ad text: ""Studio apartment in a beautiful elevator building."" (ad_2)"
+4634694,4869299,1875-atlantic-avenue-brooklyn,B,low,beds up,True,False,e,unclear,,0,,,Ad text: none
+4896306,4529445,nassau-brewing-company,B,mid,beds up,False,False,a,unclear,1,0,,,"Ad text: ""Huge loft ALCOVE studio in beautiful building under new management"" (ad_2)"
+4629671,4207694,the-garnett,B,mid,beds down,True,False,e,unclear,,,,,Ad text: none
+5002705,4910307,647-willoughby-avenue-brooklyn,B,low,beds down,True,False,c,no,1,3,,1.5,"Ad text: ""Stunning 3 Bed, 1.5 Bath in a Fully Renovated Pre-War Gem"" (ad_2)"
+4942999,4715062,lofts-on-irving,A,mid,beds up,True,False,a,unclear,,flex 2,,,"Ad text: ""massive loft space which can be used as an office, chill room, bedroom etc.."" (ad_2)"
+5043642,3186135,73-east-2-street-new_york,A,high,beds up,False,False,a,unclear,3,2,,,"Ad text: ""Two entrances for separate rooms"" (ad_2)"
+4761559,3358121,26-charlton-street-new_york,A,low,beds up,False,False,e,unclear,,,,,Ad text: none
+4935200,3655737,1007-2-avenue-new_york,B,high,beds up,True,False,e,unclear,,,,,Ad text: none
+4911425,5000662,1259-lincoln-place-brooklyn,B,low,beds up,True,False,e,unclear,,0,,,Ad text: none
+5163981,4352242,east-river-lofts,A,low,beds up,True,False,c,no,2,1,2,,"Ad text: ""1 Bedroom+ Terrace"" (ad_2)"
+4730384,4405454,93-linden-street-brooklyn,A,low,baths only,True,False,d,yes,2,2,1,,"Ad text: ""Modern 2-bedroom with 1 bath residence"" (ad_1)"
+4982024,4686747,12-ford-street-brooklyn,A,mid,beds down,True,False,c,unclear,2,3,,1.5,"Ad text: ""Beautiful spacious 3 bedroom 1 .5 bathroom apartment with living area."" (ad_2)"
+4828127,3042072,75-ralph-avenue-brooklyn,B,mid,beds up,False,False,e,unclear,2,,1,,Ad text: none
+4916019,4862752,1062-broadway-brooklyn,A,low,baths only,True,False,c,no,1,2,2,1,"Ad text: ""This spacious 2-bedroom, 1-bathroom apartment"" (ad_2)"
+4863289,3527447,126-elizabeth-street-new_york,B,low,beds up,False,False,a,yes,2,0,,,"Ad text: ""Spacious Sunny Alcove Studio Apartment in the heart of Little Italy!"" (ad_2)"
+4827067,4706587,569-morgan-avenue-brooklyn,B,low,beds up,True,True,a,yes,4,3,2,2,"Ad text: ""4 bedrooms are split evenly between the front and back of the apartment"" (ad_2)"
+4801737,4318753,38-cooper-street-brooklyn,B,low,beds down,False,False,e,unclear,2,,1,,Ad text: none
+5133881,4569185,319-mac-donough-street-brooklyn,A,low,baths only,True,False,c,no,2,flex 3,,,"Ad text: ""Gorgeous 2 bedroom/flex 3 bedroom TRIPLEX w/ garden and home office."" (ad_2)"
+5041008,2163437,365-vernon-avenue-brooklyn,B,mid,beds down,False,False,e,unclear,,4,,,Ad text: none
+4861095,4913145,137-east-38-street-new_york,A,high,beds down,True,False,e,unclear,,,,,Ad text: none
+4701501,3669563,the-caldwell,A,high,beds down,False,True,a,yes,1,1,,1,"Ad text: ""Beautiful One Bedroom + Dining Alcove, One Bathroom"" (ad_2)"
+5072477,3376365,309-east-61-street-new_york,B,mid,beds down,False,False,e,unclear,1,,,,Ad text: none
+4633243,3370393,488-7-street-brooklyn,B,high,beds down,True,False,a,yes,flex 1.5,2.5,1,,"Ad text: ""Charming Spacious 1.5 bedroom / 1 bath plus den floor through apartment in 3 story brownstone"" (ad_1)"
+4985758,4052921,493-amsterdam-avenue-new_york,B,low,beds up,True,False,e,unclear,2,1,,1,Ad text: none
+4903678,3084926,view-34,A,high,baths only,False,False,e,yes,,flex 3,,,Ad text: none
+5153529,4834190,228-north-7th,B,low,baths only,True,False,e,unclear,2,,2,,Ad text: none
+4960881,3681731,211-west-53-street-new_york,B,high,beds up,False,False,e,yes,,,,,Ad text: none
+5086950,4188900,the-leonard,A,low,baths only,True,False,c,no,2,2,,2,"Ad text: ""2 bed, 2 bath at 101 Leonard, a boutique condominium in the heart of Tribeca"" (ad_2)"
+4971522,4904205,amnia-127-concord-street-brooklyn,A,low,baths only,True,False,e,unclear,,2,,2,Ad text: none
+4782158,3489296,167-graham-avenue-brooklyn,B,mid,beds up,False,False,c,no,,2,,1,"Ad text: ""2 Bed / 1 Bath at 146 Meserole St - Unit: 4L in Williamsburg, Brooklyn."" (ad_2)"
+5136968,3194178,341-west-45-street-new_york,B,mid,beds down,True,False,e,unclear,0,,,,Ad text: none
+5065306,4530446,677-sterling-place-brooklyn,B,high,baths only,True,False,a,unclear,3,3,1.5,1,"Ad text: ""includes your in-unit washer and dryer as well as a half bathroom"" (ad_1)"
+5031560,4555307,the-boulevard,B,high,beds down,False,False,a,yes,flex 1,1,,,"Ad text: ""575 SF alcove studio / junior 1-bedroom that lives like a true one-bedroom"" (ad_1)"
+5104822,4340634,385-troutman-street-brooklyn,A,high,beds down,False,False,a,unclear,,flex 1,,1,"Ad text: ""Beautiful studio bed / 1 bath LOFT apartment in Bushwick"" (ad_2)"
+4831155,4101492,675-west-59th-street-new_york,A,high,baths only,True,False,a,yes,2,2,2,2.5,"Ad text: ""southeast-facing two-bedroom, two-and-a-half-bathroom with stunning Manhattan Skyline and Hudson River views"" (ad_2)"
+5124228,2085102,248-melrose-street-brooklyn,A,mid,beds down,False,False,e,unclear,2,3,1,1.5,Ad text: none
+5056649,4771357,pacific-house,A,low,beds up,True,False,e,unclear,,1,,,Ad text: none
+4803167,4872559,15-judge-street-brooklyn,B,mid,beds up,True,False,e,unclear,3,,,,Ad text: none
+4924658,3289036,590-amsterdam-avenue-new_york,A,mid,beds up,False,False,e,unclear,2,1,,,Ad text: none
+4983120,4916436,411-chauncey-street-brooklyn,A,mid,baths only,True,False,a,yes,3,3,1.5,2,"Ad text: ""3 Bed / 1.5 Bath - Modern Bed-Stuy Haven"" (ad_1)"
+5177219,5079200,212-amsterdam-avenue-new_york,A,high,beds up,True,False,e,unclear,,,,,Ad text: none
+4982597,1510093,downtown-by-philippe-starck,A,high,beds down,False,False,a,yes,flex 2,2,2,2,"Ad text: ""The unit is legally a 1-bed apartment but serves as a 2-bed, 2-full bath home"" (ad_1)"
+4745028,4416732,170-jefferson-street-brooklyn,B,mid,baths only,True,False,d,yes,2,2,2.5,2,"Ad text: ""2 bedrooms and 2 baths upstairs with  and amazing open basement offering an additional half bath"" (ad_1)"
+4735382,2474809,42-morton-street-new_york,A,high,beds up,False,False,c,no,2,2,,,"Ad text: ""42 Morton Street (Bedford - Hudson) Apartment # 2"" (ad_2)"
+5171726,5089035,aria-90-john-street-new_york,A,mid,beds up,True,False,a,yes,flex 1,flex 1,,,"Ad text: ""CONVERTIBLE STUDIO (1-Bed) home with Washer/Dryer in Unit"" (ad_1)"
+5088940,4208649,2785-broadway-new_york,B,mid,baths only,False,False,e,unclear,,,,,Ad text: none
+4628848,1402659,237-east-111-street-new_york,B,mid,beds down,False,False,d,yes,0,0,,,"Ad text: ""Great studio on the ground floor"" (ad_2)"
+4881798,3901067,609-st-johns-place-brooklyn,B,mid,beds down,True,False,e,yes,,2,,,Ad text: none
+4959267,2196485,75-ralph-avenue-brooklyn,B,low,beds down,False,False,c,unclear,2,3.5,1,2,"Ad text: ""3.5Br 2 full baths Apt in the new 75 Ralph Ave Luxury Building"" (ad_2)"
+5171203,3265388,352-weirfield-street-brooklyn,A,mid,beds down,False,False,a,yes,1,flex 2,1,,"Ad text: ""1 bed convertible 2 bed."" (ad_2)"
+5152409,4515376,1154-pacific-street-brooklyn,B,mid,baths only,True,False,e,unclear,,,,,Ad text: none
+4996823,2403137,145-moffat-street-brooklyn,B,low,beds down,True,False,c,unclear,1,2,1,,"Ad text: ""has a 2br with yard and back deck available immediately"" (ad_2)"
+4770936,4731671,85-john-street-new_york,A,high,beds down,True,False,a,unclear,,,,,"Ad text: ""Open Loft-Style Black Granite Kitchen, Dishwasher & Microwave, Maple Cabinetry, Tile Bathroom w/ Tub, Home Office"" (ad_2)"
+4654025,2267063,1067-park-avenue-new_york,B,low,baths only,True,False,e,unclear,2,2,,2,Ad text: none
+4837065,2058906,211-west-53-street-new_york,B,low,beds up,False,False,a,unclear,1,0,,,"Ad text: ""This huge Studio in an Elevator Building on 53rd Btw Bway and 8th is an absolute steal."" (ad_2)"
+4974673,4765191,bridgeview-dumbo,A,low,beds down,False,False,a,unclear,0,1,,,"Ad text: ""Amazing 1 bed with kitchen island + home office + balcony for August!"" (ad_2)"
+4934003,3329000,1575-east-new-york-avenue-brooklyn,B,mid,beds up,False,False,a,yes,3,2,2,2,"Ad text: ""It also features an additional 3rd room that would make a perfect HOME OFFICE."" (ad_2)"
+4650483,1776836,225-east-46-street-new_york,B,low,beds down,False,False,d,unclear,0,0,,,"Ad text: ""It is a massive studio!!!"" (ad_2)"
+4758678,1839914,38-schermerhorn-street-brooklyn,B,high,beds up,False,False,e,unclear,1,0,,,"Ad text: ""Great studio in Brooklyn Heights, brand new renovation to kitchen and bathroom!!"" (ad_2)"
+5014349,2126928,309-east-92-street-new_york,B,mid,beds up,False,False,d,yes,3,3,2,2,"Ad text: ""MUST SEE! BRAND NEW 3 BEDROOM 2 BATH APARTMENT NO FEE AND ONE MONTH FREE"" (ad_2)"
+5109638,4792408,143-montague-street-brooklyn,A,low,beds up,True,False,d,yes,1,1,1,1,"Ad text: ""approximately 695 SF one-bedroom in the heart of Brooklyn Heights"" (ad_1)"
+5079793,1427783,160-riverside-boulevard,B,mid,baths only,False,False,e,yes,3,,3,,Ad text: none
+5024772,3343944,68-nevins-street-brooklyn,B,mid,beds down,True,False,a,yes,0,1,,,"Ad text: ""Large railroad studio with eat-in kitchen, skylight in bath, 2 closets, high ceilings and decorative fireplace."" (ad_1)"
+5174348,1951021,141-joralemon-street-brooklyn,B,mid,beds up,False,False,e,unclear,,1,,,Ad text: none
+5078327,3276522,683-monroe-street-brooklyn,A,low,beds down,True,False,a,unclear,1,2,,,"Ad text: ""Furnished 2 bedroom apartment in Brownstone with separate dining room, wood floors and huge walk in closet."" (ad_2)"
+4920761,4967842,the-baltic-canal,B,high,beds down,True,False,e,unclear,1,2,1,1,Ad text: none
+4966786,4691944,313-west-29-street-new_york,A,low,beds up,True,False,a,yes,flex 3,flex 3,2,2,"Ad text: ""Its a 2 bedroom plus office or 3 bedroom (flexed) / 2 bath apartment"" (ad_2)"
+5181781,1232721,420-west-42nd-street-new_york,B,high,beds up,False,False,e,yes,2,1,1,,Ad text: none
+5116822,4885257,771-lexington-avenue-brooklyn,A,high,beds down,True,False,a,unclear,2.5,4,1,1,"Ad text: ""rent-stabilized 2.5-bedroom, 1-bathroom apartment!"" (ad_1)"
+5172700,1905690,315-west-75-street-new_york,A,high,baths only,True,False,a,yes,1,1,,,"Ad text: ""In Unit Washer/Dryer in powder room"" (ad_1)"
+5027909,4947846,151-rivington-street-new_york,A,high,baths only,False,False,e,yes,3,3,,,Ad text: none
+4768394,1703901,63-3-place-brooklyn,A,mid,beds up,False,False,a,unclear,,1,,,"Ad text: ""Find charm AND space in this sprawling one bedroom plus den AND walk-in closet!"" (ad_2)"
+4916979,4193795,11-arion-place-brooklyn,A,low,beds down,True,False,a,unclear,,3,,,"Ad text: ""The lofted area can fit an entire bedroom set up and an office."" (ad_1)"
+4905322,3382488,bank-of-the-metropolis,A,high,beds down,False,False,a,yes,2,2,2,2,"Ad text: ""high-floor two bedroom plus separate home office/child's/guest room and two full bathrooms"" (ad_2)"
+4917299,4536009,lorimer-house,B,low,beds up,False,False,e,unclear,,,,,Ad text: none
+5027995,4902081,the-baltic-canal,B,low,baths only,True,False,a,yes,2,2,2,1,"Ad text: ""This bright and flexible 2-bedroom, 1-bath residence at The Baltic Canal"" (ad_2)"
+4703916,1648468,40-butler-street-brooklyn,A,high,beds down,True,False,e,unclear,2,3,,,Ad text: none
+4758076,1950175,716-sackett-street-brooklyn,A,low,beds down,False,False,a,unclear,1,2,,,"Ad text: ""Beautiful railroad 2 bedroom that was just renovated."" (ad_2)"
+4786777,3455443,32-spring-street-new_york,A,low,beds down,False,True,e,unclear,,1,,,Ad text: none
+5141835,3091413,83-warren-street-new_york,B,low,beds up,False,False,e,unclear,,flex 3,,,Ad text: none
+5025967,2656691,57-pitt-street-new_york,B,high,beds up,False,False,a,unclear,3,2,,,"Ad text: ""the third has space for a dresser"" (ad_1)"
+5051318,1879308,420-east-20-street-new_york,B,high,beds down,True,False,e,unclear,,,,,Ad text: none
+5101586,4618268,2175-bergen-street-brooklyn,B,low,beds down,False,False,e,unclear,1,2,,,Ad text: none
+5079929,4342083,142-west-109-street-new_york,B,low,beds up,True,False,a,unclear,flex 3,2,1.5,1,"Ad text: ""one of kind Duplex 2-3 beds with 1.5 bathroom"" (ad_1)"
+5146654,1230763,park-row,A,mid,beds down,False,False,a,unclear,,flex 1,,,"Ad text: ""spacious alcove studio that can covert to a 1 bedroom"" (ad_2)"
+5009071,4226754,43-duffield-street-brooklyn,B,low,baths only,True,True,a,unclear,,3,,2.5,"Ad text: ""2 full and third half bathroom"" (ad_2)"
+5141580,3510090,117-bank-street-new_york,A,mid,beds down,False,False,a,yes,,0,,,"Ad text: ""Loft-like Alcove studio home in the heart of the West Village with private outdoor space"" (ad_2)"
+4741897,3828825,922-lincoln-place-brooklyn,A,mid,beds down,False,False,e,unclear,,,,,Ad text: none
+5096221,4350624,the-nash,A,high,beds down,True,False,a,yes,1,flex 2,,1.5,"Ad text: ""Spacious 850sqft 1 Bedroom with Dining/Convertible 2 Bedroom (Unit not yet converted)"" (ad_2)"
+4779158,1819373,548-and-a-half-hudson-street-new_york,A,mid,beds down,False,False,a,yes,2,2,1,1,"Ad text: ""an additional dedicated home office space—windowless, but thoughtfully lit by a skylight"" (ad_1)"
+4930117,4600233,102-west-29-street-new_york,A,high,beds down,True,False,d,yes,5,5,2,2,"Ad text: ""full-floor 5-bedroom, 2-bathroom home"" (ad_1)"
+4978143,3371233,207-madison-street-new_york,A,mid,beds down,False,False,e,unclear,2,,,,Ad text: none
+4758241,2271368,818-lexington-avenue-brooklyn,B,mid,beds down,False,False,e,unclear,1,2,1,,Ad text: none
+4827724,4711988,140-east-30-street-new_york,A,low,beds down,True,False,e,unclear,0,,,,Ad text: none
+4925253,4908284,138-east-38th-street,A,low,beds down,True,True,e,unclear,,,,,Ad text: none
+5121564,2172056,70-west-93-street-new_york,A,high,baths only,True,False,e,yes,,,,,Ad text: none
+4789275,2799344,244-west-74-street-new_york,B,low,beds up,False,False,d,yes,3,3,,,"Ad text: ""Large king sized three bedroom layout with two windows in each bedroom"" (ad_2)"
+4783296,3991559,nassau-brewing-company,B,high,beds down,False,False,e,unclear,,,,,Ad text: none
+5166114,3355285,21-judge-street-brooklyn,A,high,beds up,False,False,d,yes,1,1,,,"Ad text: ""This a ONE BEDROOM loft with a super massive private outdoor space"" (ad_2)"
+4658449,2451926,785-west-end-avenue-new_york,A,mid,beds up,False,False,a,yes,2,2,,,"Ad text: ""two king-sized bedrooms ... third bedroom/staff room/home office"" (ad_1)"
+5100621,2562768,668-hancock-street-brooklyn,A,high,beds down,False,False,e,unclear,0,1,,,Ad text: none
+4979893,3243600,421-east-80-street-new_york,A,mid,beds up,False,False,e,unclear,2,,2,,Ad text: none
+4734840,2296685,44-west-75-street-new_york,B,low,baths only,False,False,d,yes,2,2,1.5,1.5,"Ad text: ""Huge 2br/1.5 baths right off Central Park"" (ad_2)"
+5013857,4179557,fulton-crossing,B,low,baths only,False,False,e,unclear,,2,,2,Ad text: none
+4993769,4317607,639-president-street-brooklyn,A,high,beds down,True,False,a,yes,1,2,,,"Ad text: ""a renovated one-bedroom with a separate office, this railroad apartment"" (ad_1)"
+4748040,3083198,310-east-55-street-new_york,A,low,baths only,True,False,d,yes,1,1,1.5,,"Ad text: ""Spacious Penthouse with Private Terrace and 1.5 baths in Full-Service Doorman Building"" (ad_1)"
+5066453,3333884,241-west-75-street-new_york,B,low,beds down,True,False,d,unclear,,0,,,"Ad text: ""Be the first to live in this stunning, gut renovated studio bedroom apartment"" (ad_2)"
+5124565,4013005,268-metropolitan-avenue-brooklyn,A,high,beds down,False,False,e,unclear,,2,,1,Ad text: none
+4686169,1737155,491-tompkins-avenue-brooklyn,A,low,beds up,False,False,e,unclear,2,1,,,Ad text: none
+4964540,2100180,143-west-96-street-new_york,B,low,beds up,False,False,c,no,3,1,2,,"Ad text: ""Welcome to Apartment 12R at 145 West 96th Street—an elegant and spacious three-bedroom home"" (ad_1)"
+4772194,5011417,133-east-35-street-new_york,A,high,beds up,True,False,a,yes,,2,,2,"Ad text: ""Spacious 2 Bedroom + HOME OFFICE with PRIVATE GARDEN and W/D in Unit!"" (ad_2)"
+4930781,3693481,the-rheingold,A,high,beds down,False,False,c,no,1,2,1,2,"Ad text: ""Two bedroom/Two Bath Apartment with Giant TERRACE in the coveted Rheingold!"" (ad_2)"
+4785981,4162923,654-park-place-brooklyn,B,high,beds down,True,False,e,unclear,,2,,1,Ad text: none
+4877252,2191586,463-de-kalb-avenue-brooklyn,A,high,beds down,True,False,e,unclear,,1,,,Ad text: none
+5045992,1296010,242-east-110-street-new_york,B,mid,beds up,False,False,c,no,3,1,,,"Ad text: ""This is an awesome JR. 1 bed with lots of light"" (ad_2)"
+5170620,1555727,49-east-12-street-new_york,B,high,beds up,False,False,a,yes,3,2 (flex 3),2,,"Ad text: ""Large true 2 bedroom triplex (convertible 3)"" (ad_2)"
+4631419,5132517,194-east-2nd-street-new_york,B,high,beds down,True,False,a,yes,2,flex 3,,,"Ad text: ""recently gut-renovated flex 3-bedroom home features a rare large private outdoor terrace"" (ad_2)"
+4724704,1836215,11-arion-place-brooklyn,A,low,beds down,False,False,d,yes,0,0,,,"Ad text: ""Apartment is an industrial style single studio, with exposed brick, skylights and city views"" (ad_2)"
+4777124,4161564,183-stanhope-street-brooklyn,B,high,baths only,True,False,e,unclear,2,2,1,2,Ad text: none
+4891112,1906840,568-willoughby-avenue-brooklyn,A,low,beds up,False,False,e,unclear,2,1,2,1,Ad text: none
+4935336,3928128,634-central-avenue-brooklyn,B,mid,beds down,True,False,e,unclear,3,4,1.5,2,Ad text: none
+4823985,4862603,aria-90-john-street-new_york,A,high,beds down,True,False,a,yes,flex 2,2,,,"Ad text: ""Large CONVERTIBLE 2 bedroom Home!"" (ad_1)"
+4897047,2483852,188-west-9-street-brooklyn,A,mid,beds up,False,False,c,no,2,0,1.5,,"Ad text: ""nice size studio 1 block from smith and 9th st subway station"" (ad_2)"
+5106018,1895427,14-maujer-street-brooklyn,A,mid,beds up,False,False,e,unclear,3,2,,,Ad text: none
+4814400,4485656,261-stanhope-street-brooklyn,B,low,beds up,True,False,a,unclear,,2.5,,1,"Ad text: ""Two large bedrooms with windows, one middle bedroom with indirect sunlight. 2.5 Bed / 1 Bath"" (ad_2)"
+5056995,3104439,160-riverside-boulevard,B,high,baths only,False,False,e,yes,1,,,,Ad text: none
+4634099,4830971,970-st-marks-avenue-brooklyn,A,mid,beds up,True,False,e,unclear,3,2,1.5,1,Ad text: none
+4711633,2669587,168-bedford-avenue-brooklyn,B,high,beds down,True,False,a,yes,1,2,,,"Ad text: ""HUGE 1 Bedroom apartment with Home Office."" (ad_1)"
+5094256,3758589,1496-bushwick-avenue-brooklyn,A,mid,beds up,False,False,d,yes,2,2,,,"Ad text: ""Gorgeous 2 bedroom apartment in great Bushwick location!"" (ad_2)"
+4841625,2314161,yorkshire-house,A,high,beds down,True,False,a,yes,2,2,1,1,"Ad text: ""This LARGE JUNIOR 4 apartment"" (ad_1)"
+4732848,3785246,view-34,A,low,beds down,False,False,e,unclear,,,,,Ad text: none
+4636425,3770921,276-quincy-street-brooklyn,A,low,beds up,True,False,c,no,3,2,1.5,1.5,"Ad text: ""This 2BD/1.5 BATH + Office apartment is on the top floor of a four story building."" (ad_2)"
+4953362,3885761,175-malcolm-x-boulevard-brooklyn,A,high,beds down,True,False,c,no,,1.5,,,"Ad text: ""This large commercial space is a prime location in the heart of Bedford-Stuyvesant."" (ad_1)"
+4782855,2592475,425-sterling-place-brooklyn,A,low,beds down,False,False,a,yes,2,flex 3,2,2,"Ad text: ""Spacious convertible 3 bedroom / 2 bath featuring a thoughtfully designed kitchen"" (ad_2)"
+4806996,4626367,300-east-5-street-new_york,A,low,baths only,True,False,e,yes,1,1,,,Ad text: none
+4730908,3341824,185-jefferson-street-brooklyn,B,high,beds down,False,False,a,yes,3 (flex 4),,1.5,1.5,"Ad text: ""A pleasant, unique, renovated 3 bed, Flex 4 bed 1.5 bath duplex apartment"" (ad_1)"
+4694965,4267228,188-east-3-street-new_york,A,low,beds down,False,False,e,unclear,,,,,Ad text: none
+5108396,5036320,83-warren-street-new_york,B,low,beds up,True,False,e,unclear,,,,,Ad text: none
