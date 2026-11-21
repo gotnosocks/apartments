@@ -1,0 +1,38 @@
+You are checking NYC rental ads for a research check on how unit pages are reused. Each block
+in your batch is one StreetEasy unit page: one building and one unit label. Ad A was coded 0
+bedrooms (a studio). Ads B1 to B3 were posted on the same page, under the same label, and were
+coded 2 or more bedrooms.
+
+Read the batch file named in BATCH with the Read tool, the whole file. Each ad shows its
+posting day, its lister, its coded fields (the label, bedrooms, full and half baths, any stated
+size) and its whole description. Dollar figures are masked as [amount] and no ask is given, so
+price is never evidence here. Use only the batch file: open no other file and fetch nothing
+from the web.
+
+For each block give:
+
+- `a_count`: the bedroom count Ad A's own text gives its apartment: `0`, `1`, `2`, `3`, `4+`,
+  `flex`, or `none` (no count for this apartment).
+- `verdict`: what the block shows, one of
+  - `other_apartment`: A and the B ads describe different apartments of the building filed
+    under one label (a different layout, size, bath count, floor position or features that
+    one apartment cannot have at once);
+  - `same_apartment_changed`: one apartment whose layout changed between the ads (a renovation,
+    a combination, a wall added or taken down), as the texts say or strongly suggest;
+  - `same_apartment_miscoded`: one apartment, with the bedroom count of A or of the B ads coded
+    wrong;
+  - `template`: A's text, or the B ads' texts, describe the building or several layouts and
+    not one apartment, so the block cannot tell;
+  - `unclear`.
+- `names_unit`: whether any text names a unit number, floor or line ("Apt 3R", "top floor",
+  "garden level", "the A line") and whether it agrees with the label: `agrees`, `differs`,
+  `none named`.
+- `which_wrong`: if `other_apartment` or `same_apartment_miscoded`, which side looks out of
+  place for this label: `A`, `B`, `both possible`; else `n/a`.
+
+Quote the words that decide it (30 words at most, copied exactly from the batch) and give a
+one-sentence reason.
+
+Write one JSON object per block, one per line, to the file named in OUT with the Write tool,
+with the keys read_id, a_count, verdict, names_unit, which_wrong, quote and reason. All values
+are strings. Then reply with only the number of lines written.

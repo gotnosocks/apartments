@@ -114,7 +114,7 @@ from its text, whether the other ads describe the same apartment, and a best cou
 Weighted by the pools, the whole mark is right on 0.06 of rows (95% 0.00 to 0.23), `T` on
 0.79 (0.58 to 1.00) and `U_any` on 0.04 (0.00 to 0.21).
 
-The unit's other ads mostly describe another apartment. In the all-2+ stratum the readers
+The unit page's other ads mostly describe another apartment. In the all-2+ stratum the readers
 judged them a different apartment on 9 of 10, and 8 of the 10 ads call themselves a studio
 or a 1 bed in their own text: a unit label reused across a studio and a larger layout, or
 two apartments joined under one unit. The three misses of the text-only stratum are texts
@@ -192,6 +192,15 @@ catch about one new ad (one open Deals ad meets both marks, `z7_rule.py`). So th
 sets. A row is kept where the read gives the text mark's count and the unit's other ads
 mostly agree: 120 rows (65 on half A, 55 on B), set to 2 bedrooms on 84, 3 on 32 and 4 on 4.
 101 of the 120 reads judge the unit's other ads the same apartment and 19 mixed.
+
+**Correction (2026-11-21, `docs/notes/label-reuse-2026-11-21.md`).** "The unit" in this note is
+the unit page and its label (the ads file's `unit_id`), before `unit-splits-v4`. The fit's units
+cut at every change of one bedroom or more, so none of the 410 agreeing ads behind the 120 sets
+shares a fit unit with its 0 bed row (65 of them are not in the live dataset). The agreement is
+on the page under one label, and pages reused across layouts read as another apartment on 9 of
+16 reads there. The sets rest mainly on the ad's own text and the blind read; the 19 read as
+mixed get a second check before import, and the import checks which fit unit each set row
+joins after the split runs.
 
 `candidate_rows.ndjson` holds the 120 as `bedrooms` set rows in the format of the sweep's
 file (`decided`, `source`, `when` with the row's 0 bed and month). Each gives the ad's own
