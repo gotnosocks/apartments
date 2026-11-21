@@ -99,6 +99,6 @@ cellar. Both readings fit a lower mean and a wider low tail.
 No caution: floor 1 is a trait of the unit, and a lower price for it is what a renter expects.
 The first-floor level stays on the list for the next base refit: a `unit:floor1` step outside
 the Gaussian process, with the Normal(0, 0.5) prior the floor flags carry, so floor 1 can step
-away from the curve. It goes in as one change, with its own note and predictions first. A floor-1 scale term is the
-second candidate if the step leaves the low tail wide. The condo text is a weaker lead for a
-scale term. Walk-ups, the virtual doorman and garden wording are closed.
+away from the curve. It goes in as one change, with its own note and predictions first. A
+floor-1 scale term is the second candidate if the step leaves the low tail wide. The condo
+text is a weaker lead for a scale term. Walk-ups, the virtual doorman and garden wording are closed.
