@@ -219,6 +219,22 @@ Left as they are:
 - the 53 of the ratio read play no part in the choice. 9 of them meet both marks on their
   own and 6 of those are among the 120.
 
+**Second check of the 19 read as mixed (2026-11-21).** `z10_mixed_texts.py` wrote each row's
+own ad text with dollar figures masked, and a Sonnet reader, blind to the ask, judged whether
+the text describes one apartment with the text's count (`second_read.csv`). 17 were confirmed
+and 2 marked doubtful. I read both in full:
+
+- 3887726 (set to 2) has the headline "2 BEDROOMS (living room has been converted)", but the
+  body describes "a small bedroom in the back" and says students "convert the living room into
+  a second bedroom ... (currently not set up in this way)". It is a 1-bedroom with a room that
+  could be converted, so a set to 2 overstates it. I dropped it from `candidate_rows.ndjson`.
+- 1856896 (set to 3) calls itself a "luxury 3 bedroom apartment", and its third room "can be
+  used as a 3rd bedroom or office". 6 of the unit's 9 other ads code 3, and the bedroom-text
+  term reads the flex wording itself, so the set to 3 stays.
+
+The file now holds 119 rows: 83 set to 2 bedrooms, 32 to 3 and 4 to 4. The ledger reader
+parses all 119 (`review_led.py`).
+
 ## What was not checked
 
 - Each of the 195 has one blind read and no hand check. Section 2's 10 of 10 has a Wilson

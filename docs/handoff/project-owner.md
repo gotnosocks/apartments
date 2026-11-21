@@ -185,12 +185,13 @@ subagent's model and effort to be picked by its task.
   changes. The overlap mark reads asks, so it is allowed for a caution and not for a data
   rule; a noise-scale term on it must be built as of each ad's first day from earlier ads.
 - Drafted for the next base refit, none in the ledger: 254 commercial and placeholder excludes
-  (sweep), 68 building-level rows (31 of them also among the 254), 120 zero-bed bedroom sets.
+  (sweep), 68 building-level rows (31 of them also among the 254), 119 zero-bed bedroom sets.
 - Label reuse (#1506, merged as `203109c4`, no fit, `docs/notes/label-reuse-2026-11-21.md`).
   The zero-bed note's "unit" was the page label (its section 6 correction). None of the 410
   ads whose unit's other ads agree shares a fit unit (`split_unit`), and 65 are not in the live dataset, so the 120 sets
-  rest on the text and the blind read. Before import, recheck the 19 mixed ones and each
-  row's fit unit after the split.
+  rest on the text and the blind read. The 19 mixed ones were rechecked on Nov 21 (17
+  confirmed, 1 dropped, 1 kept), so 119 remain. Before import, check each row's fit unit after
+  the split.
 - Deals top read (#1507, merged as `1e87824a`, no fit, `docs/notes/deals-top-read-2026-11-21.md`).
   A read of the top Deals ads; among its TODO items: the `deposit_net` caution (done in #1508), a
   short-lease caution ("$17,500 for a 6-month lease"), `beds` wording for "convertible",
