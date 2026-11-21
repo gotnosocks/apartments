@@ -99,12 +99,27 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   adjusted previous ask sits over 0.3 above the model it belongs to another configuration,
   and of 79 market ads checked, 38 had their previous ad under another unit id in the other
   build and 28 had none in the market build.
-- [ ] Size-fill rules in the pipeline. A size coded too large was found in 15% of 120
-  large-unit ads read, with weighted error shares of 0.41 for line fills and 0.33 for unit
-  fills against 0.11 for stated sizes (26 filled ads read, so the rule needs a wider read
-  first). Proposed: do not carry a unit's size to an ad with another bedroom count or in
-  another piece of the apartment, and do not fill from the line when no ad of the unit
-  states a size and the fill is more than 40% over the bedroom median.
+- [ ] Size-fill order, for the next base refit (read done 2026-11-20, no fit:
+  `docs/notes/size-fills-read-2026-11-20.md`). The blanking rule proposed by the outlier
+  sprint is rejected in two of its three clauses. Line fills more than 20% to 60% over the
+  bedroom median still describe the apartment better than the median a blank gives: on the
+  later check, the only evidence on the rows the rule blanks (628 of the 3,669 line fills
+  over 40%), rmse 0.31 and 0.18 by half against 0.42 and 0.43, a thin margin on half A. No
+  fill of the as-of design crosses pieces of an apartment. The supported rule is an order
+  of layers in `sizefill.asof_size` as `building_zones_floor_asof.size_table` calls it: (1)
+  the piece's earlier training ads with the row's bedroom count, (2) the line layer, (3) the
+  piece's earlier training ads with another bedroom count. On the later check, fills are off
+  by more than 30% in 6.3% of same-bedroom unit fills, 25.5% of other-bedroom unit fills and
+  6.5% of line fills; the own check gives 1.6%, 22.2% and 3.3%, lower because 74% and 46%
+  of its same-bedroom and line checks are exact copies of an earlier stated size. On rows
+  with both, the line fill beats the other-bedroom unit fill on both checks. It changes the size of 1,830 rows (1,474 training, 356 held-out) and blanks none. The
+  change makes the served fit unservable until a refit, so it goes in with the refit.
+- [ ] Refit term candidate: a slope of its own for filled sizes (`unit:size_imputed` times
+  `unit:log_size_rel`). Held-out ads with a filled size over 1.4 times the bedroom median
+  are 12% to 21% below the 5% point against 10% to 12% for stated sizes, about twice the
+  share, and predicted rent does not explain it (stated sizes reweighted to the fills' mix
+  of predicted rent are 9.0% and 9.8% low). The checked size has a slope of 0.8 on the
+  filled one on the later check (same note). One change per fit.
 - [ ] For Modeling: extend `label_key` in `pipeline/models/analysis/label_units.py` to
   labels with "apt" or "unit" typed after or inside the unit ("garden-apt", "3apt",
   "5c-unit") and to penthouse labels with a leading zero ("0phb"). Of 19,481 page pairs

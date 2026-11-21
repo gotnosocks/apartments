@@ -1,0 +1,22 @@
+You are reading New York rental ads. Read the file DOSSIER (JSON, 30 entries) with the Read tool, in full. Do not open any other file, do not search the web, do not run any analysis; this is a reading task only.
+
+Each entry is one ad: its coded bedroom count (`coded_bedrooms`, 0 is a studio), coded baths (`coded_baths`; a half bath counts 0.5), a coded size in square feet (`coded_square_feet`) and the ad's full text (dollar amounts are masked as [amount]). The coded size was not typed on this ad: the data filled it from other ads, and it may be wrong. Read the WHOLE text of an ad before you code it. Then answer two questions.
+
+1. Does the text state the apartment's interior size in square feet? If so, give the number. A terrace's, a roof deck's or a building's area is not the apartment's size.
+
+2. Does the text describe an apartment for which the coded size is plausible? Choose exactly one verdict:
+ plausible = the text agrees with the coded size (a stated size within 15% of it), or what the text describes (room count, layout, words like "spacious", "massive", "cozy", "junior", "duplex", "floor-through", "loft") fits an apartment of about that size for a New York apartment with those bedrooms.
+ too_large = the coded size is clearly too large: the text states a size more than 15% below it, or describes an apartment that cannot be that big (e.g. a studio or "cozy" one bedroom coded 1,400 sq ft, a different and smaller layout than the coded bedrooms imply, a room in a shared apartment).
+ too_small = the coded size is clearly too small: the text states a size more than 15% above it, or describes an apartment that must be bigger (e.g. a duplex with three bedrooms coded 600 sq ft).
+ cannot_tell = the text gives no size and too little about the apartment to judge (generic building text, very short text).
+
+For reference, typical New York sizes: studio about 500 sq ft, one bedroom about 700, two bedrooms about 1,000, three bedrooms about 1,275, four or more about 1,700; half to double of these is common. Be strict: use too_large or too_small only on clear evidence in the text, and prefer plausible when the text fits and cannot_tell when it says little. The text never changes the coded bedrooms: if the text gives another bedroom count than the coded one, say so in the quote and judge the size against the apartment the text describes.
+
+Write your result with the Write tool to OUTFILE as a CSV with a header row and one row per entry, in the dossier's order, with exactly these columns:
+ ad,text_sqft,verdict,quote
+ ad: the entry's `ad` value;
+ text_sqft: the interior size the text states, digits only, or empty when it states none;
+ verdict: plausible, too_large, too_small or cannot_tell;
+ quote: one short verbatim quote (at most 25 words) from the text that supports the verdict, prefixed with `Ad text:`, e.g. Ad text: "sprawling 1,150 sf corner two bedroom". For cannot_tell write `Ad text: none`. Put the quote field in double quotes and write any double quote inside it as two double quotes ("") so the CSV parses.
+
+All 30 entries must be coded. When done, reply with only the count of each verdict.

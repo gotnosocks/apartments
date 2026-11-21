@@ -1,0 +1,60 @@
+rows 1896471 unique listing_id 1896471
+own check exact-equal share (|log|<0.005) by class
+would
+line, other apartments    0.459
+line, own apartment       0.297
+unit, mixed beds          0.249
+unit, other beds          0.291
+unit, same beds           0.740
+  check half    n  off30_unit  off30_line  big30_unit  big30_line  rmse_unit  rmse_line  rmse_med
+0   own    A  259       0.185       0.085       0.089       0.035      0.224      0.171     0.287
+1   own    B  289       0.176       0.090       0.090       0.035      0.214      0.144     0.277
+2   own  all  548       0.181       0.088       0.089       0.035      0.219      0.157     0.282
+   check half   n  off30_unit  off30_line  big30_unit  big30_line  rmse_unit  rmse_line  rmse_med
+0  later    A  37       0.324       0.000       0.270       0.000      0.278      0.147     0.201
+1  later    B  42       0.238       0.119       0.167       0.024      0.258      0.157     0.246
+2  later  all  79       0.278       0.063       0.215       0.013      0.268      0.153     0.226
+
+ratio>1.4 held 2022+: pred decile mix by source
+pq                       0   1   2   3    4    5    6    7    8     9
+g                                                                    
+line, other apartments  15  22  20  35   21   25   21   26   47    87
+stated                  27  47  48  62  121  141  207  230  450  2669
+unit, same beds         19  37  28  48   55   82   57   78   94   347
+                         mean  size
+g                                  
+line, other apartments  0.157   319
+stated                  0.105  4002
+unit, same beds         0.200   845
+line, other apartments stated low5 reweighted to its pred mix 0.09 own 0.157
+unit, same beds stated low5 reweighted to its pred mix 0.098 own 0.2
+pred decile >= 0                               mean  size
+g                      half             
+line, other apartments A     0.194   160
+                       B     0.119   159
+stated                 A     0.096  2020
+                       B     0.115  1982
+unit, same beds        A     0.205   434
+                       B     0.195   411
+pred decile >= 7                               mean  size
+g                      half             
+line, other apartments A     0.167    78
+                       B     0.134    82
+stated                 A     0.101  1690
+                       B     0.116  1659
+unit, same beds        A     0.191   283
+                       B     0.208   236
+
+low5 by pred decile, all sizes
+g   line, other apartments  stated  unit, same beds
+pq                                                 
+0                    0.029   0.050            0.046
+1                    0.040   0.047            0.054
+2                    0.041   0.047            0.045
+3                    0.055   0.051            0.058
+4                    0.051   0.051            0.064
+5                    0.049   0.052            0.074
+6                    0.045   0.050            0.065
+7                    0.050   0.055            0.057
+8                    0.044   0.062            0.065
+9                    0.059   0.086            0.101

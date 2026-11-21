@@ -1,0 +1,17 @@
+           text_sqft      verdict                                                                                      quote                    stratum
+listing_id                                                                                                                                             
+4462996          NaN    plausible                                 Ad text: "Large Living/Dining Area, Abundant Closet Space"             line, over 1.4
+5082969          NaN    plausible                      Ad text: "this 3 bedroom, 3.5 bathroom home is entirely hand-crafted"             line, over 1.4
+4860208          NaN    plausible              Ad text: "expansive living areas, large bedroom and beautiful walk in closet"           unit, other beds
+4467480          NaN  cannot_tell                                                                              Ad text: none             line, over 1.4
+4499456          NaN    plausible  Ad text: "Stunning Loft-like Studio Apartment Featuring a Separate Kitchen, Spacious L...             line, over 1.4
+4541665          NaN    plausible                                        Ad text: "loft like two bedroom one bath apartment"    unit, same beds, to 1.4
+4838667          NaN    plausible  Ad text: "This home hosts generous living space, separate dining area, great closet sp...           unit, mixed beds
+5004168          NaN    plausible                           Ad text: "Spacious TRUE 3BR in the heart of the Lower East Side"             line, over 1.4
+4876219          NaN    plausible                       Ad text: "Renovated Huge 1 Bedroom Apt in the Heart of Midtown East"           unit, other beds
+4399987          NaN    plausible                                 Ad text: "this 4 bedroom gem offers convenience and charm"           unit, other beds
+5017668          NaN    plausible  Ad text: "Spacious 4-bedroom, 2-bathroom duplex available in the heart of the West Vil...           unit, other beds
+4824283          NaN    plausible               Ad text: "Generous Living/Dining Area, Ample Closet Space, Spacious Bedroom"           unit, other beds
+5131491          NaN    plausible                                      Ad text: "Spacious 2 bedroom with a private balcony!"           unit, other beds
+5114821          NaN    plausible                  Ad text: "The unit is a triplex on the 20th floor" ... "HUGE living room"  unit, same beds, over 1.4
+5049397          NaN    plausible  Ad text: "modern and spacious dine-in kitchen" ... "Both bedrooms can comfortably acco...           unit, other beds
