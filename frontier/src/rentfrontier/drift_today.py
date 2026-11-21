@@ -148,6 +148,7 @@ from . import (
     drift_deals,
     drift_estimates,
     drift_line,
+    drift_quantiles,
     drift_score,
     simulate,
     splits,
@@ -194,11 +195,14 @@ DRAWS = 96
 # Sweeps of the lam step for each draw before its first kept sweep, and kept sweeps.
 BURN = 4
 KEEP = 2
-# Replicates drawn from each component for the quantiles, as `drift_score` draws them: the
-# median and bounds are sampled, and at 4 the 95% bounds moved about 1.2% with the seed.
+# Replicates drawn from each component when the quantiles are sampled (`quantiles`), as
+# `drift_score` draws them: at 4 the 95% bounds moved about 1.2% with the seed. The table
+# samples unless asked for the cdf's roots (`drift_quantiles`, `--exact`), which take
+# about ten times as long on its 190 components for each of some 940,000 apartments.
 SAMPLES = 32
 # Rows per block when the quantiles are worked out: SAMPLES * CHUNK replicates of every
-# component are held at once, 80,000 as when the two were 4 and 20,000.
+# component are held at once when they are sampled, 80,000 as when the two were 4 and
+# 20,000. The exact quantiles of a block are worked in `drift_quantiles`'s own blocks.
 CHUNK = 2_500
 # The table's interval bounds, as places in `drift_score.Q`.
 BOUNDS = {"lo95": 0, "lo80": 2, "lo50": 3, "hi50": 4, "hi80": 5, "hi95": 7}
@@ -827,7 +831,7 @@ def quantiles(loc, usd, sig, nu, seed=0, samples=SAMPLES) -> tuple:
     """The predictive quantiles at `drift_score.Q` and the median of rows whose components
     are (loc, usd, sig) (components, rows) with noise degrees of freedom `nu`
     (components,), from `samples` replicates of each component, as `drift_score` draws
-    them."""
+    them. `drift_quantiles.quantiles` gives the same two with no sampling."""
     rng = np.random.default_rng(seed)
     shape = (samples, *loc.shape)
     nu_ = np.broadcast_to(np.asarray(nu, float)[:, None], loc.shape)
@@ -1479,21 +1483,29 @@ def table(
     rw: Rows,
     registry,
     ads: Path | None = None,
+    exact: bool = False,
+    workers: int = 1,
 ) -> pd.DataFrame:
     """The Today table from the apartments' predictive mixtures, with each listing's unit
-    label from the ads table `ads` when given."""
+    label from the ads table `ads` when given. The median and the bounds are sampled block
+    by block (`quantiles`), each block's stream seeded with its first place. With `exact`
+    they are the roots of each mixture's cdf (`drift_quantiles.quantiles`, on `workers`
+    threads), which depend on no seed, and on `CHUNK` only in the fourteenth digit."""
     n = len(apts)
     q = np.empty((n, len(drift_score.Q)))
     med = np.empty(n)
     for a in range(0, n, CHUNK):
         sl = slice(a, a + CHUNK)
-        q[sl], med[sl] = quantiles(
+        block = (
             comp["loc"][:, sl].astype(float),
             comp["usd"][:, sl].astype(float),
             mixture_sd(comp, rw, sl),
             comp["nu"],
-            seed=a,
         )
+        if exact:
+            q[sl], med[sl] = drift_quantiles.quantiles(*block, workers=workers)
+        else:
+            q[sl], med[sl] = quantiles(*block, seed=a)
     f = fit.frame.iloc[apts.row.to_numpy()]
     text = lambda c: f[c].where(f[c].notna(), "").astype(str).to_numpy()  # noqa: E731
     usd = comp["usd"].astype(float)
@@ -1555,9 +1567,11 @@ def publish(
     draws: int = DRAWS,
     workers: int = 1,
     log=print,
+    exact: bool = False,
 ) -> dict:
     """Write `today.parquet` and then `meta.json` to the folder `out`. Everything is
-    computed before anything is written."""
+    computed before anything is written. `exact` is `table`'s: the table's median and
+    bounds are sampled without it. `meta.json` records which under `quantiles`."""
     day = pd.Timestamp(day) if day is not None else today_ny()
     fit = load(run_dir, draws, log)
     last_ad = pd.to_datetime(fit.frame.latest_day).max()
@@ -1579,7 +1593,10 @@ def publish(
         today,
         drift_estimates._registry(registry),
         Path(fit.manifest["ads"]),
+        exact,
+        workers,
     )
+    log("the table's quantiles are worked out")
     week, frac = grid_time(fit, day)
     past = max(0.0, week + frac - fit.weeks)
     tau_w = float(np.median(fit.kept["tau"]))
@@ -1600,6 +1617,7 @@ def publish(
             "added_sd": round(math.sqrt(past) * tau_w, 5),
         },
         "draws": {"kept": int(len(fit.pick)), "burn": BURN, "keep": KEEP},
+        "quantiles": "exact" if exact else "sampled",
         **segment_meta(fit, day),
         "apartments": {
             "all": int(len(frame)),
@@ -1639,6 +1657,11 @@ def main(argv=None):
     p.add_argument(
         "--burn", type=int, default=BURN, help="lam sweeps before the first kept one"
     )
+    p.add_argument(
+        "--exact",
+        action="store_true",
+        help="take the table's median and bounds from the cdf's roots, not from samples",
+    )
     p.add_argument("--runs", default=str(run_module.RUNS))
     args = p.parse_args(argv)
     BURN = args.burn
@@ -1649,6 +1672,7 @@ def main(argv=None):
         args.registry,
         args.draws,
         args.workers,
+        exact=args.exact,
     )
     print(json.dumps(meta, indent=2))
 

@@ -449,15 +449,16 @@ def test_the_table_gives_every_apartment_its_own_row_at_the_block_edges(monkeypa
 
 
 def test_the_tables_draws_are_keyed_by_block():
-    # A block's replicates come from a stream seeded with the block's first place, so the
-    # sampled bounds depend on CHUNK by design: the table is each block's `quantiles`.
+    # Sampled, as the table is unless asked for the exact bounds, a block's replicates come
+    # from a stream seeded with the block's first place, so the sampled bounds depend on
+    # CHUNK by design: the table is each block's `quantiles`.
     n = 9
     fit, apts, comp, rw, _ = table_inputs(n)
     tables = {}
     for chunk in (4, n + 1):
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr(dt, "CHUNK", chunk)
-            out = dt.table(fit, apts, comp, rw, None)
+            out = dt.table(fit, apts, comp, rw, None, exact=False)
         got = out.set_index("apartment").loc[apts.apartment]
         tables[chunk] = got[["median", *dt.BOUNDS]].to_numpy(float)
         for a in range(0, n, chunk):
@@ -475,6 +476,34 @@ def test_the_tables_draws_are_keyed_by_block():
     # draws out over fewer rows, so the two tables differ.
     assert not np.array_equal(tables[4], tables[n + 1])
     np.testing.assert_allclose(tables[4], tables[n + 1], rtol=0.02)
+
+
+def test_the_exact_table_does_not_depend_on_the_blocks_or_the_threads():
+    # With `exact` the bounds are the roots of each apartment's cdf: the same table whatever
+    # CHUNK and the threads, with every bound at its level of the cdf.
+    n = 9
+    fit, apts, comp, rw, _ = table_inputs(n)
+    tables = []
+    for chunk, workers in ((4, 1), (n + 1, 1), (4, 3)):
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr(dt, "CHUNK", chunk)
+            out = dt.table(fit, apts, comp, rw, None, exact=True, workers=workers)
+        got = out.set_index("apartment").loc[apts.apartment]
+        tables.append(got[["median", *dt.BOUNDS]].to_numpy(float))
+    np.testing.assert_array_equal(tables[0], tables[1])
+    np.testing.assert_array_equal(tables[0], tables[2])
+    block = (
+        comp["loc"].astype(float),
+        comp["usd"].astype(float),
+        dt.mixture_sd(comp, rw),
+        comp["nu"],
+    )
+    q, med = dt.drift_quantiles.quantiles(*block)
+    want = np.exp(np.c_[med, q[:, list(dt.BOUNDS.values())]]).round(0)
+    np.testing.assert_array_equal(tables[0], want)
+    levels = [dt.drift_score.Q[i] for i in dt.BOUNDS.values()]
+    share = dt.drift_quantiles.cdf(q[:, list(dt.BOUNDS.values())], *block)
+    np.testing.assert_allclose(share, np.tile(levels, (n, 1)), atol=1e-6, rtol=0)
 
 
 def test_season_matches_the_design():

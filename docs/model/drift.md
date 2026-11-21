@@ -358,15 +358,29 @@ and the cumulative share at any rent are exact to seven digits. From it come
 - the predictive median and the 50%, 80%, 90% and 95% intervals,
 - `below_share`, the share of the predictive distribution below the ask.
 
-The median and the intervals are sampled: 32 replicates of the log rent per kept draw
-(`drift_score.SAMPLES`), so they move a little with the seed, and `elpd` and `below_share`
-do not. On the backtest's 9,346 ads, two seeds put 42 ads on different sides of the 5% or
-95% point. With 4 replicates, the value until 2026-11-20, they put 123.
+The Deals table's median and bounds are exact since 2026-11-20: each is the root of
+`cdf(q) = p` for the same cdf `below_share` comes from (`drift_quantiles.exact`, Newton's
+method on the cdf's probit inside a bisection bracket, to well under 1e-6 in log rent). They
+carry no seed, and an ask is under a bound exactly when its `below_share` is under the
+bound's level, up to the table's rounding to a dollar. The Normal plus Student-t component
+has no closed-form cdf, so "exact" means exact for the 96-node grid above, whose own error
+in a quantile is about 1e-9 in log rent. On the served run's 6,502 ads the exact bounds
+take 87 s where the sampled ones took 18 s
+([the note](../notes/exact-quantiles-2026-11-20.md)).
+
+Elsewhere the median and the intervals are still sampled: `drift_score`'s own scores (the
+coverage and the median's error of a fit), the backtest and `--sampled` Deals tables draw
+32 replicates of the log rent per kept draw (`drift_score.SAMPLES`), so they move a little
+with the seed, and `elpd` and `below_share` do not. On the backtest's 9,346 ads, two seeds
+put 42 ads on different sides of the 5% or 95% point. With 4 replicates, the value until
+2026-11-20, they put 123. `drift_score.score_run(run, exact=True)` gives the exact ones.
 
 The Today table samples its median and bounds the same way (`drift_today.SAMPLES`, 32 since
 2026-11-20, in blocks of `drift_today.CHUNK` rows). On a synthetic table with 192 components
 per apartment, the 2.5% and 97.5% bounds moved by 0.4% from seed to seed and the median by
-0.15%. With 4 replicates they moved by 1.2% and 0.4%.
+0.15%. With 4 replicates they moved by 1.2% and 0.4%. `drift_today publish --exact` takes
+the roots instead, on `--workers` threads. It is off by default because of its cost on
+about 940,000 apartments, which the note measures.
 
 `below_share` is the deal score. An ask with `below_share` 0.03 is lower than 97% of what
 the model expects that apartment to ask on that day. The Deals page shows the complement as

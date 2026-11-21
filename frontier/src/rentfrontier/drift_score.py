@@ -26,7 +26,8 @@ once the unit sd is a few times sigma. For each row the output holds
   that is low for the apartment;
 - `q`: the predictive quantiles at `quantiles`, and `pred`, the predictive median, both from
   `SAMPLES` replicates of y per kept draw, so they carry sampling noise that `elpd` and `cdf`
-  do not;
+  do not. With `exact` they are the roots of `cdf` instead (`rentfrontier.drift_quantiles`),
+  with no sampling and no seed, as the Deals table takes them;
 - `unit_sd`: the mean over draws of the sd of u, which is small for a unit with recent ads
   and sqrt(ss^2 + sd^2) for a unit with none;
 - `y` and `group`, and, when the run's dataset is on disk, each row's `listing`, `building`
@@ -86,11 +87,13 @@ def _density(y, loc, usd, sigma, lam, logw):
 
 
 def score_rows(
-    loc, usd, sigma, nu, y, seed=0, nodes=NODES, samples=SAMPLES, at=None
+    loc, usd, sigma, nu, y, seed=0, nodes=NODES, samples=SAMPLES, at=None, exact=False
 ) -> dict:
     """Scores for a block of rows: `loc` and `usd` (draws, rows), `sigma` (draws, rows) the
     noise scale of each row's group, `nu` (draws,), `y` (rows,). With `at` (rows,), also
-    `cdf_at`, the predictive probability of a log rent below `at`."""
+    `cdf_at`, the predictive probability of a log rent below `at`. With `exact`, `q` and
+    `pred` solve cdf(q) = p (`drift_quantiles.exact`) and `seed` and `samples` are not
+    read."""
     loc, usd, sigma = (np.asarray(v, float) for v in (loc, usd, sigma))
     y = np.asarray(y, float)
     nu_ = np.asarray(nu, float)[:, None, None]
@@ -98,19 +101,27 @@ def score_rows(
     per_draw, cdf = _density(y, loc, usd, sigma, lam, logw)
     elpd = logsumexp(per_draw, axis=0) - np.log(loc.shape[0])
     cdf = cdf.mean(axis=0)
-    rng = np.random.default_rng(seed)
-    shape = (samples, *loc.shape)
-    rep = (
-        loc
-        + usd * rng.standard_normal(shape)
-        + sigma * rng.standard_t(np.broadcast_to(nu_[:, :, 0], loc.shape), size=shape)
-    ).reshape(-1, loc.shape[1])
-    q = np.quantile(rep, Q, axis=0).T
+    if exact:
+        from . import drift_quantiles
+
+        q, pred = drift_quantiles.quantiles(loc, usd, sigma, nu, nodes)
+    else:
+        rng = np.random.default_rng(seed)
+        shape = (samples, *loc.shape)
+        rep = (
+            loc
+            + usd * rng.standard_normal(shape)
+            + sigma
+            * rng.standard_t(np.broadcast_to(nu_[:, :, 0], loc.shape), size=shape)
+        ).reshape(-1, loc.shape[1])
+        q, pred = np.quantile(rep, Q, axis=0).T, np.median(rep, axis=0)
+    # `q` is kept in single precision when sampled, as it always was, and in double when
+    # exact, where rounding it would move a quantile by up to 5e-7 in log rent.
     out = dict(
         elpd=elpd,
         cdf=cdf,
-        q=q.astype(np.float32),
-        pred=np.median(rep, axis=0),
+        q=q if exact else q.astype(np.float32),
+        pred=pred,
         unit_sd=usd.mean(axis=0),
     )
     if at is not None:
@@ -119,9 +130,10 @@ def score_rows(
     return out
 
 
-def score_run(run_dir: Path, seed: int = 0, at=None) -> dict:
+def score_run(run_dir: Path, seed: int = 0, at=None, exact: bool = False) -> dict:
     """Scores for every row the run at `run_dir` predicted. `at` (rows,) asks for `cdf_at`,
-    the predictive probability of a log rent below each row's value."""
+    the predictive probability of a log rent below each row's value. `exact` takes the
+    quantiles and the median from the cdf's roots, not from replicates."""
     z = np.load(run_dir / "posterior.npz")
     if "kept/pred_loc" not in z:
         raise SystemExit(f"{run_dir} predicted no rows")
@@ -152,6 +164,7 @@ def score_run(run_dir: Path, seed: int = 0, at=None) -> dict:
             y[sl],
             seed + a,
             at=None if at is None else at[sl],
+            exact=exact,
         )
         for k, v in part.items():
             out[k].append(v)
