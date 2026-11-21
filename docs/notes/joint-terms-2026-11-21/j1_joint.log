@@ -1,0 +1,75 @@
+ads 129861 from 2022 ; with no finish mark read (counted as none): 7562
+marked shares:
+changed counts          0.2142
+changed, 2 baths        0.0456
+3+ baths                0.0189
+2 baths                 0.1701
+4+ bedrooms             0.0309
+top 3% predicted        0.0300
+floor 1                 0.0754
+duplex                  0.0519
+3+ bed, finish share    0.0195
+3+ bed, share 0         0.0592
+t df 7
+
+intercept only (one scale, one shift): cross-fit gain    501.8 (SE  42.0)
+  intercept-only scale (fit on A, on B) [0.957, 0.956] shift [-0.0042, -0.0046]
+
+all terms: cross-fit gain   1832.8 (SE  79.2)
+terms over intercept:   1331.0 (SE  69.8); by half [np.float64(592.5), np.float64(738.5)]
+                      scale x (fit on A)  scale x (fit on B)  shift (fit on A)  shift (fit on B)
+intercept                          0.894               0.892            -0.003            -0.003
+changed counts                     1.195               1.219             0.003             0.005
+changed, 2 baths                   1.047               1.023            -0.007            -0.011
+3+ baths                           1.158               1.122            -0.033            -0.033
+2 baths                            1.050               1.047            -0.007            -0.006
+4+ bedrooms                        0.953               0.982            -0.006            -0.006
+top 3% predicted                   1.148               1.231             0.007            -0.002
+floor 1                            1.063               1.068            -0.007            -0.009
+duplex                             1.085               1.062            -0.002            -0.004
+3+ bed, finish share               0.964               0.932             0.015             0.020
+3+ bed, share 0                    0.938               0.959            -0.001            -0.005
+
+leave one out (gain lost when the term is dropped):
+
+  without changed counts: cross-fit gain   1384.6 (SE  69.7)
+    lost   448.2 (SE  41.9)
+
+  without changed, 2 baths: cross-fit gain   1810.6 (SE  78.4)
+    lost    22.2 (SE   8.8)
+
+  without 3+ baths: cross-fit gain   1699.2 (SE  76.5)
+    lost   133.6 (SE  21.6)
+
+  without 2 baths: cross-fit gain   1749.6 (SE  76.8)
+    lost    83.2 (SE  16.9)
+
+  without 4+ bedrooms: cross-fit gain   1824.9 (SE  79.2)
+    lost     7.9 (SE   5.3)
+
+  without top 3% predicted: cross-fit gain   1792.9 (SE  78.3)
+    lost    40.0 (SE  12.7)
+
+  without floor 1: cross-fit gain   1751.9 (SE  77.3)
+    lost    80.9 (SE  14.7)
+
+  without duplex: cross-fit gain   1810.2 (SE  78.7)
+    lost    22.6 (SE   8.2)
+
+  without 3+ bed, finish share: cross-fit gain   1788.5 (SE  78.4)
+    lost    44.4 (SE  10.3)
+
+  without 3+ bed, share 0: cross-fit gain   1821.8 (SE  78.9)
+    lost    11.0 (SE   8.3)
+
+low tail (below 5%), intercept-only 6911, all terms 6799, left 990, joined 878
+  changed counts         marked  27822  low  2110 ->  1434  ( 7.6% ->  5.2%)
+  changed, 2 baths       marked   5917  low   634 ->   325  (10.7% ->  5.5%)
+  3+ baths               marked   2452  low   336 ->   137  (13.7% ->  5.6%)
+  2 baths                marked  22088  low  1625 ->  1195  ( 7.4% ->  5.4%)
+  4+ bedrooms            marked   4007  low   355 ->   214  ( 8.9% ->  5.3%)
+  top 3% predicted       marked   3898  low   415 ->   214  (10.6% ->  5.5%)
+  floor 1                marked   9796  low   788 ->   522  ( 8.0% ->  5.3%)
+  duplex                 marked   6740  low   597 ->   335  ( 8.9% ->  5.0%)
+  3+ bed, finish share   marked   5597  low   362 ->   282  ( 6.5% ->  5.0%)
+  3+ bed, share 0        marked   7691  low   515 ->   393  ( 6.7% ->  5.1%)
