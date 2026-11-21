@@ -345,10 +345,11 @@ of the model's inputs or sampler, so each needs a dataset rebuild or a fit of it
   `docs/notes/duplex-scale-2026-11-18.md`. None changes enough of the Deals list for a fit
   of its own (the changed-count and three-bath classes hold about 60 of 425 low-tail ads on
   the backtest).
-- [ ] Deals page: a first ask below the 5% point closes sooner for studios and one-bedrooms
+- [x] Deals page: a first ask below the 5% point closes sooner for studios and one-bedrooms
   (45% and 39% within 7 days against 30% and 29%) and no sooner for four or more bedrooms
   or for ads with coded free months (`docs/notes/history-scan-2026-11-18.md`, last table). A page note or
   an ordering that uses it is a site change with no fit.
+  Done: the backtest card's note on low places by bedroom count has carried these figures since #1457; a test now checks it. The free-months row stays off the page (the note's later section says days listed of those ads do not follow price).
 - [ ] A width by ad source: feed ads' held-out asks are a little tighter than the model
   allows (free check, about +140 elpd on 45,448 ads, give or take 50, at a factor near 0.9). A term needs a
   new module, a backtest and a market fit.

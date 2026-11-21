@@ -430,6 +430,11 @@ def test_url_filters_for_hoods_beds_rent_sqft_floor_and_toggles(client, site_roo
     # Backtest is inside a collapsed <details> block at the bottom.
     assert '<details class="card deals-backtest" id="backtest">' in html
     assert "90% to 100%" in html and "9,000 ads" in html
+    # Low-place note: first asks below the 5% point close sooner for small apartments.
+    assert "A low place says most for small apartments." in html
+    assert "45% of the time for studios against 30% for mid-range asks" in html
+    assert "39% against 29% for one bedroom" in html
+    assert "no sooner (24% against 24%)" in html
     # Column headers carry explanatory title tooltips.
     assert '<th scope="col" class="num" title="Dollars per month below' in html
 
