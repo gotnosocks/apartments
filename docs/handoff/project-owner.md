@@ -222,8 +222,8 @@ subagent's model and effort to be picked by its task.
   This confirms the first-floor level of `docs/notes/duplex-scale-2026-11-18.md`, already on
   the TODO list of terms for the next base refit.
 - Joint size of the queued base-refit terms (no fit, `docs/notes/joint-terms-2026-11-21.md`):
-  +1,331 elpd (SE 70) on held-out ads from 2022 on, stable by half, about one in seven
-  low-tail ads moved. This is the size to give Ben with the base-refit decision (about $22).
+  +1,331 elpd (SE 70) on held-out ads from 2022 on, stable by half; one in seven
+  low-tail ads leaves the tail and about as many join. This is the size to give Ben with the base-refit decision (about $22).
 - Large-unit wording on held-out history (no fit, `docs/notes/large-unit-text-2026-11-21.md`).
   Full floor and renovation wording show no excess, and duplex wording is in both tails.
   Named finishes mark buildings whose large units the model prices low: at 3+ bedrooms the

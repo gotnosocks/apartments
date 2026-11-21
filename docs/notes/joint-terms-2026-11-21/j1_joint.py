@@ -68,7 +68,15 @@ X = pd.DataFrame(
         "3+ bed, share 0": big & (h.share == 0),
     }
 ).astype(float)
-print("ads", len(h), "from", Y0, "; marked shares:")
+print(
+    "ads",
+    len(h),
+    "from",
+    Y0,
+    "; with no finish mark read (counted as none):",
+    h.spec.isna().sum(),
+)
+print("marked shares:")
 print(X.mean().round(4).to_string())
 
 best = None
@@ -96,6 +104,11 @@ def lp(theta, Z, idx):
     return student.logpdf((res[idx] - d) / (S[idx] * m), DF) - np.log(S[idx] * m)
 
 
+def cluster_se(x):
+    g = pd.Series(x).groupby(bld).sum()
+    return float(np.sqrt(len(g) / (len(g) - 1) * ((g - g.mean()) ** 2).sum()))
+
+
 def crossfit(cols, label):
     Z = np.column_stack([np.ones(len(h))] + [X[c].to_numpy() for c in cols])
     per, thetas = np.zeros(len(h)), {}
@@ -106,29 +119,32 @@ def crossfit(cols, label):
         )
         thetas[f] = r.x
         per[te] = lp(r.x, Z, te) - base[te]
-    g = pd.Series(per).groupby(bld).sum()
-    se = float(np.sqrt(len(g) / (len(g) - 1) * ((g - g.mean()) ** 2).sum()))
-    print(f"\n{label}: cross-fit gain {per.sum():8.1f} (SE {se:5.1f})")
+    print(f"\n{label}: cross-fit gain {per.sum():8.1f} (SE {cluster_se(per):5.1f})")
     return per, thetas, Z
 
 
-per0, _, _ = crossfit([], "intercept only (one scale, one shift)")
+# thetas[f] is fitted on half != f: thetas[1] on half A (0), thetas[0] on half B (1)
+per0, th0, _ = crossfit([], "intercept only (one scale, one shift)")
+print(
+    "  intercept-only scale (fit on A, on B)",
+    [round(float(np.exp(th0[f][0])), 3) for f in (1, 0)],
+    "shift",
+    [round(float(th0[f][1]), 4) for f in (1, 0)],
+)
 cols = list(X.columns)
 per1, th, Z = crossfit(cols, "all terms")
 d = per1 - per0
-g = pd.Series(d).groupby(bld).sum()
-se = float(np.sqrt(len(g) / (len(g) - 1) * ((g - g.mean()) ** 2).sum()))
 print(
-    f"terms over intercept: {d.sum():8.1f} (SE {se:5.1f}); by half",
+    f"terms over intercept: {d.sum():8.1f} (SE {cluster_se(d):5.1f}); by half",
     [round(d[half == f].sum(), 1) for f in (0, 1)],
 )
 k = Z.shape[1]
 tab = pd.DataFrame(
     {
-        "scale x (fit on B)": np.exp(th[1][:k]),
-        "scale x (fit on A)": np.exp(th[0][:k]),
-        "shift (fit on B)": th[1][k:],
-        "shift (fit on A)": th[0][k:],
+        "scale x (fit on A)": np.exp(th[1][:k]),
+        "scale x (fit on B)": np.exp(th[0][:k]),
+        "shift (fit on A)": th[1][k:],
+        "shift (fit on B)": th[0][k:],
     },
     index=["intercept"] + cols,
 ).round(3)
@@ -138,23 +154,15 @@ print(tab.to_string())
 print("\nleave one out (gain lost when the term is dropped):")
 for c in cols:
     pl, _, _ = crossfit([x for x in cols if x != c], f"  without {c}")
-    print(f"    lost {(per1 - pl).sum():7.1f}")
+    print(f"    lost {(per1 - pl).sum():7.1f} (SE {cluster_se(per1 - pl):5.1f})")
 
-# the low tail after the joint adjustment, each ad scored with the other half's fit
-mz = np.empty(len(h))
-dz = np.empty(len(h))
+# the low tail after the joint adjustment, each ad placed under the other half's fit
+mz, dz, mz0, dz0 = (np.empty(len(h)) for _ in range(4))
 for f in (0, 1):
     te = half == f
-    mz[te] = np.exp(Z[te] @ th[1 - f][:k])
-    dz[te] = Z[te] @ th[1 - f][k:]
-mz0 = np.empty(len(h))
-dz0 = np.empty(len(h))
-Z0 = np.ones((len(h), 1))
-for f in (0, 1):
-    tr = np.flatnonzero(half != f)
-    r = minimize(lambda t: -lp(t, Z0, tr).sum(), np.zeros(2), method="L-BFGS-B")
-    te = half == f
-    mz0[te], dz0[te] = np.exp(r.x[0]), r.x[1]
+    mz[te] = np.exp(Z[te] @ th[f][:k])
+    dz[te] = Z[te] @ th[f][k:]
+    mz0[te], dz0[te] = np.exp(th0[f][0]), th0[f][1]
 c0 = student.cdf((res - dz0) / (S * mz0), DF)
 c1 = student.cdf((res - dz) / (S * mz), DF)
 low0, low1 = c0 < 0.05, c1 < 0.05

@@ -41,46 +41,49 @@ The marks read coded fields, the floor snapshot or the text, never the ask:
 | all terms | +1,833 (79) |
 | terms over the intercept | +1,331 (70); +593 on half A, +739 on half B |
 
-The intercept picks a scale of 0.89 and a shift of −0.003 on both halves: on ads from 2022
-on the model's predictive is about 11% too wide overall. That is the control result of the
-history scan (0.9) and is a matter for the noise by year (Y1 in TODO). It is kept out of the
-terms' gain.
+Alone, the intercept picks a scale of 0.957 and 0.956 and a shift of −0.004 and −0.005: on
+ads from 2022 on the model's predictive is about 4% too wide overall. Beside the terms the
+intercept, which is then the scale of unmarked ads, falls to 0.89, the control result of the
+history scan (0.9). The width of ordinary recent ads is a matter for the noise by year (Y1 in
+TODO) and is kept out of the terms' gain.
 
 ## Each term beside the others
 
-Picked on half B and scored on A, then the reverse:
+Fitted on half A, then on half B. The loss when a term is dropped is cross-fitted, with its
+building-clustered SE:
 
 | term | share of ads | scale | shift | gain lost when dropped |
 |---|---|---|---|---|
-| changed counts | 21.4% | 1.20 / 1.22 | +0.003 / +0.005 | 448 |
-| changed, 2 baths (added) | 4.6% | 1.05 / 1.02 | −0.007 / −0.011 | 22 |
-| 3 or more baths | 1.9% | 1.16 / 1.12 | −0.033 / −0.033 | 134 |
-| 2 baths | 17.0% | 1.05 / 1.05 | −0.007 / −0.006 | 83 |
-| 4 or more bedrooms | 3.1% | 0.95 / 0.98 | −0.006 / −0.006 | 8 |
-| top 3% predicted | 3.0% | 1.15 / 1.23 | +0.007 / −0.002 | 40 |
-| floor 1 | 7.5% | 1.06 / 1.07 | −0.007 / −0.009 | 81 |
-| duplex | 5.2% | 1.09 / 1.06 | −0.002 / −0.004 | 23 |
-| 3+ bed, finish share (per unit share) | 2.0% | 0.96 / 0.93 | +0.015 / +0.020 | 44 |
-| 3+ bed, share 0 | 5.9% | 0.94 / 0.96 | −0.001 / −0.005 | 11 |
+| changed counts | 21.4% | 1.20 / 1.22 | +0.003 / +0.005 | 448 (42) |
+| changed, 2 baths (added) | 4.6% | 1.05 / 1.02 | −0.007 / −0.011 | 22 (9) |
+| 3 or more baths | 1.9% | 1.16 / 1.12 | −0.033 / −0.033 | 134 (22) |
+| 2 baths | 17.0% | 1.05 / 1.05 | −0.007 / −0.006 | 83 (17) |
+| 4 or more bedrooms | 3.1% | 0.95 / 0.98 | −0.006 / −0.006 | 8 (5) |
+| top 3% predicted | 3.0% | 1.15 / 1.23 | +0.007 / −0.002 | 40 (13) |
+| floor 1 | 7.5% | 1.06 / 1.07 | −0.007 / −0.009 | 81 (15) |
+| duplex | 5.2% | 1.09 / 1.06 | −0.002 / −0.004 | 23 (8) |
+| 3+ bed, finish share (per unit share) | 2.0% | 0.96 / 0.93 | +0.015 / +0.020 | 44 (10) |
+| 3+ bed, share 0 | 5.9% | 0.94 / 0.96 | −0.001 / −0.005 | 11 (8) |
 
 - The changed-count scale is a third of the whole gain and holds its single size (1.2).
 - The three-bath level (−0.033) and the top tier's scale (1.15 to 1.23) keep their single
   sizes. The top tier's shift changes sign between the halves.
 - The four-bedroom level shrinks from −0.015 alone to −0.006 and is worth 8. The three-bath,
-  finish and share-0 terms take it. It can leave the refit.
+  finish and share-0 terms take it. It can leave the refit: its loss is 8 with SE 5.
 - The finish share keeps its level, about +0.015 to +0.020 from share 0 to share 1. Its scale
   below 1 says those buildings' large units are also a little more predictable. The share-0
-  flag adds 11 beside it and can leave the refit too.
+  flag adds 11 (SE 8) beside it and can leave the refit too.
 - Floor 1 holds a level near −0.008 and a scale near 1.065, both kinds of term the TODO lists.
 
 ## The low tail
 
 Each ad is placed in its adjusted predictive under the other half's fit. Of 6,911 ads below
-the 5% point under the intercept-only fit, 993 leave the low tail under all terms and 873
-join it. Within each marked class the share below 5% falls to about 5%: from 13.7% to 5.6%
-for 3 or more baths, 10.7% to 5.5% for changed counts at 2 baths, 10.6% to 5.3% for the top
-tier, 8.9% to 5.0% for duplex wording, and 8.0% to 5.3% on floor 1. About one in seven
-low-tail ads changes, which is the part of the Deals list the refit would move.
+the 5% point under the intercept-only fit, 990 leave the low tail under all terms and 878
+join it, so one in seven leaves and about as many join. Within each marked class the share
+below 5% falls to about 5%: from 13.7% to 5.6% for 3 or more baths, 10.7% to 5.5% for
+changed counts at 2 baths, 10.6% to 5.5% for the top tier, 8.9% to 5.0% for duplex wording,
+and 8.0% to 5.3% on floor 1. These are held-out ads from 2022 on. The Deals list is built
+from live ads by another fit, so the turnover is a guide to how far its low end would move.
 
 ## Limits
 
@@ -88,14 +91,16 @@ low-tail ads changes, which is the part of the Deals list the refit would move.
   bedroom step with the terms, so the building-trait terms (the finish share, three baths)
   may be partly absorbed by the levels or come out larger.
 - The finish share counts every other held-out ad of the building, later ones included. The
-  refit term takes it from earlier ads only, as TODO says, which makes it noisier.
-- The elpd comes from the t approximation and the latest split's held-out ads, not from a
-  backtest of the Deals model.
+  refit term takes it from earlier ads only, as TODO says, which makes it noisier, and the
+  later ads may make its 44 an overstatement. 7,562 of the ads from 2022 on (5.8%) have no
+  finish mark read and count as naming none.
+- The elpd comes from the t approximation on the latest split's held-out ads. A backtest of
+  the Deals model would be the check for the list itself.
 
 ## What follows
 
 The base-refit item in TODO gets the joint size: about +1,300 elpd on held-out ads from 2022
-on, building-clustered SE 70, beside an overall scale near 0.89 that belongs to the noise
-term. The four-bedroom level and the share-0 flag can be dropped, each worth about 10. The
+on, building-clustered SE 70, beside an overall predictive about 4% too wide that belongs to
+the noise term. The four-bedroom level and the share-0 flag can be dropped, each worth about 10. The
 refit stays Ben's decision (about $22). A note with its predictions goes on master before
 the fit, and these sizes are its starting point.
