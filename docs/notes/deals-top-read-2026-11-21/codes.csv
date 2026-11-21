@@ -1,0 +1,121 @@
+key,listing_id,group,rank,coded_floor,walkup,low_floor,high_walkup,owner_or_small_landlord,condo_coop_owner_rental,thin_ad,railroad_or_odd_layout,flex_or_unbuilt_bedroom,busy_street_or_elevated,small_for_rooms,renovated,utilities_beyond_heat,doorman,new_development,coded_months_free,deposit_net,stale_available,few_photos,elevator_field_true,owner_feed,landlord_feed,quote
+B000,5145180,top,58,15.0,no,no,no,no,no,no,no,no,no,no,no,no,yes,yes,True,False,True,False,True,False,False,Brooklyn's newest Waterfront Esplanade
+B001,5204883,middle,2004,4.0,unclear,no,unclear,no,no,no,no,no,yes,no,yes,no,no,no,False,False,False,True,False,False,False,on the corner of First Street and Fifth Avenue
+B002,5207513,top,18,4.0,yes,no,yes,no,no,no,no,no,yes,no,yes,no,no,no,False,False,False,False,False,False,False,*4th floor walk up
+B003,5201825,middle,2009,3.0,no,no,no,no,no,no,no,no,yes,no,no,no,yes,yes,False,False,False,False,True,False,True,Downtown Brooklyn's newest architectural masterpiece
+B004,5197121,middle,2046,15.0,no,no,no,no,no,no,no,yes,yes,no,yes,yes,yes,no,False,True,False,True,True,False,False,"Rent includes: heat, cooking gas, and water."
+B005,5176480,top,10,4.0,unclear,no,unclear,unclear,no,yes,yes,no,no,no,no,no,no,no,False,False,True,True,False,False,False,Railroad style apartment allows for flexibly in space usage
+B006,5166016,middle,2032,3.0,no,no,no,no,no,no,no,no,no,no,no,no,yes,yes,True,False,True,False,True,False,False,Douglass Port is a collection of 260 apartments
+B007,5195685,middle,2008,9.0,no,no,no,no,no,no,no,no,no,no,no,no,yes,yes,True,False,False,False,True,False,True,leading a new luxury rental building wave at Greenpoint Landing
+B008,5199457,middle,2012,,unclear,yes,no,unclear,no,no,no,no,no,no,no,no,no,no,False,False,False,False,False,False,False,Expansive Lower-Level Recreation Room
+B009,5197660,top,3,0.0,unclear,yes,no,unclear,no,no,no,no,no,no,no,no,no,no,False,False,False,False,False,False,False,Ground Floor
+B010,5183648,middle,2005,,unclear,unclear,unclear,no,no,no,no,no,no,no,yes,no,no,no,False,False,True,True,False,False,False,RESTORED TO BEAUTIFUL CONDITION
+B011,5141504,middle,2059,9.0,no,no,no,no,no,no,no,no,no,no,no,no,yes,no,False,False,True,True,True,False,True,
+B012,5194931,middle,2058,1.0,no,yes,no,no,no,yes,no,no,no,no,no,no,no,no,False,False,False,True,True,False,False,Located in an elevator building
+B013,5201025,top,19,8.0,no,no,no,no,no,no,no,no,yes,no,yes,no,yes,no,False,False,False,False,True,False,False,on the corner of CPS and 6th Ave
+B014,5191102,top,26,1.0,no,yes,no,no,no,no,no,no,no,no,no,no,no,no,False,False,False,True,True,False,False,
+B015,5207710,top,14,9.0,no,no,no,no,no,no,no,no,unclear,no,yes,no,yes,yes,True,False,False,False,True,False,False,Brand New Luxury Rentals
+B016,5205842,middle,2029,3.0,no,no,no,no,no,no,no,yes,yes,no,no,no,yes,no,False,False,False,False,True,False,False,formal dining room that can easily serve as a fifth bedroom
+B017,5190447,top,49,2.0,yes,yes,no,no,no,no,no,no,yes,no,no,no,no,no,False,False,False,False,False,False,False,Second-floor walk-up
+B018,5186527,middle,2027,3.0,unclear,no,no,no,no,no,no,no,no,no,no,no,no,no,False,False,True,True,False,False,False,UNIQUE AND TRANQUIL CUL-DE-SAC STREET
+B019,5205487,middle,2010,3.0,unclear,no,no,no,no,no,no,no,yes,no,yes,no,no,no,False,False,False,True,False,False,False,88th street and 2nd avenue
+B020,5191213,top,31,7.0,no,no,no,no,no,no,no,no,no,no,yes,no,no,yes,True,False,False,False,True,False,False,960 FRANKLIN AVE IS OFFICIALLY LEASING
+B021,5208050,top,48,2.0,no,yes,no,no,no,no,no,no,yes,no,yes,no,yes,no,False,False,True,True,True,False,True,Fully renovated one bedroom home overlooking a garden
+B022,5199366,top,28,,unclear,unclear,unclear,no,no,no,no,no,no,no,no,no,no,no,True,False,False,False,False,False,False,
+B023,5173286,top,35,,unclear,unclear,unclear,yes,no,yes,no,no,no,no,no,no,no,no,False,False,True,False,False,False,False,"EMAIL, CALL, TEXT VINCENT FOR VIEWINGS"
+B024,5150956,top,40,,no,no,no,no,no,no,no,yes,no,no,no,no,yes,no,False,False,True,False,True,False,True,expansive walk-in closet off the fourth bedroom or den
+B025,5200378,top,60,,no,no,no,no,no,no,no,unclear,yes,yes,yes,no,yes,no,True,False,False,False,True,False,False,junior 1-bedroom apartment with brand new condo finishes
+B026,5161857,top,33,9.0,no,no,no,no,no,no,no,no,unclear,no,no,no,yes,no,True,False,True,False,True,False,False,
+B027,5201103,middle,2061,2.0,unclear,yes,no,no,no,no,no,no,unclear,no,yes,no,no,no,False,False,False,True,False,False,False,Recently Renovated
+B028,5202156,middle,2042,7.0,no,no,no,no,no,no,no,no,yes,no,yes,no,yes,no,False,False,False,False,True,False,True,located along Third Avenue bordering the charming neighborhood of Kips Bay
+B029,5188139,top,17,,unclear,unclear,unclear,no,no,no,no,no,yes,no,no,no,no,no,False,False,False,False,False,False,False,This floor-through home features a large open kitchen
+B030,5200678,middle,2022,30.0,no,no,no,yes,yes,no,no,no,yes,no,no,no,yes,no,False,False,False,False,True,False,False,Available Immediately Upon Condo Board Approval
+B031,5190414,middle,2033,24.0,no,no,no,no,no,yes,no,no,yes,no,no,no,yes,no,False,False,False,False,True,False,True,
+B032,5180266,top,20,7.0,no,no,no,no,no,yes,no,no,no,no,no,no,unclear,no,False,False,True,False,True,False,True,
+B033,5172217,top,2,3.0,no,no,no,yes,yes,no,no,no,no,yes,no,no,yes,no,False,False,False,False,True,False,False,Micro Pied A Terre apartment at a Prewar Condo / Doorman Bldg
+B034,5205623,middle,2056,7.0,no,no,no,no,no,no,no,no,no,no,no,no,yes,no,False,False,False,False,True,False,False,
+B035,5166707,middle,2034,11.0,no,no,no,no,no,no,no,no,no,no,no,no,yes,yes,True,False,True,False,True,False,False,Douglass Port marks the next chapter of Gowanus Wharf's campus of residential buildings
+B036,5191238,top,8,7.0,no,no,no,no,no,no,no,no,no,no,yes,no,unclear,yes,True,False,False,False,True,False,False,960 FRANKLIN AVE IS OFFICIALLY LEASING
+B037,5199700,middle,2035,,no,no,no,no,no,yes,no,no,no,no,no,no,yes,no,False,False,False,False,True,False,True,
+B038,5191930,top,24,3.0,unclear,no,unclear,unclear,no,no,no,no,yes,no,yes,no,no,no,False,False,False,False,False,False,False,right on top of the L train Graham Avenue stop
+B039,5195247,middle,2047,,unclear,unclear,unclear,no,no,no,no,no,no,no,yes,no,no,no,False,False,False,True,False,False,False,The renovated kitchen features stainless steel appliances and a modern design
+B040,4964936,middle,2020,10.0,no,no,no,no,no,no,no,no,no,no,no,no,yes,unclear,True,False,True,False,True,False,False,
+B041,5199083,middle,2040,3.0,unclear,no,no,no,no,no,no,no,no,no,yes,no,unclear,no,False,False,False,True,False,False,False,"Renovated. Stainless steel kitchen, breakfast bar, microwave"
+B042,5206755,middle,2049,2.0,yes,yes,no,no,no,no,no,no,no,no,yes,no,unclear,no,False,False,False,True,False,False,False,classic charm with modern upgrades
+B043,5190036,middle,2021,,no,unclear,no,no,no,no,no,no,no,yes,no,no,yes,no,True,False,False,False,True,False,False,Cozy 2BR with PRIVATE OUTDOOR SPACE
+B044,5203653,top,21,2.0,unclear,yes,no,no,no,no,no,no,no,no,no,no,unclear,no,False,False,False,True,False,False,False,Individual AC units in each room for personalized comfort
+B045,5206946,top,7,2.0,no,yes,no,no,no,no,no,no,yes,no,yes,no,no,no,False,False,False,True,True,False,False,Located on Lafayette and Spring overlooking Petrosino Square
+B046,5196601,top,38,-1.0,no,yes,no,no,no,no,no,no,yes,no,unclear,no,yes,unclear,True,False,False,False,True,False,False,Be among the first to experience elevated living in this exciting
+B047,5201178,middle,2055,,no,no,no,no,no,no,no,no,yes,no,yes,no,yes,no,False,False,False,True,True,False,True,"Our newly renovated homes have plank flooring, stainless steel appliances, granite countertops"
+B048,5196449,middle,2011,3.0,unclear,no,no,no,no,yes,no,no,unclear,no,no,no,no,no,False,False,False,False,False,False,False,"Well-maintained, intimate building"
+B049,5048998,top,27,4.0,no,no,no,no,no,no,no,no,no,no,no,no,unclear,unclear,True,False,True,False,True,False,False,
+B050,5206543,middle,2063,1.0,no,yes,no,no,no,no,no,yes,no,no,no,no,unclear,no,False,False,False,True,True,False,False,Flexible Alcove Space
+B051,5190273,middle,2060,1.0,unclear,yes,no,yes,no,no,no,no,yes,no,no,no,no,no,False,False,False,True,False,False,False,You can text me for a video of the apartment.
+B052,5206031,top,23,2.0,unclear,yes,no,no,no,no,no,no,no,no,no,no,no,no,True,False,False,False,False,False,False,
+B053,5201497,middle,2037,1.0,unclear,yes,no,no,no,no,no,no,no,no,no,no,no,no,False,False,False,False,False,False,True,1H is still tenant occupied
+B054,5182489,middle,2031,35.0,no,no,no,no,no,no,no,no,no,no,no,no,yes,no,False,False,False,False,True,False,False,
+B055,5153934,top,15,,yes,no,unclear,unclear,no,no,no,no,no,no,yes,no,no,no,False,False,True,True,False,False,False,occupying the top two floors of a charming Upper East Side townhouse
+B056,5207464,middle,2062,9.0,no,no,no,no,no,no,no,no,no,no,yes,no,yes,no,True,False,False,False,True,False,True,The renovated kitchen equipped with a dishwasher and stainless steal appliances
+B057,5187412,top,44,2.0,yes,yes,no,no,no,no,no,unclear,yes,no,no,no,unclear,no,False,False,False,False,False,False,False,Second-Floor Walk-Up
+B058,5205442,top,36,1.0,unclear,yes,no,no,no,no,no,no,no,no,yes,no,yes,yes,True,False,False,True,False,False,False,"Boutique, newly constructed building with secure entry"
+B059,5201860,middle,2019,4.0,no,no,no,no,no,no,no,no,no,no,no,yes,yes,no,True,False,False,False,True,False,False,"Gas, Heat and Water included in rent"
+B060,5207588,top,52,15.0,no,no,no,no,no,no,no,no,no,no,unclear,no,no,unclear,False,True,False,False,True,False,False,
+B061,5206665,middle,2054,10.0,no,no,no,no,no,yes,no,no,no,no,no,no,yes,no,False,False,False,False,True,False,False,24/7 Doorman
+B062,5192711,middle,2024,22.0,no,no,no,no,no,no,no,no,no,no,no,no,yes,no,False,False,False,False,True,False,False,
+B063,5203988,top,22,3.0,yes,no,no,no,no,no,no,no,yes,no,no,no,no,no,False,False,False,False,False,False,False,3rd floor walk up building
+B064,5207298,top,29,5.0,no,no,no,no,no,no,no,no,yes,no,no,no,no,no,False,True,False,True,True,False,False,Semi private roof
+B065,5206041,middle,2016,15.0,no,no,no,no,no,no,no,no,no,no,yes,no,yes,no,False,False,True,False,True,False,True,fully renovated kitchen with granite counter tops and brand new stainless appliances
+B066,5189709,top,16,10.0,no,no,no,no,no,no,no,no,yes,no,no,no,yes,yes,True,False,False,False,True,False,False,a sophisticated new collection of studio to three-bedroom residences at 222 Broadway
+B067,5204601,top,9,2.0,yes,yes,no,no,no,no,no,no,yes,no,no,no,no,no,False,False,False,True,False,False,False,just one flight up in a classic walk-up building
+B068,5205500,middle,2052,35.0,no,no,no,no,no,yes,no,no,yes,no,no,no,yes,no,False,False,False,False,True,False,True,Pictures may not represent actual apartment.
+B069,5091127,middle,2013,,no,no,no,no,no,no,no,no,no,no,no,yes,yes,no,False,False,True,False,True,False,True,"Rent includes heat, hot water, and cooking gas."
+B070,5200650,top,42,11.0,no,no,no,no,yes,no,no,no,no,no,no,no,yes,no,False,False,False,False,True,False,False,"Located in a pristine condop, this 3 bedroom, 3.5 bathroom home"
+B071,5099625,middle,2048,6.0,no,no,no,no,no,no,no,no,yes,no,no,no,yes,no,False,False,False,False,True,False,True,24/7 front desk service
+B072,5125318,top,1,,no,no,no,no,no,no,no,yes,no,no,no,no,yes,no,False,False,True,False,True,False,False,"The fifth bedroom remains flexible, the dividing wall is not yet installed"
+B073,5179170,middle,2017,52.0,no,no,no,no,no,no,no,no,yes,no,no,no,yes,no,False,False,True,False,True,False,True,555TEN towers over the new West Side
+B074,5163408,top,30,6.0,no,no,no,yes,yes,yes,no,no,yes,no,no,no,yes,no,False,False,True,False,True,False,False,Welcome to this well-priced one-bedroom condo
+B075,5200229,top,57,3.0,no,no,no,no,yes,no,no,no,no,no,no,no,no,no,False,False,False,True,True,False,False,Well-maintained condominium with a live-in superintendent
+B076,5149993,top,12,3.0,no,no,no,no,yes,no,no,yes,yes,no,yes,no,no,no,False,True,False,False,True,False,False,The cooperative also offers a streamlined and straightforward application and approval process.
+B077,5202901,top,47,5.0,unclear,no,unclear,no,no,no,no,no,no,no,no,no,no,no,True,False,False,True,False,False,False,I CAN SHOW YOU ALL UNITS IN THE BUILDING
+B078,5203725,top,25,3.0,no,no,no,no,no,no,no,yes,yes,no,no,no,yes,no,False,False,False,False,True,False,False,true alcove studio apartment offers a flexible layout with the potential to convert into a 2-bedroom
+B079,5185648,top,4,26.0,no,no,no,no,yes,no,no,no,no,no,no,no,yes,no,False,False,True,True,True,False,False,Building SubLease Fee (Non-Refundable)
+B080,5158807,top,13,4.0,unclear,no,unclear,no,no,no,no,no,no,no,no,no,no,no,False,False,True,True,False,False,False,
+B081,5203923,top,56,1.0,unclear,yes,no,no,no,no,no,no,no,no,no,no,no,no,False,False,False,True,False,False,False,Spacious duplex layout with excellent separation of living and sleeping areas
+B082,5204630,top,37,2.0,no,yes,no,no,no,no,no,no,no,no,no,no,yes,yes,True,False,False,False,True,False,False,one of Manhattan's newest luxury rental towers
+B083,5188174,top,55,4.0,unclear,no,unclear,no,no,no,unclear,unclear,no,no,no,no,no,no,False,False,False,False,False,False,True,
+B084,5205535,middle,2043,4.0,unclear,no,unclear,yes,no,no,no,no,no,no,yes,no,no,no,False,False,False,False,False,False,False,"The renovated kitchen offers stainless steel appliances, including a dishwasher."
+B085,5205968,middle,2050,19.0,no,no,no,no,no,no,no,no,unclear,no,no,yes,yes,yes,True,False,False,False,True,False,True,"Included: Cooking gas, heat, and hot water"
+B086,5185885,middle,2018,2.0,no,yes,no,no,no,no,no,no,no,no,no,no,no,no,False,False,False,True,True,False,False,the convenience of an elevator and laundry in a well-maintained building
+B087,5111220,middle,2036,10.0,no,no,no,no,no,no,no,no,no,no,yes,yes,yes,no,False,False,True,False,True,False,False,"Included in the monthly rent is a/c, heating, cooking gas and hot water."
+B088,5206562,top,51,6.0,no,no,no,no,no,no,no,no,no,no,no,no,no,yes,False,False,False,False,True,False,False,an exclusive new luxury rental development
+B089,5206823,middle,2006,6.0,no,no,no,no,no,yes,no,no,yes,no,no,no,yes,no,False,False,False,False,True,False,True,located on the corner of 50th Street and Eighth Avenue in the heart of Midtown Manhattan
+B090,5187723,top,43,5.0,unclear,no,unclear,no,no,no,no,no,no,no,no,no,no,no,False,False,False,True,False,False,False,
+B091,5206199,middle,2030,6.0,no,no,no,no,no,no,no,no,no,no,yes,no,yes,no,False,False,False,True,True,False,False,Brand Newly Renovated Bright and Spacious South facing Studio
+B092,5196025,top,34,3.0,no,no,no,no,no,no,no,no,yes,no,yes,no,no,no,False,False,False,False,True,False,False,Renovated Kitchen w/ Breakfast Bar & Wedgewood Custom Cabinets
+B093,5126546,middle,2039,3.0,no,no,no,no,no,no,no,no,no,no,no,no,unclear,yes,True,False,True,False,True,False,False,NOT THE USE OF DOORPERSONS
+B094,5194123,top,46,28.0,no,no,no,no,no,no,no,no,yes,no,no,no,yes,no,False,False,True,True,True,False,True,
+B095,5183752,middle,2051,1.0,unclear,yes,no,no,no,no,no,no,no,no,yes,no,no,no,False,False,True,True,False,False,False,The renovated kitchen is outfitted with stainless steel appliances
+B096,5204770,middle,2007,8.0,no,no,no,no,no,no,no,no,no,no,yes,no,yes,unclear,False,False,False,False,True,False,False,has been completely re-imagined and redesigned
+B097,5206306,top,53,4.0,unclear,no,unclear,no,no,no,no,no,no,no,no,no,no,no,False,False,False,True,False,False,False,
+B098,5207790,top,5,3.0,unclear,no,unclear,yes,no,no,yes,no,no,no,no,no,no,no,False,False,False,True,False,False,False,1 Bedroom Railroad Apartment With A Office Space
+B099,5170487,middle,2015,4.0,no,no,no,no,no,no,no,no,no,no,no,no,no,yes,True,False,False,False,True,False,False,"Welcome to Mason Gray, where thoughtfully designed studio to three-bedroom residences bring together modern elegance"
+B100,5200963,middle,2026,0.0,unclear,yes,no,no,no,no,no,no,no,no,unclear,no,no,no,True,False,False,False,False,False,False,Renovated Building and Hallways! Magnificent!
+B101,5125341,middle,2023,20.0,no,no,no,no,no,no,no,no,yes,no,no,no,yes,no,False,False,False,False,True,False,True,located between 26th and 27th Streets on Sixth Avenue
+B102,5191367,middle,2044,6.0,no,no,no,no,no,yes,no,no,no,no,no,no,unclear,no,False,False,False,False,True,False,False,Spacious Rent Stabilized 1 Bedroom at Denizen
+B103,5207006,middle,2028,5.0,no,no,no,no,no,no,no,no,no,no,no,no,yes,no,False,False,False,True,True,False,False,Pass-through kitchen
+B104,4828571,top,39,12.0,no,no,no,yes,yes,no,no,no,yes,no,yes,yes,yes,no,False,False,True,True,True,False,False,Fast Board Approval/ within 30 days
+B105,5207581,top,59,,no,unclear,no,no,no,no,no,no,no,no,unclear,no,no,unclear,False,True,False,False,True,False,False,
+B106,5207605,middle,2045,30.0,no,no,no,no,no,no,no,no,no,no,no,no,yes,no,False,False,False,False,True,False,True,a 24-hour attended lobby and concierge
+B107,5204053,top,32,2.0,no,yes,no,yes,unclear,yes,no,no,no,no,no,no,no,no,False,False,False,True,True,True,False,For rent by owner.
+B108,5206792,top,11,,unclear,unclear,unclear,no,no,no,no,no,no,no,yes,no,no,no,False,False,False,False,False,False,False,"full-floor 4-bedroom, 3-bathroom apartment"
+B109,5205664,middle,2038,5.0,no,no,no,no,no,no,no,no,yes,no,yes,no,yes,no,False,False,False,False,True,False,False,Be the first to live in this all-new 2 bed 1 bathroom split bedroom apartment
+B110,5203272,middle,2057,1.0,no,yes,no,no,no,no,no,yes,no,no,no,no,yes,no,False,False,False,True,True,False,False,"Super spacious and unique Alcove Studio, 1 bath apartment."
+B111,5207467,middle,2041,6.0,no,no,no,no,no,no,no,no,unclear,no,no,no,yes,no,False,False,False,False,True,False,True,located on Chambers Street at the edge of the Hudson River
+B112,5132777,top,6,3.0,unclear,no,no,no,no,no,no,no,yes,no,no,no,no,no,True,False,True,False,False,False,False,4 Bedroom with Private Roof Access Available Now!
+B113,5207636,middle,2053,27.0,no,no,no,no,no,no,no,no,unclear,no,no,no,yes,no,False,False,False,False,True,False,False,Adjacent to Hudson park and boulevard
+B114,5207414,middle,2025,4.0,unclear,no,unclear,no,no,no,no,no,no,no,no,no,no,no,False,False,False,True,False,False,False,
+B115,5203343,top,54,2.0,yes,yes,no,no,no,no,no,no,no,no,yes,no,no,no,False,False,False,True,False,False,False,Super easy walkup on the 2nd floor.
+B116,5206258,middle,2014,49.0,no,no,no,no,no,no,no,yes,no,no,yes,no,yes,no,False,False,False,False,True,False,True,Renovated alcove studio on a high floor
+B117,5201286,top,41,2.0,unclear,yes,no,no,no,no,no,no,unclear,no,no,no,no,no,False,False,False,True,False,False,False,
+B118,5189613,top,50,1.0,unclear,yes,no,no,no,no,no,no,yes,no,yes,no,no,no,False,True,False,True,False,False,False,"Located on Myrtle Avenue, the home is just blocks from the G train"
+B119,5203557,top,45,1.0,unclear,yes,no,no,no,no,no,no,no,no,yes,no,no,no,False,False,False,False,False,False,False,First floor unit on rear side of the building
