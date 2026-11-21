@@ -1,0 +1,8 @@
+pool {'office': 51994, 'short_beds': 44993, 'short_0bed': 8325, 'warehouse': 5162, 'retail': 2836, 'storefront': 894, 'ratio_only': 807, 'ratio_text': 197, 'per_sf': 103}
+drawn {'ratio_only': 40, 'ratio_text': 30, 'short_beds': 20, 'short_0bed': 20, 'storefront': 8, 'per_sf': 8, 'warehouse': 8, 'office': 8, 'retail': 8} halves {'B': 83, 'A': 67}
+batch_1.md 7f0c9fb8e727a3f7
+batch_2.md 65c323324f9b9ce5
+batch_3.md e063bcc6e12356ab
+batch_4.md ff230b563e6149ad
+batch_5.md 10a758900cfbf505
+batch_6.md 40ce31b5398fb883
