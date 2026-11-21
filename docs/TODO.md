@@ -87,7 +87,7 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   (`docs/notes/text-columns-2026-11-21.md`, no fit): none is worth 2 SE alone and the five
   together gain +33 (SE 14); 72 low-tail ads leave and 72 join (about 1% each). Dishwasher,
   furnished and full floor leave the queue. Outdoor space with the box unchecked (+16, SE
-  10) and penthouse (+8, SE 5) clear 1.5 SE and go to the base refit's list as optional
+  10) and penthouse (+8, SE 5) clear 1.5 SE (a cutoff chosen after the run) and go to the base refit's list as optional
   terms.
 - [ ] Free months parsed from ad text as an added column for the 5,502 held-out ads (and
   their training counterparts) with a concession in the text and none in the record. The

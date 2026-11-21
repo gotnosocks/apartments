@@ -94,9 +94,10 @@ three stay near 5%.
 ## What follows
 
 No text column is a fit of its own. Overall 72 low-tail ads leave and 72 join (about 1% each).
-As a rule for the base refit's list, a mark is kept as an optional term when its gain beside
-the base exceeds 1.5 SE. Two pass: outdoor space with the box unchecked (+15.5, SE 9.9, a
-shift near +0.006, a gain unsteady by half at +2.6 and +12.9) and penthouse (+7.8, SE 5.1,
-steady by half at +4.2 and +3.7, a shift near −0.003 and a scale near 1.03). Penthouse also
-moves the most marked ads out of the low tail (339 to 297). Furnished (1.1 SE), dishwasher
-(0.8 SE) and full floor (0.3 SE) leave the queue.
+For the base refit's list I keep as optional the marks whose gain beside the base exceeds 1.5
+SE, a cutoff chosen after the run that sits just under the two it keeps (1.57 and 1.53 SE):
+outdoor space with the box unchecked (+15.5, SE 9.9, a shift near +0.006, a gain unsteady by
+half at +2.6 and +12.9) and penthouse (+7.8, SE 5.1, steady by half at +4.2 and +3.7, a shift
+near −0.003 and a scale near 1.03). Penthouse also moves the most marked ads out of the low
+tail (339 to 297). Furnished (1.1 SE), dishwasher (0.8 SE) and full floor (0.3 SE) leave the
+queue.
