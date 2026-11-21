@@ -418,14 +418,15 @@ No fit was run for these.
   over 1.05 (`docs/model/drift.md`, "Running it"). It gives counts, not the rows themselves.
 - [ ] Read the 338 buildings the report lists on the live run (4 hold 6 scored ads, all four
   read in `docs/notes/building-level-read-2026-11-20.md`); the rest matter when an ad joins.
-- [ ] Hand-read the ratio-mark training rows of `docs/notes/commercial-sweep-2026-11-20.md`
-  (167 with a text word, about half commercial; 767 without, about one in seven) and add the
-  commercial ones to that note's 23 drafted excludes. Import them with the next base refit.
-  This hand read is the cheap option the note names for the ratio matches, done before the
-  refit. The sweep found no rule: the text and short marks match apartments, and the two
-  leading ratio forms (4x and over, and with a text word) read 0.40 and 0.38 on half A and
-  0.69 and 0.65 on half B. The low-miss excess in those buildings belongs to varied,
-  expensive loft buildings and asks for no building-level change.
+- [ ] Import the 254 drafted excludes of
+  `docs/notes/commercial-sweep-2026-11-20/candidate_rows.ndjson` with the next base refit
+  (226 `nonresidential`, 28 `bedrooms_unknown`). The hand read of all 934 ratio-mark
+  training rows is done (note section "Hand read of the ratio rows (2026-11-21)"): 204
+  commercial, 27 placeholder, 38 unclear and 665 apartment, two blind reads on every code
+  other than apartment. 31 listing ids also appear in
+  `building-level-read-2026-11-20/candidate_rows.ndjson`, all `nonresidential` in both, so
+  the import should take each once. The 38 unclear rows stay in training. The sweep found no
+  pipeline rule and no case for a building-level change.
 
 **A latest split that holds still across builds** (2026-10-23). `splits.latest_split` draws its
 held-out units with `rng.choice` over the sorted audit ids of every candidate unit, so a build

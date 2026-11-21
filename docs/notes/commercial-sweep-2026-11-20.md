@@ -224,6 +224,70 @@ near zero gap. This sweep gives three reasons:
   with a text word would find about half commercial, and of the 767 ratio rows without one
   about one in seven.
 
+## Hand read of the ratio rows (2026-11-21)
+
+This is the hand read that "What follows" names, done before the next base refit. Nothing is
+imported and no fit was run.
+
+Rows. All 934 ratio-mark training rows of the live Deals run that the 150 reads above did
+not cover: 167 with a text word and 767 without, 461 on half A and 473 on half B
+(`ratio_r1_draw.py`, seed 20261121, read ids R001 to R934 in 31 batches). Each block holds the
+ad's text, its coded fields and the building's other ads near that day, with no ask or price
+(`reader_prompt_ratio.txt`).
+
+Reads. A Sonnet reader coded each row commercial, placeholder, apartment or unclear: 658
+apartment, 203 commercial, 44 unclear and 29 placeholder. Every row coded other than
+apartment, 276 in all, had a second blind read under new ids S001 to S276 in a new seeded
+order (`ratio_r2_second.py`), so the second reader knew neither the first code nor the first
+id. The two reads agree on 253 of 276 (91.7%). First commercial codes held on 199 of 203 (4
+went to unclear), placeholder codes on 20 of 29 (2 apartment, 7 unclear) and unclear codes
+on 34 of 44 (7 apartment, 3 commercial). I decided the 23 disagreements from the whole block,
+with a reason for each in `ratio_r3_final.py`: 5 commercial, 7 placeholder, 7 apartment and 4
+unclear. Two duplex offices priced per square foot and a hotel's marketing text went to
+commercial; stubs of one character or a form's draft line, coded 0 bed in buildings with no
+studios, went to placeholder; live/work lofts and a parlor one-bedroom that people may live in
+stayed apartments.
+
+Spot check. I read 20 apartment codes drawn at random (`ratio_spot_draw.py`, seed 20261123,
+`logs/ratio_spot_check.log`) and would code none of them differently; R049 and R490 were the
+closest calls. Many apartment reads note a 0 bed code that the text or the unit's other ads
+put at 2 to 5 beds. Those are bedroom coding errors in residential ads, left as apartments
+here.
+
+Final codes (`reads_ratio_all.csv`, `logs/ratio_r3_final.log`):
+
+| final | with a word | without a word | half A | half B | all |
+|---|---|---|---|---|---|
+| apartment | 59 | 606 | 321 | 344 | 665 |
+| commercial | 105 | 99 | 100 | 104 | 204 |
+| placeholder | 0 | 27 | 18 | 9 | 27 |
+| unclear | 3 | 35 | 22 | 16 | 38 |
+| all | 167 | 767 | 461 | 473 | 934 |
+
+By set and half, commercial rows are 54 of 87 with a word on A and 51 of 80 on B, and 46 of
+374 without a word on A and 53 of 393 on B. Placeholders are 18 on A and 9 on B, all without
+a word. Commercial rows make up 63% of the rows with a word and 13% of those without, close
+to the "about half" and "one in seven" above, and the two halves agree on the commercial
+share within each set.
+
+Candidate lines. `candidate_rows.ndjson` now holds the 23 lines of the sweep, unchanged, then
+231 new excludes: 204 `nonresidential` and 27 `bedrooms_unknown`, with `decided` 2026-11-21,
+a source naming this read, and `when` holding the coded bedrooms and the month. Each line
+quotes the ad (the reader's quote for commercial rows, the ad's whole text for placeholders)
+and records both read ids with the agreed reason or the hand decision. The ledger reader
+parses all 254 lines (`review_led.py`, `logs/ratio_review_led.log`). None of the 231 is among
+the 23. 28 are among the 68 lines of `building-level-read-2026-11-20/candidate_rows.ndjson`,
+each `nonresidential` in both files: 1243042, 1266515, 1291724, 1328158, 1340604, 1340904,
+1384474, 1386661, 1399345, 1453673, 1460664, 1473987, 1572189, 1637162, 1662712, 1788540,
+1810740, 1866527, 1891327, 1993605, 2164893, 2219847, 2555574, 2667827, 2872107, 3519256,
+3678054 and 5121619. An import should take each of these once. The 38 unclear rows have no
+line and stay in training.
+
+Files. `ratio_r1_draw.py`, `ratio_r2_second.py`, `ratio_parse.py`, `ratio_r3_final.py` and
+`ratio_spot_draw.py`, with logs `logs/ratio_*.log`. The read blocks and the readers' raw
+replies are in `/data1/apartments/tmp/ratio-read`; `ratio_parse.py` notes the one reply
+(R735) whose quoting was fixed by hand before parsing.
+
 ## What was not verified
 
 - The narrowed text marks were read on 40 rows over pools of 61,186; their interval runs to

@@ -1,0 +1,23 @@
+Spot check of 20 first-pass apartment codes, drawn with numpy default_rng(20261123).choice over the 658 apartment reads sorted by read id. Read by hand from the full blocks.
+read_id,listing_id,hand code,agrees
+R011,3135104,apartment,yes
+R036,2656016,apartment,yes
+R049,3143482,apartment,yes
+R053,3255729,apartment,yes
+R057,1774090,apartment,yes
+R069,1597483,apartment,yes
+R082,2943053,apartment,yes
+R214,1340673,apartment,yes
+R393,1760071,apartment,yes
+R395,2146707,apartment,yes
+R474,1278768,apartment,yes
+R475,2037223,apartment,yes
+R490,2047426,apartment,yes
+R516,3441212,apartment,yes
+R633,1517057,apartment,yes
+R667,1557508,apartment,yes
+R781,1599244,apartment,yes
+R801,1731695,apartment,yes
+R829,1902666,apartment,yes
+R857,3509256,apartment,yes
+Would code differently: 0 of 20. R049 (office/gallery or residential) and R490 (live/work, build to suit) are the closest calls; both offer a loft people may live in.

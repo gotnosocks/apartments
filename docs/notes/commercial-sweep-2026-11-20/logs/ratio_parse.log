@@ -1,0 +1,2 @@
+first pass 934 {'apartment': 658, 'commercial': 203, 'unclear': 44, 'placeholder': 29}
+second pass 276 {'commercial': 202, 'unclear': 45, 'placeholder': 20, 'apartment': 9}
