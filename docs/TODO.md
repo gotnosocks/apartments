@@ -146,8 +146,8 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   of predicted rent are 9.0% and 9.8% low). The checked size has a slope of 0.8 on the
   filled one on the later check (same note). One change per fit. On l2bt's stored
   predictives, 0-1-bedroom ads with a filled model size over 1,000 sq ft have residual
-  −0.058 and −0.056 by half, and a mark of their own adds +9.9 (SE 6.6) beside the large
-  0-1-bedroom mark (`docs/notes/large-one-beds-asof-2026-11-21.md`).
+  −0.058 and −0.056 by half; a split by source and studio adds +9.9 (SE 6.6) beside the
+  large 0-1-bedroom mark, +8.6 of it on the filled ads (`docs/notes/large-one-beds-asof-2026-11-21.md`).
 - [ ] For Modeling: extend `label_key` in `pipeline/models/analysis/label_units.py` to
   labels with "apt" or "unit" typed after or inside the unit ("garden-apt", "3apt",
   "5c-unit") and to penthouse labels with a leading zero ("0phb"). Of 19,481 page pairs

@@ -54,7 +54,7 @@ same split added +0.4.
 
 Coverage of the 80% interval:
 
-| ads         | stored | reference | + group | + split | ads     |
+| ads         | own    | reference | + group | + split | ads     |
 |-------------|--------|-----------|---------|---------|---------|
 | filled size | 0.625  | 0.656     | 0.774   | 0.806   | 288     |
 | stated size | 0.673  | 0.684     | 0.804   | 0.796   | 842     |
@@ -64,8 +64,8 @@ The group as a whole covers 0.677 under the reference and 0.796 with the mark.
 
 ## Predictions scored
 
-1. Partly right. The residual is −0.0212 on half B, inside −0.025 to −0.010, and −0.0256
-   on half A, just below it; 0.679 of misses are low, inside 60% to 70%.
+1. Partly right. The residual is −0.0212 on half B, inside −0.025 to −0.010, and
+   −0.0256 on half A, just below it; 0.679 of misses are low, inside 60% to 70%.
 2. Right. +71.9, positive on both halves, scale 1.266 on each.
 3. Right. 0.677 under the reference and 0.796 with the mark.
 4. Wrong. The split adds +9.9 (SE 6.6), positive on both halves.
@@ -75,8 +75,9 @@ The group as a whole covers 0.677 under the reference and 0.796 with the mark.
 The mark holds on the sizes the fit reads, a little stronger than on the snapshot's, so
 the refit's large 0-1-bedroom mark is defined on the model's sizes with the same form.
 On these sizes the filled ads are a clearer block than on the snapshot's: residual −0.058
-and −0.056, a third of them below the 10% point, and a shift of their own worth +9.9 at
-1.5 SE. That agrees with the refit candidate from `docs/notes/size-fills-read-2026-11-20.md`,
-a slope of its own for filled sizes, which these marks do not replace: it acts on every
-bedroom count and on size, where this split covers 288 ads. The filled-size result is added
-to that TODO item as support, and no separate mark is proposed.
+and −0.056, a third of them below the 10% point, and a split by source and studio worth +9.9
+at 1.5 SE, +8.6 of it on the filled ads, whose mark has a scale and a shift. That agrees
+with the refit candidate from `docs/notes/size-fills-read-2026-11-20.md`, a slope of its own
+for filled sizes, which these marks do not replace: it acts on every bedroom count and on
+size, where this split covers 288 ads. The filled-size result is added to that TODO item as
+support, and no separate mark is proposed.

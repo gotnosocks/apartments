@@ -248,7 +248,7 @@ subagent's model and effort to be picked by its task.
 - Large 0-1-bedroom ads on the model's sizes (no fit,
   `docs/notes/large-one-beds-asof-2026-11-21.md`): the mark holds, +71.9 (SE 14.6), scale
   1.27, coverage 0.68 to 0.80 on 1,130 ads. Filled model sizes in the group lean low
-  (residual −0.058 and −0.056), a +9.9 (SE 6.6) split that supports the filled-size slope
+  (residual −0.058 and −0.056), and a +9.9 (SE 6.6) split by source supports the filled-size slope
   candidate in the TODO.
 - Year scale (Y1) on stored predictions (no fit, `docs/notes/year-scale-2026-11-21.md`):
   l2bt's design (best on the latest split; Deals reads the range model) leaves it whole,
