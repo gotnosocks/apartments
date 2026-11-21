@@ -120,14 +120,96 @@ def test_basis_and_previous_ads_come_from_the_runs_rows(tmp_path):
     assert row.basis.to_dict() == {"2": "unit", "3": "area", "4": "area", "6": "area"}
     assert row.prev_ask["2"] == 3000 and row.prev_day["2"] == "2025-11-01"
     assert row.prev_bedrooms["2"] == 2
-    # The pieces u3~1 and u3~2 are one apartment, so listing 4 follows listing 5.
-    assert row.prev_ask["4"] == 1500 and row.prev_day["4"] == "2025-10-01"
+    # The pieces u3~1 and u3~2 are one apartment but two units of the model, so listing 4
+    # has no previous ad: listing 5's 1,500 belongs to the other configuration.
+    assert np.isnan(row.prev_ask["4"]) and pd.isna(row.prev_day["4"])
     assert np.isnan(row.prev_ask["3"]) and pd.isna(row.prev_day["3"])
     flags = {k: list(v) for k, v in row["flags"].items()}
     assert flags["2"] == ["beds_conflict", "beds_jump"]
-    # 3,300 after 1,500 is over twice the previous ask.
-    assert flags["4"] == ["beds_conflict", "beds_jump", "ask_jump"]
+    # The apartment still carries two bedroom counts, but no jump is read across pieces.
+    assert flags["4"] == ["beds_conflict"]
     assert flags["3"] == [] and flags["6"] == []
+
+
+def test_previous_reads_earlier_training_ads_of_the_models_unit():
+    rows = pd.DataFrame(
+        {
+            "listing_id": [str(i) for i in range(1, 10)],
+            "building": ["a"] * 7 + ["b", "b"],
+            "unit_id": ["u", "u", "u~1", "u~1", "u", "u", "u", "u", None],
+            "latest_ask": [1000.0, 1100, 9000, 9100, 1200, 1300, 1400, 5000, 5000],
+            "latest_day": pd.to_datetime(
+                [
+                    "2024-01-01",
+                    "2024-06-01",
+                    "2025-01-01",
+                    "2025-03-01",
+                    "2025-06-01",
+                    "2025-06-01",
+                    "2025-06-01",
+                    "2024-01-01",
+                    "2025-01-01",
+                ]
+            ).date,
+            "price_at": pd.to_datetime(
+                [
+                    "2024-01-01",
+                    "2024-06-03",
+                    "2025-01-01",
+                    "2025-03-01",
+                    "2025-06-01",
+                    "2025-06-01",
+                    "2025-06-01",
+                    "2024-01-01",
+                    "2025-01-01",
+                ],
+                utc=True,
+            ),
+            "bedrooms": [1.0, 1, 2, 2, 1, 1, 1, 0, 0],
+        }
+    )
+    # Listings 1 and 3 train; 2, 4, 5, 6 and 7 are held out; so are 8 and 9 in building b.
+    held = np.array([False, True, False, True, True, True, True, True, True])
+    got = drift_diagnostics.previous(rows, held)
+    assert list(got.index) == [1, 3, 4, 5, 6, 7, 8]
+    asks = got.latest_ask.tolist()
+    # 2 follows training ad 1. 4, in the piece u~1, follows 3, never the u ads.
+    assert asks[:2] == [1000, 9000]
+    # 5, 6 and 7 fall on one day: each follows training ad 1, the only earlier training ad
+    # of u. Held-out ad 2 is not a previous ad, and neither is the other piece's 3.
+    assert asks[2:5] == [1000, 1000, 1000]
+    assert got.bedrooms.tolist()[:5] == [1, 2, 1, 1, 1]
+    # Building b's unit has no training ad, and listing 9 has no unit.
+    assert np.isnan(asks[5]) and np.isnan(asks[6])
+
+
+def test_previous_takes_the_later_price_of_a_day_and_never_the_same_day():
+    rows = pd.DataFrame(
+        {
+            "listing_id": ["1", "2", "3", "4"],
+            "building": ["a"] * 4,
+            "unit_id": ["u"] * 4,
+            "latest_ask": [1000.0, 1100, 1200, 1300],
+            "latest_day": pd.to_datetime(
+                ["2025-01-01", "2025-01-01", "2025-02-01", "2025-02-01"]
+            ).date,
+            "price_at": pd.to_datetime(
+                [
+                    "2025-01-01 12:00",
+                    "2025-01-01 09:00",
+                    "2025-02-01 00:00",
+                    "2025-02-01 00:00",
+                ],
+                utc=True,
+            ),
+            "bedrooms": [1.0] * 4,
+        }
+    )
+    held = np.array([False, False, False, True])
+    got = drift_diagnostics.previous(rows, held)
+    # Training ad 3 shares listing 4's day, so 4 follows the later price of January 1.
+    assert got.latest_ask.tolist() == [1000]
+    assert str(got.latest_day.iloc[0]) == "2025-01-01"
 
 
 def test_building_basis_takes_five_training_ads(tmp_path):

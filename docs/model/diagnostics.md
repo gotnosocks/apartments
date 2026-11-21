@@ -3,7 +3,7 @@
 `rentfrontier.drift_diagnostics` writes the folder behind the site's diagnostics pages. It
 takes the held-out ads of two drift fits, the same ads as the Estimates table
 (`rentfrontier.drift_estimates`), and puts beside each ad how far its ask is from the model,
-how much the fit knew about its unit and building, the apartment's previous ad, a list of
+how much the fit knew about its unit and building, the unit's previous ad, a list of
 detector codes, and about sixty attributes of the ad, the unit and the building. The pages
 use it to look for patterns in the misses: a missing model term, a term with the wrong
 form, or bad data.
@@ -69,24 +69,29 @@ Estimates columns unchanged. The rest:
 | `z` | The normal score of `pit`, clipped to plus or minus 6. `pit` is a share of a finite number of draws, so the largest absolute `z` in the table is 3.56. |
 | `building_ads` | The fit's training ads in the ad's building. |
 | `basis` | `unit` when `unit_ads` is above 0, else `building` when `building_ads` is 5 or more, else `area`. |
-| `prev_ask`, `prev_day`, `prev_bedrooms` | The apartment's ad before this one, by day, among the run's dataset rows. Empty for an apartment's first ad. |
+| `prev_ask`, `prev_day`, `prev_bedrooms` | The unit's latest training ad dated strictly before this one, among the rows of the fit that scored this ad (`previous`). Empty when the unit has none. |
 | `square_feet`, `months_free`, `first_ask`, `days_on_market` | From the ads file. |
 | `floor` | The floor read from the unit's label (`label_floor`), or else the floor stated in the ad (`advertised_floor`). |
 | `flags` | A list of detector codes, described below. |
 | attribute columns | One per entry of `meta.json["features"]` outside the columns above. |
 
-An apartment, for `prev_*` and the two bedroom detectors, is the building plus the
-`unit_id` with a trailing `~1`, `~2` removed. The dataset cuts a unit into those pieces
-where its bedroom count changes, so the pieces are read together here to catch such
-changes. `unit_ads` and `basis` keep the model's own key, with the pieces apart, since the
-fit gives each piece its own level.
+The `prev_*` columns, `unit_ads` and `basis` use the model's own unit, the building plus
+the `unit_id`, with the pieces `~1`, `~2` apart, since the fit gives each piece its own
+level. A row of the latest fit reads the latest fit's dataset and a row of the market fit
+reads the market dataset. A held-out ad is never another ad's previous ad, and an ad on the
+same day is not earlier. Until 2026-11-20 `prev_*` read the pieces of an apartment together,
+so a previous ask could belong to another configuration of the apartment.
+
+An apartment, for `beds_conflict`, is the building plus the `unit_id` with a trailing `~1`,
+`~2` removed. The dataset cuts a unit into those pieces where its bedroom count changes, so
+the pieces are read together there to catch such changes.
 
 ### Detector codes
 
 | Code | Condition |
 |---|---|
 | `beds_conflict` | The apartment's ads in the run's dataset carry more than one bedroom count. |
-| `beds_jump` | The bedroom count differs from the apartment's previous ad. |
+| `beds_jump` | The bedroom count differs from the unit's previous ad. Pieces are cut where the count changes, so this is rare. |
 | `ask_jump` | The ask is over twice the previous ask or under half of it. |
 | `ppsf` | The ask per square foot is outside the range for the bedrooms. |
 | `extreme` | The absolute value of `miss` is above 4. |
