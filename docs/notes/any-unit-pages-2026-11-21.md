@@ -39,8 +39,9 @@ asks of the two ads in each pair, since it asks whether they are more than 10% a
 screen that is allowed: the held-out comparison below drops each held-out ad's own pairs, so
 its ask takes no part in its mark, and a Deals caution built on the mark would be allowed too.
 A data rule built on the overlap mark is not allowed, because other rows' rents would then
-shape which rows the fit keeps (`docs/leak-free-scoring.md`). Only the text mark could carry a
-rule.
+shape which rows the fit keeps (`docs/leak-free-scoring.md`). The text mark's phrase was chosen
+partly by its lift on the overlap fact, so a rule on it would first need its choice redone from
+the size fact alone, or confirmed on rows outside the choice.
 
 **Text.** Eight candidate phrases were matched on every ad (`a4_text.py`, contexts in
 `logs/a5_context.log`). A page carries a phrase when any of its ads does. A phrase joined the
