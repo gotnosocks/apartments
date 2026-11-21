@@ -234,10 +234,14 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
 - [ ] The base of about -0.4% in the held-out gap of 2014 to 2018, when last and followed
   ads differ little, and the part of regulated apartments with no flag in the last-ad
   selection. Neither was measured.
-- [ ] Read the ads of buildings whose new 2-or-more-bedroom units miss together (The
+- [x] Read the ads of buildings whose new 2-or-more-bedroom units miss together (The
   Seren, Lawrence Tower, Union Channel, 420 Carroll, 12 Halsey St) for prices set by
-  floor plan type, and the 307 open ads on pages whose previous ad has another bedroom
-  count, on Sonnet or Haiku readers.
+  floor plan type. Done 2026-11-20 (`docs/notes/plan-type-misses-2026-11-20.md`): the
+  shared miss is a level for building and bedroom count among units new to training; the
+  line and the ad text add nothing that holds on both halves, and the plan image's excess
+  is steady but small, the size of the bath excess.
+- [ ] Read the 307 open ads on pages whose previous ad has another bedroom count, on
+  Sonnet or Haiku readers.
 
 **From the Deals list of 2026-11-10** (`docs/notes/drift-2026-11-10.md`). Each is a change
 of the model's inputs or sampler, so each needs a dataset rebuild or a fit of its own.
