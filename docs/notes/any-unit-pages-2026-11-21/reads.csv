@@ -1,0 +1,61 @@
+stratum,read_id,building,half,m_text,m_overlap,answer,confidence,evidence
+overlap_B,P01,547-east-12-street-new_york,B,False,True,several,medium,"Floor changes between 2nd and 3rd floor walk up across ads, and a north-facing 1BR becomes a split 2BR with south exposure."
+text_B,P02,597-grand,B,True,False,unclear,low,Ad 1 is generic new-development 2BR copy; later ads are a 1BR with balcony; 'any unit in the building' wording but nothing decisive.
+unmarked_B,P03,1154-gates-avenue-brooklyn,B,False,False,one,medium,Both ads 3 bed on unit 2F; second ad only mentions other units in building as options.
+overlap_A,P04,69-mac-dougal-street-new_york,A,False,True,one,medium,"Studio/alcove with brick fireplace, village views, same small prewar building; 1BR recode of alcove for the bed."
+overlap_A,P05,709-de-kalb-avenue-brooklyn,A,False,True,several,medium,'Second Floor Walk up' vs '3rd Floor walk up'; 'larger 2 bedroom in the building'; later a 1.5BR with in-unit W/D and a backyard ad.
+unmarked_A,P06,leonard-pointe,A,False,False,one,high,"Corner unit, 917 sq ft, private balcony, double exposure in every ad over 3 years."
+overlap_B,P07,the-broad-exchange-building,B,False,True,one,low,"Both are one bedrooms in same building with overlapping dates; one mentions balcony, other 779 sq ft; nothing contradicts."
+overlap_A,P08,631-east-6-street-new_york,A,False,True,several,medium,4BR/3 bath duplex ad ran June 2025 while the 3BR/1.5 bath ad was running May-Aug 2025.
+text_B,P09,bridgeview-dumbo,B,True,True,several,high,2BR ad (Aug 11-Sep 18 2025) overlaps 1BR ad (Aug 13-20); studio and 'I can show you all units' ads on the same page.
+overlap_B,P10,246-nassau-avenue-brooklyn,B,False,True,one,medium,"Every ad is the 3BR ground/first floor with private entrance, EIK, half bath, laundromat across street; sizes vary only 1000-1500."
+overlap_B,P11,14-suydam-place-brooklyn,B,False,True,one,medium,"Same 3BR/1ba text reused 2020-2023; 3rd floor walk-up, ~1100 sq ft (1092/1100); Utica Ave walk repeated"
+unmarked_A,P12,897-st-johns-place-brooklyn,A,False,False,several,low,Ad 7: 'Photos are from the unit upstairs. The available duplex is being cleaned' implies other duplexes; otherwise 4BR/1.5 duplex with basement repeats
+overlap_A,P13,187-pulaski-street-brooklyn,A,False,True,one,medium,Same 2BR/2ba loft with Juliet balcony text recycled 2019-2024; model unit/unit above mentioned only as separate
+overlap_A,P14,362-3-avenue-new_york,A,False,True,one,low,"Ads 2-7 are consistently a 2BR walk-up with high ceilings; 2015 ad is a 1BR 600 sq ft at same address, possibly recoded or reconfigured"
+text_B,P15,95-christopher-street-new_york,B,True,False,one,medium,"Both 1BR in 24hr doorman building, high floor with views, gas/electric included; 2025 ad also offers 'any available unit' but describes one"
+overlap_A,P16,1935-bergen-street-brooklyn,A,False,True,several,medium,2015 ads overlap as 4BR/2ba and 3BR/1ba ('3 and 4 Bedroom apartments in this building'); 2016 ads differ (first floor walk-in vs off Saratoga)
+overlap_B,P17,53-park-place-new_york,B,False,True,several,high,857-885 sq ft studio/loft vs 4BR 1540 sq ft vs 3BR 'photos may be of a representative unit' under the same #7B
+text_A,P18,leonard-pointe,A,True,True,one,low,884 sq ft 2BR/2ba angled layout with balcony repeated 2015-2020; broker ads also pitch other corner and 3BR-convertible units
+overlap_A,P19,261-jefferson-avenue-brooklyn,A,False,True,one,low,All brownstone studio with soaking/deep tub; overlapping ads in 2014 and 2021 have differently worded texts but similar features
+overlap_B,P20,1381-st-marks-avenue-brooklyn,B,False,True,one,high,"2BR 2nd floor in two-family house, skylights, one large and one smaller bedroom, Crown Heights, across all ads"
+unmarked_A,P21,69-mac-dougal-street-new_york,A,False,False,one,high,"All three ads describe a 2F one-bedroom with private terrace/back porch, exposed brick, fireplace, marble bath with tub."
+text_B,P22,bridgeview-dumbo,B,True,False,unclear,low,"Ads are mostly building boilerplate; studio vs 1 bed with balcony vs text with 'large bedrooms' and master suite, but same label #26M."
+unmarked_B,P23,bridgeview-dumbo,B,False,False,several,medium,2026-09 ad is a 1-bed/studio with 'photos may represent a similar residence'; other ads are 2BR/2BA penthouse with balcony or wrap-around terrace.
+unmarked_A,P24,1935-bergen-street-brooklyn,A,False,False,one,high,"Both ads overlap in 2017 for a 3BR/1 bath with updated kitchen, subway-tile bath, hardwood floors, same terms."
+text_B,P25,220-north-10-street-brooklyn,B,True,False,one,high,"Consistent 1BR/1 bath, 739 sq ft, corner unit with walk-in closet across all years; same Driggs 4A text."
+unmarked_B,P26,597-grand,B,False,False,one,low,Both ads coded 2BR/2BA with generic building text; nothing conflicting.
+unmarked_A,P27,735-greene-avenue-brooklyn,A,False,False,one,medium,Ground-floor duplex studio with upstairs main bath plus downstairs full bath fits the later 2-bath coding; second ad is generic.
+overlap_B,P28,pacific-house,B,False,True,several,medium,"Studio (411 sq ft, south exposure) in earlier ads vs 2026 ad for a modern 2 bedroom 2 bath; broker text offers all units."
+unmarked_B,P29,pacific-house,B,False,False,several,medium,"Broker 'can show you all units' ads alternate 'Gorgeous 2 Bedroom' (2025-02) and 'Gorgeous 1 Bedroom' (2025-07), same lister style; page used for varying units."
+text_A,P30,the-rheingold,A,True,False,one,low,All studios coded 0BR/1 bath; courtyard-facing studio and later private patio studio are compatible; later ads are generic.
+overlap_B,P31,1154-gates-avenue-brooklyn,B,False,True,several,medium,"Ad 1 (May 2021): 4-bed, two floors, huge downstairs space, overlapping Ad 2's 1-bed; the rest are renovated 1 bed with shared backyard."
+text_A,P32,the-rheingold,A,True,False,unclear,low,Studio (400 sq ft) vs 1 bed with balcony ads alternate; many ads are generic 'text me about any unit in the building' copy.
+unmarked_A,P33,225-north-9-street-brooklyn,A,False,False,one,medium,"All three are a 1 bed in The Driggs, #6E; the 2014 ad mentions a private balcony; no conflicting details."
+text_B,P34,10-west-65-street-new_york,B,True,False,one,medium,Same 'newly renovated 2BR/1BTH' wording in 2020-2024; the 1BR code on a 960 sq ft ad looks like a coding slip; 2022 adds in-unit W/D.
+text_A,P35,the-rheingold,A,True,False,unclear,low,"Coded 2bd/2ba, 1bd, 2bd/1ba and studio over time; 1-bed with balcony and south-facing 1-bed ads; rest generic building copy."
+unmarked_B,P36,167-graham-avenue-brooklyn,B,False,False,one,medium,"Unit 3F is a 2-bed with balcony in every ad ('Rare 2-bedroom plus balcony', 'Unit: 3F'); the 1 Bed text in Ad 5 is generic building copy."
+text_A,P37,the-rheingold,A,True,False,several,low,"1BR with balcony and southern exposure (2019) vs '2 bed 2 bath + balcony' (2021, 2024) and '1 bed + home office'; 2024 ads 1 bed in May, 2bd/2ba in Nov."
+overlap_A,P38,735-greene-avenue-brooklyn,A,False,True,one,high,"'Great ground floor duplex studio', main floor plus downstairs area with a second full bath, repeated 2017-2023 with private garden."
+text_A,P39,the-rheingold,A,True,False,one,medium,"1 bed throughout, with a 620 sq ft courtyard-facing 1 bed with island in 2023; other ads are generic building copy."
+text_A,P40,the-rheingold,A,True,False,several,medium,2bd/2ba 736 sq ft with two balconies vs 2bd/1ba 847 sq ft six months later; also a studio with balcony (Nov 2023) and 1 bed ads.
+unmarked_B,P41,255-skillman-avenue-brooklyn,B,False,False,one,medium,"Same duplex with private yard and storage in ads 1-3; 2025 ad is a south-facing duplex with two private outdoor areas, recoded 1BR/1.5 bath."
+overlap_B,P42,255-skillman-avenue-brooklyn,B,False,True,one,medium,"Every ad describes a 1BR with in-unit laundry, dishwasher, stainless and shared roof deck; 11x11 bedroom and kitchen island fit the same unit."
+unmarked_B,P43,44-kent-brooklyn,B,False,False,one,medium,"Both ads use the same building copy for #416, 2BR/1BA, no conflicting details."
+unmarked_A,P44,709-de-kalb-avenue-brooklyn,A,False,False,one,low,"All 2BR/1BA renovated with washer/dryer and high ceilings; ad 2 says photos are of an identical layout, but nothing shows a different unit."
+text_B,P45,836-monroe-street-brooklyn,B,True,False,unclear,low,Ad 1 is 4BR/2BA with 3 balconies; ad 3 is 2BR/2BA duplex with 3 balconies; ad 2 is HPD lottery. Could be recoding or different units.
+unmarked_A,P46,362-3-avenue-new_york,A,False,False,one,medium,"Walk-up 3rd floor 2BR with queen+ bedrooms, renovated kitchen; the 1BR ad is likely a recode."
+unmarked_A,P47,261-jefferson-avenue-brooklyn,A,False,False,one,high,"Ground/garden-level 1BR in a brownstone with private backyard, exposed brick, stainless kitchen in all ads."
+unmarked_B,P48,the-alhambra-lofts,B,False,False,one,medium,Duplex loft #402 with roof access and big open plan; bed/bath counts differ but the building copy is constant and 2021 ad describes a balcony bedroom.
+text_A,P49,the-rheingold,A,True,False,several,medium,"Ad 1 south-facing 1BR+den, ad 3 north-facing true 2BR with balcony in each bedroom, sizes vary 530 to 843 sq ft; brokers say 'can show any unit'."
+unmarked_B,P50,the-broad-exchange-building,B,False,False,one,high,"Unit 6K 1BR/1BA north-facing, ~780-788 sq ft, same kitchen and washer/dryer description across all ads."
+overlap_A,P51,897-st-johns-place-brooklyn,A,False,True,one,medium,"Same unit 2R throughout; 3 vs 4 bed recoding with constant 1.5 baths, exposed brick, central air, same renovation description."
+text_B,P52,12-ford-street-brooklyn,B,True,False,one,low,"All ads 2bd/1ba #7C in one new building; later ads are generic building copy, nothing points to different units."
+overlap_B,P53,167-graham-avenue-brooklyn,B,False,True,unclear,low,"3bd mezzanine ads (Jun-Jul 2014) overlap a 2bd ad of same template, but could be recoded mezzanine; no unit-specific details."
+text_B,P54,44-kent-brooklyn,B,True,False,one,medium,"All 2bd/1ba #307; later ads generic building copy ('any unit in the building', 'photos of similar units') but no sign of another apartment."
+overlap_A,P55,1851-eastern-parkway-brooklyn,A,False,True,several,low,Overlapping Apr 2022 ads: 3 full baths vs 2 baths with 'private rooftop' on a unit #2; baths and features differ.
+text_A,P56,leonard-pointe,A,True,False,one,high,"1bd 609 sq ft, 7th floor penthouse level with balcony facing interior courtyard (not BQE), consistent across ads."
+unmarked_B,P57,220-north-10-street-brooklyn,B,False,False,one,medium,"2bd converted to 3bd with removable wall, 1017 sq ft, balcony/terrace; 2bd/2ba recurring, 1ba coding differs once."
+text_B,P58,the-alhambra-lofts,B,True,False,one,low,"Studio 112 throughout (400 sq ft); one ad says 'Unit: 102' and 'show you any unit', 'pics may be of another unit', but mostly template copy."
+text_A,P59,225-north-9-street-brooklyn,A,True,False,several,medium,2021 ad: 'This Ad is for 5B!' north-facing rent-stabilized 1BR on a #3B page; 700 vs 654 sq ft; ads offering all three buildings.
+unmarked_A,P60,631-east-6-street-new_york,A,False,False,several,high,"Studio ads vs 5-bed 3-bath (student share) vs 4-bed 3-bath 2324 sq ft duplex with backyard, all under unit 1B."

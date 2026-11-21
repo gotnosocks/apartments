@@ -1,0 +1,6 @@
+text A marked width90 0.179 unit_sd 0.031 sd/width 0.446 | same_bldg width90 0.198 unit_sd 0.035 sd/width 0.609 | all width90 0.216 unit_sd 0.036 sd/width 0.367
+text B marked width90 0.191 unit_sd 0.033 sd/width 0.417 | same_bldg width90 0.195 unit_sd 0.035 sd/width 0.361 | all width90 0.215 unit_sd 0.036 sd/width 0.362
+overlap A marked width90 0.223 unit_sd 0.034 sd/width 0.415 | same_bldg width90 0.196 unit_sd 0.036 sd/width 0.410 | all width90 0.216 unit_sd 0.036 sd/width 0.367
+overlap B marked width90 0.224 unit_sd 0.034 sd/width 0.384 | same_bldg width90 0.201 unit_sd 0.035 sd/width 0.367 | all width90 0.215 unit_sd 0.036 sd/width 0.362
+any A marked width90 0.196 unit_sd 0.033 sd/width 0.439 | same_bldg width90 0.199 unit_sd 0.036 sd/width 0.420 | all width90 0.216 unit_sd 0.036 sd/width 0.367
+any B marked width90 0.209 unit_sd 0.034 sd/width 0.399 | same_bldg width90 0.200 unit_sd 0.035 sd/width 0.365 | all width90 0.215 unit_sd 0.036 sd/width 0.362

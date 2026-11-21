@@ -1,0 +1,24 @@
+any_unit         pages    923 lift overlap  3.2 lift size  4.5
+multiple_units   pages    551 lift overlap  2.5 lift size  2.0
+other_units      pages    578 lift overlap  2.9 lift size  1.8
+similar_units    pages  14247 lift overlap  1.3 lift size  0.8
+may_vary         pages    986 lift overlap  2.3 lift size  1.9
+various_units    pages   1764 lift overlap  2.1 lift size  1.2
+prices_vary      pages   4337 lift overlap  0.6 lift size  0.6
+representative   pages  15459 lift overlap  1.0 lift size  0.5
+text mark: any_unit
+
+overlap forms, half A: pages, % text mark, % size differs, % mixed
+ov_1_5     (6997, 1.8, 12.3, 62.4)
+ov_1_10    (4684, 1.2, 13.7, 81.4)
+ov_1_20    (3800, 1.1, 14.0, 94.4)
+ov_4_5     (4372, 2.0, 13.8, 66.7)
+ov_4_10    (3060, 1.4, 15.3, 84.6)
+ov_4_20    (2544, 1.2, 15.6, 96.0)
+ov_14_5    (2334, 1.8, 15.2, 68.6)
+ov_14_10   (1665, 1.0, 16.5, 85.3)
+ov_14_20   (1389, 0.6, 17.1, 95.8)
+ovb_4      (2395, 1.1, 15.4, 100.0)
+ova_4_10   (1177, 2.0, 17.1, 60.0)
+
+all half-A pages: % text mark (0.43,)
