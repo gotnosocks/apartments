@@ -427,6 +427,11 @@ No fit was run for these.
   `building-level-read-2026-11-20/candidate_rows.ndjson`, all `nonresidential` in both, so
   the import should take each once. The 38 unclear rows stay in training. The sweep found no
   pipeline rule and no case for a building-level change.
+- [ ] Check the 0 bed code on apartment ads of the ratio read: 165 of the 665 apartment rows
+  in `docs/notes/commercial-sweep-2026-11-20/reads_ratio_all.csv` are coded 0 bed, and 53
+  of their reads cite 2 to 5 beds. Size the pattern on the history (ads coded 0 bed whose
+  text or unit's other ads give 2 or more), against the 2026-11-12 blank-form rules in
+  `docs/notes/outlier-sprint-2026-11-11.md`, then decide on ledger bedroom sets or a rule.
 
 **A latest split that holds still across builds** (2026-10-23). `splits.latest_split` draws its
 held-out units with `rng.choice` over the sorted audit ids of every candidate unit, so a build

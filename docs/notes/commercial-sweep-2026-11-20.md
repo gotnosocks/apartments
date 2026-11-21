@@ -250,9 +250,9 @@ stayed apartments.
 
 Spot check. I read 20 apartment codes drawn at random (`ratio_spot_draw.py`, seed 20261123,
 `logs/ratio_spot_check.log`) and would code none of them differently; R049 and R490 were the
-closest calls. Many apartment reads note a 0 bed code that the text or the unit's other ads
-put at 2 to 5 beds. Those are bedroom coding errors in residential ads, left as apartments
-here.
+closest calls. Of the 665 apartment codes, 165 are on rows coded 0 bed, and 53 of those
+reads cite 2 to 5 beds from the text or the unit's other ads. Those are bedroom coding errors
+in residential ads, left as apartments here and listed as a follow-up in `docs/TODO.md`.
 
 Final codes (`reads_ratio_all.csv`, `logs/ratio_r3_final.log`):
 
