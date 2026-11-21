@@ -145,3 +145,19 @@ refit's list, both read from the text of this ad and the unit's ad before it, ne
   the unit's last ad did not, +54 (SE 12) beside the counts.
 
 DOB alteration filings by BIN, which the TODO names as a dating source, stay untested.
+
+## Third check, predictions written after review
+
+Review found that the count of flags changed rises with the time since the unit's last ad
+(median 573 days with none changed, 1,090 with 3 or more), so a staler last ad could give
+the same wider scale. `j5_gap.py` adds five bins of days since the unit's last ad (under
+180, 180 to 364, 1 to 2 years, 2 to 4 years, over 4 years; the first is the reference) as
+scale and shift marks, then the count marks beside them. It also requires a flags row for
+the earlier ad in the switch, logs the text-length check and counts low-tail moves by group.
+Predictions:
+
+1. The gap bins alone gain over the base, with a scale rising with the gap.
+2. Beside the gap bins the count marks keep at least half their gain (over 127), and the
+   scale for 3 or more changed stays at 1.08 or more on each half.
+3. Beside the gap bins and the counts, the renovation switch keeps a shift of +0.004 to
+   +0.008 on each half.
