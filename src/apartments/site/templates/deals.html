@@ -68,7 +68,7 @@
     <div class="checks">
       <label class="check" title="Include apartments with no unit history and fewer than 5 training ads in the building."><input type="checkbox" name="area" value="1"{% if choice.area %} checked{% endif %}> Area-only basis</label>
       <label class="check" title="Include apartments with no unit history asking more than 35% below the model's middle estimate."><input type="checkbox" name="suspect" value="1"{% if choice.suspect %} checked{% endif %}> Suspect gaps</label>
-      <label class="check" title="Include ads flagged as income-restricted, non-residential, owners-only, lease takeovers, changed bedrooms or off market."><input type="checkbox" name="all" value="1"{% if choice.cautioned %} checked{% endif %}> Cautioned ads</label>
+      <label class="check" title="{{ cautioned_title }}"><input type="checkbox" name="all" value="1"{% if choice.cautioned %} checked{% endif %}> Cautioned ads</label>
       <label class="check" title="Include ads asking below the model's range and about the same as the building's other ads of the same bedroom count."><input type="checkbox" name="peers" value="1"{% if choice.peers %} checked{% endif %}> At building's asks</label>
       <label class="check" title="Include ads tagged as a data error or an unmodeled factor."><input type="checkbox" name="tagged" value="1"{% if choice.tagged %} checked{% endif %}> Ruled-out tags</label>
     </div>
