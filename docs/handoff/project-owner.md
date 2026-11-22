@@ -15,6 +15,13 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
+## Milestone: 2026-11-22 — Unified drift models, HTML lineage docs, and Modal Fast Screening Harness (#1529–#1533)
+
+- **Whole-dataset audit batch (#1529, `d61fd6d9`):** Imported 123 audited outlier ledger entries and added `same_bed_first` layer ordering to `sizefill.asof_size`.
+- **Unified & unified-seg drift models (#1531, `c43fe9fa`, $92.04 overnight sprint):** `drift-building-phase-unitkn-unified` (`u3-mkt` PASS on `market` backtest, `+173.8` vs `range-j`) and `drift-building-phase-unitkn-unified-seg` (`u4s-lat` PASS on `latest`, `+5,097.3` vs `l2bt`) with Matérn-3/2 segment GPs, binary `phase_collapsed`, and `--budget-seconds`. Open follow-ups before any unified Deals publish: reconcile coverage regressions (`-2.5 pp` 80% coverage on `market`, 2014–2019 dip on `latest`), run worst-miss readings (`docs/expert-reads.md`), and get a single model passing both splits.
+- **Self-contained HTML lineage & HTML-docs rule (#1532, `3eda73da`):** Merged `docs/model/lineage.html` (23 embedded SVG plate diagrams, plain-English exposition, MathJax, mobile Safari sideways-scroll for deeply nested text and diagrams) and added the standing `CLAUDE.md` rule to write user-facing documents as self-contained `.html` with embedded images.
+- **Modal Cloud GPU Fast Screening Harness (#1533, `fea1709a`, $19.11 of $50.00 cap across 46 Modal containers):** Built `rentfrontier.screen` + `ops/modal-screen` + persistent `/vol/jax-cache` (`-76%` compile: `104.3s -> 24.9s`). `A100-40GB` warm is the Modal GPU Pareto winner (`5.4 min / $0.23` at `k10`, `6.5 min / $0.27` at `k5`, `13.4–13.7 bits/$`); achieved `18/18` 3-way `GO`/`KILL`/`ESCALATE` routing across `k20`/`k10`/`k5`, quantified Matérn GP attenuation (`-27% -> -19% -> -12%`), and validated `asof-20251110` `market` `k5` pre-screening (`+159 ± 83` vs `+173.8` truth, auto-catching the `-1.90 pp` 80% coverage regression). Full self-contained report: `docs/notes/fast-screening-harness-2026-11-22.html`.
+
 ## Milestone: 2026-11-21 — Workspace consolidation, research-artifact docs, and strategic reset
 
 - **Live state (unchanged from Nov 21 01:20 ET publish):** Deals reads `range-m3` (`drift-building-bedtext-layout-range`, `base-n9` held scales, 6,502 ads, 1,675 cautioned across 12 codes including `deposit_net` [#1508] and `short_lease` [#1511]; exact CDF quantiles [#1484]; fit-own `prev_ask` [#1499]); backtest `range-j`. Budget: **$80.43 of $100 spent ($19.57 left)**; `range-m4` refresh plan committed in #1527 (`docs/notes/market-refresh-2026-11-23.md`).
