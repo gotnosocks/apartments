@@ -95,7 +95,10 @@ def test_build_subsample_carries_exact_full_split_and_updates_manifest(tmp_path)
         full_held.loc[sub["audit_id"]].to_numpy(bool),
     )
 
-    # Market split carries `open` as `carried_heldout`.
+    # Market split carries `open` as `carried_heldout` and preserves `inputs.json`.
+    (src / "inputs.json").write_text(
+        json.dumps({"rentfrontier.a.ROWS": "/p/rows.parquet"})
+    )
     out_mkt = tmp_path / "sub_market"
     meta_mkt = screen.build_subsample(
         src, out_mkt, fraction=0.25, split="market", seed=7
@@ -105,6 +108,9 @@ def test_build_subsample_carries_exact_full_split_and_updates_manifest(tmp_path)
     assert np.array_equal(
         sub_mkt["carried_heldout"].to_numpy(bool), sub_mkt["open"].to_numpy(bool)
     )
+    assert json.loads((out_mkt / "inputs.json").read_text()) == {
+        "rentfrontier.a.ROWS": "/p/rows.parquet"
+    }
 
 
 def test_paired_cluster_stats_and_bayesian_verdicts():

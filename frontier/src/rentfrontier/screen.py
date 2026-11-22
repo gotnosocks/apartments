@@ -28,15 +28,16 @@ import pandas as pd
 from scipy.special import ndtr
 
 from . import data as data_module
-from . import drift_score
+from . import drift_score, splits
 from . import run as run_module
-from . import splits
 
 DEFAULT_SEED = 20261122
 DEFAULT_STRATA = 10
 DEFAULT_PRIOR_SD = 1500.0
 DEFAULT_GATE_LATEST = 100.0
 DEFAULT_GATE_MARKET = 50.0
+DEFAULT_RHAT_LIMIT = 1.15
+MODAL_LEDGER = Path("/data1/apartments/modal/ledger.jsonl")
 # Modal list prices (GPU + 2 CPU + 40 GiB RAM), kept in sync with ops/modal/app.py.
 MODAL_USD_PER_HOUR = {
     "L4": 1.2133,
@@ -135,6 +136,11 @@ def build_subsample(
     out.mkdir(parents=True, exist_ok=True)
     rows_path = out / "rows.parquet"
     cut.to_parquet(rows_path, index=False)
+    # Preserve point-in-time snapshot pins (e.g. asof-* market datasets) so screening fits
+    # never fall back to newer default external tables.
+    inputs_json = source / "inputs.json"
+    if inputs_json.exists():
+        (out / "inputs.json").write_bytes(inputs_json.read_bytes())
 
     manifest = json.loads((source / "manifest.json").read_text())
     source_sha = manifest.get("rows_sha256")
@@ -242,6 +248,29 @@ def _binary_entropy(p: float) -> float:
     return -(p * math.log2(p) + (1.0 - p) * math.log2(1.0 - p))
 
 
+def _settled_usd_from_ledger(
+    run_name: str, ledger: Path = MODAL_LEDGER
+) -> float | None:
+    """Return the exact billed USD from Modal's settle ledger when available.
+
+    Modal sometimes fulfills an `A100-40GB` request on a physical `A100-SXM4-80GB` card while
+    billing the requested `A100-40GB` rate, so the settle ledger is authoritative over nvidia-smi.
+    """
+    if not ledger.exists():
+        return None
+    settled = None
+    try:
+        for line in ledger.read_text().splitlines():
+            if run_name not in line:
+                continue
+            row = json.loads(line)
+            if row.get("kind") == "settle" and row.get("name") == run_name:
+                settled = float(row["usd"])
+    except (OSError, ValueError, KeyError):
+        return None
+    return settled
+
+
 def _gpu_short_name(gpu_string: str | None) -> str | None:
     if not gpu_string:
         return None
@@ -299,7 +328,10 @@ def read_run_telemetry(run_dir: Path) -> dict:
         info["stage_seconds"] = m.get("stage_seconds")
         info["fit_seconds"] = (m.get("stages") or {}).get("fit")
         info["jax_cache"] = m.get("jax_cache")
-        if info["gpu"] in MODAL_USD_PER_HOUR and info["wall_seconds"] is not None:
+        settled = _settled_usd_from_ledger(run_dir.name)
+        if settled is not None:
+            info["usd"] = round(settled, 4)
+        elif info["gpu"] in MODAL_USD_PER_HOUR and info["wall_seconds"] is not None:
             info["usd"] = round(
                 info["wall_seconds"] * MODAL_USD_PER_HOUR[info["gpu"]] / 3600.0, 4
             )
@@ -330,7 +362,7 @@ def bayesian_screen_verdict(
     prior_sd: float = DEFAULT_PRIOR_SD,
     gate_elpd: float = DEFAULT_GATE_LATEST,
     extra_noise_scale: float = 1.0,
-    rhat_limit: float = 1.10,
+    rhat_limit: float = DEFAULT_RHAT_LIMIT,
 ) -> dict:
     """Compute conjugate Normal posterior, information gain, and GO/KILL/ESCALATE verdict.
 
