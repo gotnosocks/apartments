@@ -318,3 +318,85 @@ def test_extract_variant_rejects_legacy_ablate_flag():
         ablate._extract_variant(["--ablate", "mark_baths"])
     with pytest.raises(ValueError, match="--variant"):
         ablate._extract_variant(["--ablate=mark_baths"])
+
+
+def test_sv_gp_basis_matches_anchored_matern32_and_samples(screen_rows):
+    frame, held = screen_rows
+    B = ablate.sv_gp_basis()
+    assert B.shape[0] == ablate.SV_QUARTERS
+    assert np.all(B[ablate.SV_REF_QUARTER] == 0.0)
+    # Prior covariance under Normal(0, PHASE_PRIOR^2) matches conditioned Matérn-3/2.
+    cov = (B @ B.T) * (drift.PHASE_PRIOR**2)
+    t = ablate.SV_FIRST_YEAR + 0.125 + 0.25 * np.arange(ablate.SV_QUARTERS, dtype=float)
+    u = np.sqrt(3.0) * np.abs(t[:, None] - t[None, :]) / ablate.SV_LS
+    K = (ablate.SV_AMP**2) * (1.0 + u) * np.exp(-u)
+    k_ref = K[:, ablate.SV_REF_QUARTER]
+    want = K - np.outer(k_ref, k_ref) / K[ablate.SV_REF_QUARTER, ablate.SV_REF_QUARTER]
+    np.testing.assert_allclose(cov, want, atol=2.5e-3)
+
+    # Spread rows across multiple years so multiple sv_gp modes are active and sampleable.
+    frame = frame.copy()
+    frame["price_at"] = pd.date_range(
+        "2018-01-01", periods=len(frame), freq="7D", tz="UTC"
+    )
+    d = ablate.design(frame, held=held, variant="mark_baths,sv_gp")
+    assert not d.phase_map[0].any()
+    assert d.phases[0] == "ref"
+    assert not np.all((d.phase_map == 0.0) | (d.phase_map == 1.0))
+    settings = ablate.Settings(
+        chains=2, warmup=2, draws=4, keep_every=2, budget_seconds=None
+    )
+    out = ablate.run(
+        ablate.subset(d, ~held), ablate.Priors(), settings, log=lambda _: None
+    )
+    assert out["trace"]["phase_factor"].shape == (2, 4, d.phase_map.shape[1])
+    assert out["kept"]["phase_scale"].shape == (2, 2, len(d.phases))
+    rec = ablate.run_record(d)
+    assert rec["phase"]["binary"] is False
+    assert rec["phase"]["n_free_factors"] == d.phase_map.shape[1]
+
+
+def test_vel_gp_is_strictly_leak_free_and_detects_crash_and_boom():
+    n = 300
+    days = pd.date_range("2019-01-01", periods=n, freq="5D", tz="UTC")
+    # Flat 2019, sharp crash in 2020, sharp boom in 2021.
+    log_rent = np.full(n, 8.0)
+    for i, d in enumerate(days):
+        if d.year == 2020:
+            log_rent[i] = 8.0 - 0.30 * (d.dayofyear / 365.0)
+        elif d.year == 2021:
+            log_rent[i] = 7.70 + 0.35 * (d.dayofyear / 365.0)
+        elif d.year >= 2022:
+            log_rent[i] = 8.05
+    frame = pd.DataFrame(
+        {"price_at": days, "latest_ask": np.exp(log_rent), "bedrooms": 1.0}
+    )
+    train = np.ones(n, dtype=bool)
+    train[10::5] = False  # 20% held out
+
+    base, names = ablate.vel_gp_features(frame, train)
+    assert names == ["vel:down", "vel:up"]
+    # Perturb every held-out rent wildly: features must be bit-for-bit identical.
+    perturbed = frame.copy()
+    perturbed.loc[~train, "latest_ask"] *= 50.0
+    after, _ = ablate.vel_gp_features(perturbed, train)
+    np.testing.assert_array_equal(base, after)
+
+    yr = days.year.to_numpy()
+    assert base[yr == 2020, 0].mean() > base[yr == 2021, 0].mean()
+    assert base[yr == 2021, 1].mean() > base[yr == 2020, 1].mean()
+
+
+def test_hybrid_sv_gp_and_vel_gp_combine_cleanly(screen_rows):
+    frame, held = screen_rows
+    frame = frame.copy()
+    frame["price_at"] = pd.date_range(
+        "2018-01-01", periods=len(frame), freq="7D", tz="UTC"
+    )
+    frame["latest_ask"] = 3000.0 * np.exp(0.1 * np.sin(np.linspace(0, 6, len(frame))))
+    d = ablate.design(frame, held=held, variant="marks,sv_gp,vel_gp")
+    assert not d.phase_map[0].any()
+    rec = ablate.run_record(d)
+    fnames = rec["phase"]["free_factors"]
+    assert any(n.startswith("sv:m") for n in fnames)
+    assert "vel:down" in fnames or "vel:up" in fnames

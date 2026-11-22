@@ -20,6 +20,10 @@ Supported variant tokens (all strictly leak-free):
 - `covid_mean`: adds 14-day-lagged NYC DOHMH borough-relative Covid hospitalizations/cases and
   Covid x property-type (Manhattan, 2+BR, doorman, private outdoor) mean interactions.
 - `covid_vol`: adds 2 causal 14-day-lagged Covid volatility regime scale marks (`surge`, `elevated`).
+- `sv_gp`: replaces discrete calendar years with an exact anchored whitened Matérn-3/2
+  stochastic volatility GP over 52 quarters (`2014 Q1-2026 Q4`, anchored at `2024 Q1 = 0`).
+- `vel_gp`: adds 2 strictly leak-free causal trailing market-velocity scale factors
+  (`vel:down`, `vel:up`) driven by prior training-row rent trend speed `|L'(t)|`.
 - `concess_gap`: adds strictly as-of building concession history x 2020-2022 gap columns.
 - `stab_dhcr`: joins DHCR rent-stabilized BBL counts (as-of prior year) + stabilized x regime
   (2020-2021 dip, 2022+ boom) path decoupling terms.
@@ -106,13 +110,29 @@ ALL_TOKENS = (
     "seg",
     "covid_mean",
     "covid_vol",
+    "sv_gp",
+    "vel_gp",
     "concess_gap",
     "stab_dhcr",
     "income_scale",
     "u4_bed",
 )
+
+# Anchored Matérn-3/2 stochastic volatility GP constants (`sv_gp`).
+SV_FIRST_YEAR = 2014
+SV_QUARTERS = 52  # 2014 Q1 through 2026 Q4
+SV_REF_QUARTER = 40  # 2024 Q1 (anchor: log scale = 0)
+SV_AMP = 0.25  # prior log-scale sd (2 sd spans ~0.61x to 1.65x)
+SV_LS = 1.0  # lengthscale in years
+SV_MODES = 22  # orthogonal eigenmodes (>99% of Matérn-3/2 variance)
+
+# Causal market-velocity volatility constants (`vel_gp`).
+VEL_SCALE = 0.15  # 15%/yr annualized trend speed maps to 1.0
+VEL_CLIP = 0.60  # cap annualized velocity at 60%/yr
+
 # Active variant tuple for the current CLI run (set in `main_run`, or passed to `design`).
 ACTIVE_VARIANT: tuple[str, ...] = ()
+_ACTIVE_SCALE_FACTORS: tuple[str, ...] = ()
 
 _BORO_PREFIX = {
     1: "MN",
@@ -155,6 +175,168 @@ def _extract_variant(argv: list[str]) -> tuple[tuple[str, ...], list[str]]:
             out.append(argv[i])
             i += 1
     return parse_variant(val), out
+
+
+def _quarter_index(frame: pd.DataFrame) -> np.ndarray:
+    """Each row's quarter index in `[0, SV_QUARTERS - 1]` (`2014 Q1` .. `2026 Q4`, clamped)."""
+    dt = pd.to_datetime(frame["price_at"], utc=True)
+    q = (dt.dt.year.to_numpy(int) - SV_FIRST_YEAR) * 4 + (
+        dt.dt.quarter.to_numpy(int) - 1
+    )
+    return np.clip(q, 0, SV_QUARTERS - 1)
+
+
+def sv_gp_basis() -> np.ndarray:
+    """Exact anchored whitened Matérn-3/2 eigenbasis `(SV_QUARTERS, SV_MODES)` scaled by
+    `1 / drift.PHASE_PRIOR`. Under `drift.py`'s i.i.d. `Normal(0, PHASE_PRIOR^2)` prior on
+    each log factor, `B @ lf` has exact conditioned Matérn-3/2 covariance with `g(2024 Q1) = 0`."""
+    t = SV_FIRST_YEAR + 0.125 + 0.25 * np.arange(SV_QUARTERS, dtype=float)
+    r = np.abs(t[:, None] - t[None, :])
+    u = np.sqrt(3.0) * r / SV_LS
+    K = (SV_AMP**2) * (1.0 + u) * np.exp(-u)
+    k_ref = K[:, SV_REF_QUARTER]
+    K_cond = K - np.outer(k_ref, k_ref) / K[SV_REF_QUARTER, SV_REF_QUARTER]
+    K_cond = 0.5 * (K_cond + K_cond.T)
+    evals, evecs = np.linalg.eigh(K_cond)
+    order = np.argsort(evals)[::-1]
+    evals = np.maximum(evals[order], 0.0)
+    evecs = evecs[:, order]
+    m = min(SV_MODES, int((evals > 1e-10).sum()))
+    B = evecs[:, :m] * np.sqrt(evals[:m])[None, :] / drift.PHASE_PRIOR
+    B[SV_REF_QUARTER, :] = 0.0
+    B = np.round(B, 6)
+    B[B == 0.0] = 0.0
+    return B
+
+
+def sv_gp_features(frame: pd.DataFrame) -> tuple[np.ndarray, list[str]]:
+    """Quarterly Matérn-3/2 stochastic-volatility basis features for `frame`."""
+    B = sv_gp_basis()
+    q_idx = _quarter_index(frame)
+    names = [f"sv:m{j:02d}" for j in range(B.shape[1])]
+    return B[q_idx], names
+
+
+def vel_gp_features(
+    frame: pd.DataFrame, train: np.ndarray
+) -> tuple[np.ndarray, list[str]]:
+    """Strictly leak-free causal trailing market-velocity scale features (`vel:down`, `vel:up`).
+
+    Reads ONLY training rows (`train`) to build a bedroom-residualized weekly median log-ask
+    index, applies a strictly forward causal EMA (`alpha=0.25`), takes the 2-week-lagged
+    trailing 16-week annualized slope, and aggregates to quarterly medians so every row's
+    velocity depends solely on earlier training ads (zero held-out target leakage).
+    """
+    tr = np.asarray(train, bool)
+    q_idx = _quarter_index(frame)
+    names = ["vel:down", "vel:up"]
+    if not tr.any() or "latest_ask" not in frame:
+        return np.zeros((len(frame), 2), dtype=float), names
+
+    dt = pd.to_datetime(frame["price_at"], utc=True)
+    ask = pd.to_numeric(frame["latest_ask"], errors="coerce").to_numpy(float)
+    valid = tr & np.isfinite(ask) & (ask > 0)
+    if valid.sum() < 20:
+        return np.zeros((len(frame), 2), dtype=float), names
+
+    # Residualize by training-only bedroom medians to avoid bedroom-mix artifacts.
+    bed = frame["bedrooms"].clip(0, 5).fillna(-1).astype(int).to_numpy()
+    log_y = np.log(ask[valid])
+    bed_v = bed[valid]
+    med_by_bed = {b: float(np.median(log_y[bed_v == b])) for b in np.unique(bed_v)}
+    global_med = float(np.median(log_y))
+    resid = log_y - np.array([med_by_bed.get(b, global_med) for b in bed_v])
+
+    t0 = pd.Timestamp("2013-12-02", tz="UTC")
+    wk_all = ((dt - t0) / pd.Timedelta(days=7)).to_numpy(float)
+    wk_v = np.floor(wk_all[valid]).astype(int)
+    w_min = int(min(0, wk_v.min()))
+    w_max = int(max(int(np.floor(wk_all.max())), wk_v.max()))
+    n_wk = w_max - w_min + 1
+
+    # Weekly median on training rows, forward-filled causally across sparse early weeks.
+    s_wk = pd.Series(resid).groupby(wk_v - w_min).median()
+    m_wk = np.full(n_wk, np.nan, dtype=float)
+    m_wk[s_wk.index.to_numpy(int)] = s_wk.to_numpy(float)
+    first_valid = int(np.flatnonzero(np.isfinite(m_wk))[0])
+    m_wk[:first_valid] = m_wk[first_valid]
+    for w in range(first_valid + 1, n_wk):
+        if not np.isfinite(m_wk[w]):
+            m_wk[w] = m_wk[w - 1]
+
+    # Strictly causal forward EMA (half-life ~2.4 weeks) and 2-week-lagged 16-week slope.
+    ema = np.empty(n_wk, dtype=float)
+    ema[0] = m_wk[0]
+    for w in range(1, n_wk):
+        ema[w] = 0.25 * m_wk[w] + 0.75 * ema[w - 1]
+    vel_wk = np.zeros(n_wk, dtype=float)
+    lag, span = 2, 16
+    if n_wk > lag + span:
+        vel_wk[lag + span :] = (ema[span:-lag] - ema[: -(lag + span)]) * (52.0 / span)
+
+    # Map each quarter to the median causal velocity across weeks in that quarter.
+    wk_dates = t0 + pd.to_timedelta((np.arange(n_wk) + w_min) * 7, unit="D")
+    wk_q = np.clip(
+        (wk_dates.year.to_numpy(int) - SV_FIRST_YEAR) * 4
+        + (wk_dates.quarter.to_numpy(int) - 1),
+        0,
+        SV_QUARTERS - 1,
+    )
+    vel_q = np.zeros(SV_QUARTERS, dtype=float)
+    for q in range(SV_QUARTERS):
+        in_q = wk_q == q
+        if in_q.any():
+            vel_q[q] = float(np.median(vel_wk[in_q]))
+        elif q > 0:
+            vel_q[q] = vel_q[q - 1]
+
+    v_down = np.round(np.clip(-vel_q, 0.0, VEL_CLIP) / VEL_SCALE, 4)
+    v_up = np.round(np.clip(vel_q, 0.0, VEL_CLIP) / VEL_SCALE, 4)
+    v_down[v_down == 0.0] = 0.0
+    v_up[v_up == 0.0] = 0.0
+    mat = np.column_stack([v_down[q_idx], v_up[q_idx]])
+    return mat, names
+
+
+def compact_continuous_phase_map(
+    factor_names: list[str],
+    matrix: np.ndarray,
+    train: np.ndarray,
+) -> tuple[np.ndarray, tuple[str, ...], np.ndarray, list[str]]:
+    """Compress a `(rows, F)` real-valued additive factor matrix into unique observed cells.
+
+    Guarantees row 0 of `phase_map` is the exact all-zero reference cell (even when columns
+    contain negative values that `np.unique` sorts before zero).
+    """
+    tr = np.asarray(train, bool)
+    M_raw = np.asarray(matrix, dtype=float)
+    keep = [j for j in range(M_raw.shape[1]) if np.abs(M_raw[tr, j]).max() > 1e-9]
+    kept_names = [factor_names[j] for j in keep]
+    if not keep:
+        return (
+            np.zeros(len(M_raw), dtype=np.int64),
+            ("ref",),
+            np.zeros((1, 0), dtype=float),
+            [],
+        )
+    M = np.round(M_raw[:, keep], 6)
+    M[M == 0.0] = 0.0
+    zero_row = np.zeros((1, len(keep)), dtype=float)
+    stacked = np.vstack([zero_row, M])
+    uniq, inv = np.unique(stacked, axis=0, return_inverse=True)
+    # Move the all-zero reference row to index 0 (required by `drift.make_sampler`).
+    zero_pos = int(inv[0])
+    if zero_pos != 0:
+        perm = np.arange(len(uniq))
+        perm[0], perm[zero_pos] = zero_pos, 0
+        uniq = uniq[perm]
+        inv_map = np.empty(len(uniq), dtype=np.int64)
+        inv_map[perm] = np.arange(len(uniq), dtype=np.int64)
+        inv = inv_map[inv]
+    assert not uniq[0].any(), "reference cell must be all zeros"
+    cell_idx = inv[1:].astype(np.int64)
+    cell_names = tuple("ref" if i == 0 else f"cell_{i}" for i in range(len(uniq)))
+    return cell_idx, cell_names, uniq.astype(float), kept_names
 
 
 def _col(d: Design, name: str) -> np.ndarray:
@@ -484,9 +666,13 @@ def design(
         "y1",
         "y1_pre2024",
         "covid_vol",
+        "sv_gp",
+        "vel_gp",
         "income_scale",
         "u4_bed",
     }
+    global _ACTIVE_SCALE_FACTORS
+    _ACTIVE_SCALE_FACTORS = ()
     if scale_tokens or marks:
         ph_names = [f"phase:{p}" for p in PHASES[1:]]
         ph_mat = (base_phase[:, None] == np.arange(1, len(PHASES))[None, :]).astype(
@@ -542,6 +728,16 @@ def design(
             factor_names.extend(["mark:covid_surge", "mark:covid_elevated"])
             mats.append(covid_vol_mat)
 
+        if "sv_gp" in tok:
+            sv_mat, sv_names = sv_gp_features(frame)
+            factor_names.extend(sv_names)
+            mats.append(sv_mat)
+
+        if "vel_gp" in tok:
+            vel_mat, vel_names = vel_gp_features(frame, train)
+            factor_names.extend(vel_names)
+            mats.append(vel_mat)
+
         if "income_scale" in tok:
             inc = (
                 frame["income_restricted"].eq(True).to_numpy(float)
@@ -560,11 +756,17 @@ def design(
             mats.append(np.column_stack([new_b2, new_b3p]))
 
         full_mat = np.hstack(mats)
-        cell_idx, cell_names, pmap, _ = (
-            drift_building_phase_unitkn_unified.compact_phase_map(
+        if tok & {"sv_gp", "vel_gp"}:
+            cell_idx, cell_names, pmap, kept_fnames = compact_continuous_phase_map(
                 factor_names, full_mat, train
             )
-        )
+        else:
+            cell_idx, cell_names, pmap, kept_fnames = (
+                drift_building_phase_unitkn_unified.compact_phase_map(
+                    factor_names, full_mat, train
+                )
+            )
+        _ACTIVE_SCALE_FACTORS = tuple(kept_fnames)
         d = dataclasses.replace(d, phase=cell_idx, phases=cell_names, phase_map=pmap)
 
     return (
@@ -610,14 +812,24 @@ def run_record(d: Design) -> dict:
     rec = drift_building_phase_unitkn_level.run_record(d)
     rec["ablate_variant"] = list(ACTIVE_VARIANT)
     if d.phase_map is not None:
-        pmap = np.asarray(d.phase_map)
+        pmap = np.asarray(d.phase_map, float)
         counts = np.bincount(d.phase, minlength=len(d.phases))
-        fnames = drift_building_phase_unitkn_unified.free_factor_names(d)
-        f_rows = counts @ pmap
+        is_binary = bool(np.all((pmap == 0.0) | (pmap == 1.0)))
+        if is_binary:
+            fnames = drift_building_phase_unitkn_unified.free_factor_names(d)
+            f_rows = counts @ pmap
+        else:
+            fnames = (
+                list(_ACTIVE_SCALE_FACTORS)
+                if len(_ACTIVE_SCALE_FACTORS) == pmap.shape[1]
+                else [f"factor_{j}" for j in range(pmap.shape[1])]
+            )
+            f_rows = counts @ (np.abs(pmap) > 1e-9).astype(float)
         rec["phase"] = {
             "free_factors": fnames,
             "n_free_factors": len(fnames),
             "n_observed_cells": len(d.phases),
+            "binary": is_binary,
             "factor_rows": {n: int(round(c)) for n, c in zip(fnames, f_rows)},
         }
     return rec
