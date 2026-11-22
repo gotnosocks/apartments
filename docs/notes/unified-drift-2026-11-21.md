@@ -164,3 +164,77 @@ Launching TWO full 6-chain (3 containers × 2 chains, `2 500 9000 25`, `budget_s
   - **Pre-fit predictions for `u4s-lat`:**
     1. **PASSES strict convergence gate** with comfortable margin: `max_rhat ≤ 1.008` (projected `~1.005–1.006`), `min_ess > 900` (projected `~1,100` on `unit_sd`).
     2. Retains the exact held-out Δelpd of `u3s-lat` over `l2bt` within MC error (`~+4,900` all years, `~+3,100` on `2022+`, both halves A & B strongly positive).
+
+---
+
+## Final Gate-Passing Results (Stage 3b & 3c — BOTH PASS!)
+
+### 1. Summary Comparison Table
+
+| Run | Model | Split & Baseline | Chains × Draws (Kept) | Strict Gate (`R-hat ≤ 1.01`, `ESS > 400`) | Held-out Δelpd (SE, z) | Half A / Half B | Cost |
+|---|---|---|---|---|---|---|---|
+| **`u4s-lat`** (`ac506608`) | `drift-building-phase-unitkn-unified-seg` (Matérn-3/2) | `latest` vs `l2bt` (`n=189,647` all / `130,041` `2022+`) | `6 × 2,600` (`390` kept, `1.151 s/sweep` H200) | **PASS** — `max_rhat=1.0075` (`phase_scale[1713]`), `min_ess=1,130` (`drift_sd`) | All: **`+5,097.3` (179.1, z=`+28.5`)**<br>`2022+`: **`+3,226.8` (138.2, z=`+23.4`)** | All: `+2,481.2` / `+2,616.0`<br>`2022+`: `+1,542.8` / `+1,684.0` | `$26.78` (3× H200) |
+| **`u3-mkt`** (`90628dc7`) | `drift-building-phase-unitkn-unified` | `market` (`asof-20251110`, `n=9,346`) vs `range-j` | `6 × 1,550` (`372` kept, `1.221 s/sweep` H100) | **PASS** — `max_rhat=1.0094` (`phase_scale[118]`), `min_ess=695` (`unit_sd`) | Open ads: **`+173.8` (32.3, z=`+5.4`)**<br>`no_hist & thin<5`: **`+23.4` (8.3, z=`+2.8`)** | Open ads: `+122.3` / `+51.6`<br>`no_hist & thin<5`: `+12.2` / `+11.2` | `$14.08` (3× H100) |
+
+### 2. Convergence Gate Breakdown by Parameter Group
+
+| Group | `u4s-lat` (count, max R-hat, min ESS) | `u3-mkt` (count, max R-hat, min ESS) |
+|---|---|---|
+| `gp_amp` | `9`: `1.0004`, ESS **`9,984`** | `2`: `1.0001`, ESS **`5,362`** |
+| `gp_ls` | `9`: `1.0004`, ESS **`7,836`** | `2`: `1.0009`, ESS **`5,681`** |
+| `bld_sd` | `2`: `1.0038`, ESS **`3,017`** | `2`: `1.0071`, ESS **`1,614`** |
+| `beta` | `640`: `1.0048`, ESS **`1,599`** | `266`: `1.0055`, ESS **`1,322`** |
+| `sigma` | `4`: `1.0055`, ESS **`1,647`** | `4`: `1.0068`, ESS **`977`** |
+| `unit_sd` | `1`: `1.0026`, ESS **`1,368`** | `1`: `1.0074`, ESS **`695`** |
+| `drift_sd` | `1`: `1.0051`, ESS **`1,130`** | `1`: `1.0064`, ESS **`928`** |
+| `phase_scale` | `1,905`: `1.0075`, ESS **`1,703`** | `1,746`: `1.0094`, ESS **`877`** |
+
+### 3. `u4s-lat` (`latest`) Annual 80% Coverage (`l2bt -> u4s-lat`) & Segment GP Posteriors
+- **80% coverage by calendar year:** `2014: 0.805->0.792`, `2015: 0.805->0.779`, `2016: 0.809->0.782`, `2017: 0.818->0.794`, `2018: 0.835->0.792`, `2019: 0.848->0.813`, **`2020: 0.744->0.791`**, **`2021: 0.726->0.782`**, `2022: 0.760->0.769`, `2023: 0.789->0.783`, `2024: 0.816->0.807`, `2025: 0.821->0.812`, `2026: 0.826->0.813`. Tails (all / `2022+`): `<5% = 5.70% / 5.72%`, `>95% = 4.77% / 4.55%`.
+- **Matérn-3/2 segment GP posteriors (`u4s-lat`, `nugget=1e-4`, `REF_SEGMENT=manhattan:1br`, `REF_QUARTER=2024q1`):**
+  - `seg:manhattan:studio`: `amp = 0.0152 ± 0.0030`, `ls = 0.766 ± 0.139 yr`
+  - `seg:manhattan:2br`: `amp = 0.0291 ± 0.0054`, `ls = 0.710 ± 0.113 yr`
+  - `seg:manhattan:3br+`: `amp = 0.0644 ± 0.0111`, `ls = 0.673 ± 0.101 yr`
+  - `seg:outer:studio`: `amp = 0.0583 ± 0.0115`, `ls = 1.151 ± 0.182 yr`
+  - `seg:outer:1br`: `amp = 0.0525 ± 0.0102`, `ls = 1.108 ± 0.171 yr`
+  - `seg:outer:2br`: `amp = 0.0467 ± 0.0100`, `ls = 1.020 ± 0.175 yr`
+  - `seg:outer:3br+`: `amp = 0.0223 ± 0.0036`, `ls = 0.424 ± 0.073 yr`
+- **Ablation progression on `latest` vs `l2bt` (all years / `2022+`):**
+  - `u1-lat-p3` (`unified`, no segments): `+2,762.9` / `+1,845.3`
+  - `u2s-lat-p` (`unified-seg`, identifiable RBF): `+4,889.0` / `+3,096.7` (`+2,126` from segment paths)
+  - `u3s-lat` (`unified-seg`, Matérn-3/2, `1,375` draws/ch): `+5,062.2` / `+3,203.1` (`+173` from Matérn-3/2 over RBF!)
+  - **`u4s-lat` (`unified-seg`, Matérn-3/2, `2,600` draws/ch, PASS):** **`+5,097.3` / `+3,226.8`**!
+
+### 4. `u3-mkt` (`market` `asof-20251110`) Deals Backtest Breakdown vs `range-j`
+- **ALL open ads (`n=9,346`):** Δelpd = **`+173.8` (SE `32.3`, z=`+5.4`; A `+122.3`, B `+51.6`)**, `<5%` `4.5% -> 5.6%`, `>95%` `6.1% -> 6.8%`, 80% cov `79.2% -> 76.7%`.
+- **`has_unit_history` (`n=6,178`):** Δelpd = **`+147.5` (SE `27.8`; A `+100.5`, B `+47.0`)**, `<5%` `4.5% -> 5.9%`, `>95%` `4.4% -> 5.2%`.
+- **`no_unit_history` (`n=3,168`):** Δelpd = **`+26.3` (SE `16.5`; A `+21.7`, B `+4.6`)**, `<5%` `4.7% -> 5.1%`, `>95%` `9.4% -> 9.9%`.
+- **`no_hist & thin<5` (`n=727`):** Δelpd = **`+23.4` (SE `8.3`, z=`+2.8`; A `+12.2`, B `+11.2`)**, 80% cov `68.1% -> 71.1%`, `<5%` `5.2% -> 4.3%`, `>95%` `16.6% -> 13.8%`.
+
+### 5. Key Fitted Betas & Row-Scale Multipliers (`u4s-lat` / `u3-mkt`)
+- **Mean betas (`u4s-lat` / `u3-mkt`):** `ad:size_imp_log_size_rel = -0.0525 / -0.0492`, `ad:large_01br = -0.0283 / -0.0278`, `uever:ad:bed_text_smaller = -0.0380 / -0.0342`, `ad:bed_text_smaller = -0.0253 / -0.0228`, `ad:baths_above_low = -0.0287 / -0.0359`, `ad:beds_below_high = +0.0250 / +0.0311`, `ad:beds_above_low = -0.0170 / -0.0185`, `ad:baths_below_high = +0.0152 / +0.0189`.
+- **Multiplicative row-noise factors (`u4s-lat` / `u3-mkt`, applied to `sigma ≈ 0.013`):**
+  - `mark:baths_3p = 3.25× / 3.19×`, `mark:large_01br = 1.78× / 1.67×`, `mark:thin_first_ad = 1.56× / 1.53×`, `mark:baths_2 = 1.55× / 1.47×`, `mark:changed_counts = 1.51× / 1.49×`, `mark:floor_1 = 1.11× / 1.12×`.
+  - `yr:2020 = 1.65× / 1.71×`, `yr:2021 = 1.63× / 1.66×`, `yr:2022 = 1.20× / 1.19×`, `yr:2018–2019 = 0.86–0.87× / 0.85–0.86×`, `yr:2026 = 0.984×`.
+
+### 6. Honest Pre-Fit Prediction Scorecard
+- **HIT:**
+  - `u4s-lat` strict gate PASS (`max_rhat=1.0075 ≤ 1.008`, `min_ess=1,130 > 900`, all 9 GPs `R-hat ≤ 1.0004, ESS ≥ 7,836`).
+  - `u3-mkt` strict gate PASS (`max_rhat=1.0094 ≤ 1.01`, `min_ess=695 > 400`) and Δelpd vs `range-j` **`+173.8`** (predicted `+160 to +240`, positive on both halves and all subgroups, `<5%` tail `5.6%` in `4.5%–5.8%`).
+  - `u4s-lat` 2020–2021 80% coverage jumped from `72.6%–74.4%` to `78.2%–79.1%`, 2024–2026 within `80.7%–81.3%`.
+  - `unified` on `latest` (`+2,762.9` all / `+1,845.3` `2022+`) landed right inside Stage 1 predictions (`+1,500..+3,200` / `+900..+2,100`).
+- **MISSES / SURPRISES:**
+  - **Under-predicted segment GP gain by 4×:** Stage 1 predicted `+200 to +550` over `unified`; actual gain was **`+2,126` (RBF) → `+2,334` (Matérn-3/2)** (`+5,097.3` total vs `l2bt`!).
+  - **Under-predicted row-scale multipliers:** Predicted `1.15–1.65×` on `mark:*` and `yr:2020–21`, actual row-level multipliers were `1.5–3.25×` because `sigma` (~`0.013`) is only the row-noise component beneath `unit_sd` (`0.042`) and `building_ar_sd` (`0.070`).
+  - **Over-predicted `unified-seg` on single-date `market` split (`asof-20251110`):** Predicted `+200..+420` over `range-j`, actual `u3s-mkt-c` was `+138.3` (`-35.5` behind `u3-mkt`) due to the right-boundary future `2026q1` knot shrinking `-2.2%` to `-4.1%` toward 0; `u3-mkt` (`unified` without segments) remained the stronger `market` model.
+  - **`no_hist & thin<5` 80% coverage on `market`:** Moved `68.1% -> 71.1%` (less than Stage 1's optimistic `76%–82%` prediction) though `>95%` dropped `16.6% -> 13.8%` with `+23.4` elpd (`z=+2.8`, both halves positive).
+
+### 7. Itemized Modal Spend Ledger (`2026-11-22`, `/data1/apartments/modal/ledger.jsonl`)
+- Authorized cap: **`$100.00`** (OxyLabs spend: **`$0.00`**).
+- **Total settled across 23 runs: `$92.04` / `$100.00` (`$7.96` remaining under budget):**
+  - Early setup fixes (`p` / `p2`, 4 runs): `$0.26 + $0.28 + $0.10 + $0.18 = $0.82`
+  - Stage 1 pilots (`u1-mkt-p3`, `u1-lat-p3`, `u1s-lat-p3`): `$3.00 + $2.97 + $3.87 = $9.84`
+  - Stage 2 pilots (`u2s-mkt-p` `$0.00`, `u2s-lat-p` `$3.45`): `$3.45`
+  - Stage 3a H100 batch (`u3s-lat-a/b/c`, `u3s-mkt-a/b/c` — 3 exit 0, 3 hit 3600s timeout during saving): `$4.37 + $4.44 + $4.40 + $4.44 + $4.51 + $4.41 = $26.57`
+  - Stage 3b (`u3s-lat-b2` `$6.08`; `u3-mkt-a/b/c/c2` `$4.31 + $4.19 + $4.42 + $5.58`): `$24.58` (gate-passing `u3-mkt` parts: `$14.08`)
+  - Stage 3c (`u4s-lat-a/b/c` H200 `2,600` draws/ch, gate-passing `u4s-lat`): `$9.02 + $9.07 + $8.69 = $26.78`
