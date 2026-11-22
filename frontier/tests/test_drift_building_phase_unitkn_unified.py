@@ -6,17 +6,11 @@ import dataclasses
 
 import numpy as np
 import pandas as pd
-import pytest
 import test_drift as td
 
-from rentfrontier import (
-    b0,
-    drift_building_bedtext_layout,
-    drift_building_bedtext_layout_range,
-    drift_building_phase_segment,
-    drift_building_phase_unitkn_unified as U,
-    drift_building_phase_unitkn_unified_seg as US,
-)
+from rentfrontier import drift_building_phase_segment
+from rentfrontier import drift_building_phase_unitkn_unified as U
+from rentfrontier import drift_building_phase_unitkn_unified_seg as US
 
 
 def test_compact_phase_map_drops_empty_train_factors_and_keeps_ref_at_zero():

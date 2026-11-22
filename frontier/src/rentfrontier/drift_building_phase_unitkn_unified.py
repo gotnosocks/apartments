@@ -48,8 +48,6 @@ from . import (
     drift,
     drift_building_bedtext_layout,
     drift_building_bedtext_layout_range,
-    drift_building_phase,
-    drift_building_phase_level,
     drift_building_phase_unitkn_level,
     drift_building_phase_unitkn_level_bedunit,
     drift_building_phase_year,
@@ -288,9 +286,19 @@ def free_factor_names(d: Design) -> list[str]:
         else:
             for j in ones:
                 sets[j] = toks if sets[j] is None else (sets[j] & toks)
-    for j in range(n_free):
-        if names[j].startswith("factor[") and sets[j] and len(sets[j]) == 1:
-            names[j] = next(iter(sets[j]))
+    # Iteratively peel off already-identified factor names so factors that always
+    # co-occur with another (e.g. `mark:thin_first_ad` with `phase:none`) resolve cleanly.
+    for _ in range(n_free):
+        known = {n for n in names if not n.startswith("factor[")}
+        changed = False
+        for j in range(n_free):
+            if names[j].startswith("factor[") and sets[j]:
+                rem = sets[j] - known
+                if len(rem) == 1:
+                    names[j] = next(iter(rem))
+                    changed = True
+        if not changed:
+            break
     return names
 
 

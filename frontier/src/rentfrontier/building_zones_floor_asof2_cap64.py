@@ -89,6 +89,7 @@ def design(
     amenities: pd.DataFrame | None = None,
     lots: pd.DataFrame | None = None,
     units: pd.DataFrame | None = None,
+    same_bed_first: bool = False,
     **tables,
 ) -> Design:
     """The as-of floor design of `frame` (`building_zones_floor_asof2`), with the elevator
@@ -107,7 +108,7 @@ def design(
     if units is None:
         units = pd.read_parquet(building_zones_unit.SNAPSHOT / "unit_features.parquet")
     rebuilt = building_zones_floor_asof.tables_for(
-        frame, held, ads, amenities, lots, units
+        frame, held, ads, amenities, lots, units, same_bed_first=same_bed_first
     )
     tables = {k: v for k, v in tables.items() if k not in rebuilt}
     d = building_zones_floor.design(frame, start, **rebuilt, **tables)
