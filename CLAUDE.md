@@ -85,6 +85,16 @@ unformatted. After merging master into a branch, run `ops/fmt` again before comm
 Then run `ops/lint --changed` (`tests/test_lint.py` runs it too). The lint rules and the rest of
 the repo's coding standards are in `docs/coding-standards.md` (Ben, 2026-10-22).
 
+## Write documents for Ben as HTML with embedded images
+
+Ben prefers HTML documents with their images embedded directly in the file over Markdown
+(2026-11-22). When you write a document for him to read, such as a report, explainer or model
+map, make a self-contained `.html` file: put images in the file itself (inline `<svg>` or
+`data:` URIs), not as relative links, which the T3 file viewer does not resolve. Make it read
+well on a phone in Safari: text wraps to the screen, and deeply nested lists and wide images
+keep a readable minimum width and scroll sideways rather than shrinking.
+`docs/model/lineage.html` is the example.
+
 ## Keep the context small
 
 Every tool call re-reads the whole context, and a wake after the hour-long prompt cache expires

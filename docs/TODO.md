@@ -1,19 +1,66 @@
 # Project to-do list
 
-Open items for the current model (`drift-building`, see [model/drift.md](model/drift.md)) and the
-Deals page, and two data items from October. The aim is in the root [README](../README.md). The list as it stood before 2026-11-10,
-with the Chelsea pilot's and the frontier line's items, is in
-[archive/TODO-2026-10.md](archive/TODO-2026-10.md).
+Open items for the current model (`drift-building-bedtext-layout-range` on Deals; `drift-building`
+on Estimates/Price now/Diagnostics; see [model/lineage.md](model/lineage.md) and
+[model/drift.md](model/drift.md)), and two data items from October. The aim is in the root
+[README](../README.md). The list as it stood before 2026-11-10, with the Chelsea pilot's and
+the frontier line's items, is in [archive/TODO-2026-10.md](archive/TODO-2026-10.md).
+
+## Strategic directions & unified base-refit roadmap (Ben, 2026-11-21)
+
+- [x] **Consolidate worktree & branch sprawl** (2026-11-21): pruned 51 merged/stale worktrees
+  (59 -> 8) and 849 stale local branches (853 -> 4), snapshotting all dirty/unmerged state
+  into `archive/wt-dirty/*`, `archive/wt/*`, and `archive/branch/*` tags; updated main
+  checkout `/home/ben/code/apartments` onto `master`.
+- [x] **Repo as a research artifact — phase 1** (2026-11-21): added
+  [docs/model/lineage.md](model/lineage.md) (4-generation evolution tree, score board,
+  production stack matrix), [docs/model/img/drift-plate-diagram.svg](model/img/drift-plate-diagram.svg)
+  (Bayesian plate diagram), and [frontier/README.md](../frontier/README.md) (195-module map);
+  synced `README.md`, `docs/README.md`, `docs/research-record.md`, and `docs/handoff/project-owner.md`.
+- [ ] **Move toward a single unified model** serving `/deals`, `/estimates`, `/price-now`, and
+  `/diagnostics` (retiring the split between `range-m3`, Nov 10 `n9`/`b9`, and Oct 17 `m7`).
+  Requires `drift_today` support for Student-t unit levels (`unitkn`) and a unified base refit.
+- [ ] **Fold data-investigation findings directly into the model and data rules** rather than
+  accumulating publish-time cautions (`cautions.py`). The Nov 21 joint sizing on stored
+  predictions gives the concrete manifest for the next base refit:
+  - Structural base: Student-t unit levels (`unit_dof=3`, `unit_kap_collapsed`, `row_dof_fixed=2`)
+    + clean lease-phase handling (diagnose/fix `l2m`'s `phase_scale[1]` 1.0108) + `bedtext`
+    + `layout-range`
+  - **Y1** per-calendar-year noise scale (+1,174 elpd all years; +329 from 2022)
+  - Joint scale/level terms (+1,331 elpd from 2022, `docs/notes/joint-terms-2026-11-21.md`):
+    changed-count scale (+448), 3+ baths (+134), 2 baths (+83), floor-1 level/scale (+81),
+    large 0–1BR (>1,000 as-of sqft, +72), flag-change count scale (+230–254) + gap bins (+138)
+    + renovation switch (+54), 3+BR finish share (+44), top-3% scale (+40), duplex scale (+23)
+  - New-unit uncertainty: `LN1` (building × bedroom level, after fixing `unit_sd` ridge) and
+    `U4` (per-bedroom unit scale, lifting new 3+BR coverage 0.711 -> 0.810) / `U1` (size scale)
+  - Bundled data rules: import ~410 unique audited ledger rows (291 commercial/placeholder/unmixed
+    excludes + 119 zero-bed bedroom sets), switch `sizefill.asof_size` layer order (same-bed
+    unit -> line -> other-bed unit), and wire `b0textflags` / `b0freetext` / `b0ending` where supported
+- [ ] **Faster real fits for higher iteration speed**: profile and implement sampler speedups
+  (`slow_within=0.001`, double-pass unit/scale sweep, GPU compilation/batching, or faster
+  validated approximations) so real full-data fits iterate faster than 1-hour / $11–$33 pools.
+- [ ] **Whole-dataset outlier & data-issue investigation**: systematically audit worst misses
+  and data anomalies across the entire ~1.9M-row dataset (not only active listings or one
+  backtest year), following the Bayesian Workflow and Murphy's Model Discovery Agent loop.
+- [ ] **Explanatory Covid-19 macro covariates**: test NYC Covid-19 infection and hospitalization
+  time series as explanatory covariates for the 2020–2022 rent dip and volatility regime
+  alongside (rather than purely absorbed by) the observational weekly random walk and year
+  noise scale.
 
 **From the outlier sprint of 2026-11-11** (`docs/notes/outlier-sprint-2026-11-11.md`). Ben
 ruled out Modal fits for the rest of the sprint, so these wait for after it.
 
-- [ ] c3: the narrowed closing dataset (`rentfrontier.b0closingraise`, 59,026 rows repriced:
+- [x] c3: the narrowed closing dataset (`rentfrontier.b0closingraise`, 59,026 rows repriced:
   raises typed as the ad closed) fitted with b9's design, three containers of 2 chains,
   seeds 11 to 13. Its 7 predictions are in `docs/notes/closing-asks-2026-11-11.md`. It takes
   the place of c2, the fit of the full closing rewrite: the second look found support for
   the rewrite in the closing raises alone. The unit `outlier-c2` and its script
   `/data1/apartments/tmp/outlier-sprint/c2/run.sh` are stopped and stay stopped.
+  - **2026-11-20 outcome (`cr-j`, `docs/notes/deals-closingraise-2026-11-20.md`):** tested on
+    the Deals backtest (`range-j` base, 50,723 training rows repriced, $1.97). Gate passed,
+    but **rejected** (`d_elpd -59.1` on unchanged-target ads, `z = -2.63` on remaining ads,
+    bias +0.0097 -> +0.0151). Repricing every closing raise in training lowers predictions
+    everywhere; `cr-m3` was not launched.
 - [ ] The wider income flag (`rentfrontier.b0income`), on the dataset c3's comparison picks.
   Predictions are in `docs/notes/income-flag-2026-11-11.md`.
 - [ ] A term for the 2020 and 2021 gap between buildings with concessions and buildings
