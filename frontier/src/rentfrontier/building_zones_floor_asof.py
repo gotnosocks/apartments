@@ -135,7 +135,9 @@ def ad_rows(frame: pd.DataFrame, ads: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def size_table(rows: pd.DataFrame, train: np.ndarray) -> pd.DataFrame:
+def size_table(
+    rows: pd.DataFrame, train: np.ndarray, same_bed_first: bool = False
+) -> pd.DataFrame:
     """`sqft`, `size_source` and `log_size_rel` for each of `rows` (`ad_rows`' table), with
     fills from earlier training rows only."""
     lo, hi = unit_features.SQFT_RANGE
@@ -145,7 +147,7 @@ def size_table(rows: pd.DataFrame, train: np.ndarray) -> pd.DataFrame:
         canonical_unit_url=rows.page.fillna("").astype(str),
         square_feet=sq.where(train),
     )
-    fill = sizefill.asof_size(sources)
+    fill = sizefill.asof_size(sources, same_bed_first=same_bed_first)
     take = stated.isna().to_numpy() & fill.source.isin(FILLS).to_numpy()
     sqft = stated.fillna(fill.sqft.where(take))
     source = np.where(
@@ -167,11 +169,14 @@ def size_table(rows: pd.DataFrame, train: np.ndarray) -> pd.DataFrame:
 
 
 def unit_table(
-    rows: pd.DataFrame, train: np.ndarray, units: pd.DataFrame
+    rows: pd.DataFrame,
+    train: np.ndarray,
+    units: pd.DataFrame,
+    same_bed_first: bool = False,
 ) -> pd.DataFrame:
     """The unit-features table of `rows`: sizes from `size_table`, and laundry and dishwasher
     from the snapshot table `units`, both of which read the row's own ad."""
-    out = size_table(rows, train)
+    out = size_table(rows, train, same_bed_first=same_bed_first)
     u = units.drop_duplicates("listing_id")
     u = u.assign(listing_id=u.listing_id.astype(str)).set_index("listing_id")
     u = u.reindex(out.listing_id)
@@ -249,6 +254,7 @@ def tables_for(
     amenities: pd.DataFrame,
     lots: pd.DataFrame,
     units: pd.DataFrame,
+    same_bed_first: bool = False,
 ) -> dict:
     """The `attrs`, `units`, `gyms` and `floors` tables `building_zones_floor.design` reads,
     rebuilt from the rows of `frame` outside `held`."""
@@ -256,7 +262,7 @@ def tables_for(
     train = ~np.asarray(held, bool)
     return {
         "attrs": attrs_table(rows, train, lots),
-        "units": unit_table(rows, train, units),
+        "units": unit_table(rows, train, units, same_bed_first=same_bed_first),
         "gyms": gym_table(rows, train, amenities),
         "floors": floor_table(rows, train, lots),
     }
@@ -270,6 +276,7 @@ def design(
     amenities: pd.DataFrame | None = None,
     lots: pd.DataFrame | None = None,
     units: pd.DataFrame | None = None,
+    same_bed_first: bool = False,
     **tables,
 ) -> Design:
     """Building zones with the unit's floor's design of `frame`, with its size, building and
@@ -285,7 +292,9 @@ def design(
         lots = load_lots()
     if units is None:
         units = pd.read_parquet(building_zones_unit.SNAPSHOT / "unit_features.parquet")
-    rebuilt = tables_for(frame, held, ads, amenities, lots, units)
+    rebuilt = tables_for(
+        frame, held, ads, amenities, lots, units, same_bed_first=same_bed_first
+    )
     # A snapshot table passed under a rebuilt table's name gives way to the rebuilt one.
     tables = {k: v for k, v in tables.items() if k not in rebuilt}
     return building_zones_floor.design(frame, start, **rebuilt, **tables)

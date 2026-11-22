@@ -588,6 +588,14 @@ def main(argv=None):
             "drift-building-phase-unitkn-segment",
             "drift_building_phase_unitkn_segment",
         ),
+        (
+            "drift-building-phase-unitkn-unified",
+            "drift_building_phase_unitkn_unified",
+        ),
+        (
+            "drift-building-phase-unitkn-unified-seg",
+            "drift_building_phase_unitkn_unified_seg",
+        ),
         ("drift-building-phase-unitt", "drift_building_phase_unitt"),
         ("drift-building-unitt", "drift_building_unitt"),
         ("drift-building-unitkn", "drift_building_unitkn"),

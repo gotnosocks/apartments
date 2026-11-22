@@ -214,6 +214,10 @@ STATED_RATE["drift-building-phase-unitkn-level-bedunit"] = 1.5
 # The segment paths took L1's rate from 1.0 s to 1.6 s, and the same 60% on L1TKN's 1.5 s
 # gives 2.4 s.
 STATED_RATE["drift-building-phase-unitkn-segment"] = 2.4
+# Unified adds year + 6 exogenous noise-scale factors (24 free factors total) on L2-unitkn;
+# unified-seg also adds the 8 quarterly segment GP paths.
+STATED_RATE["drift-building-phase-unitkn-unified"] = 2.0
+STATED_RATE["drift-building-phase-unitkn-unified-seg"] = 2.6
 # L2 without its phases sampled 16% faster on the k50 subsample (`no-phase-2026-11-16.md`).
 STATED_RATE["drift-building-unitkn"] = 1.3
 STATED_RATE["drift-local"] = 0.9
@@ -339,6 +343,8 @@ BASELINES = (
     "drift-building-phase-unitkn-level-bedtext",
     "drift-building-phase-unitkn-level-bedunit",
     "drift-building-phase-unitkn-segment",
+    "drift-building-phase-unitkn-unified",
+    "drift-building-phase-unitkn-unified-seg",
     "drift-building-phase-unitt",
     "drift-building-unitkn",
     "drift-building-unitt",
@@ -418,6 +424,8 @@ SWEEP_BUDGET_SECONDS = dict.fromkeys(
         "drift-building-phase-unitkn-level-bedtext",
         "drift-building-phase-unitkn-level-bedunit",
         "drift-building-phase-unitkn-segment",
+        "drift-building-phase-unitkn-unified",
+        "drift-building-phase-unitkn-unified-seg",
         "drift-building-phase-unitt",
         "drift-building-unitkn",
         "drift-building-unitt",
