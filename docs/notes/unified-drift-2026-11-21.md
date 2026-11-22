@@ -141,3 +141,26 @@ Launching TWO full 6-chain (3 containers × 2 chains, `2 500 9000 25`, `budget_s
 3. **`u3s-mkt` held-out Δelpd vs `range-j` (`market` `asof-20251110`, `n=9,346`):**
    - **`+200 to +420` elpd** (`z > +5`, positive on both halves A and B), improving on `u1-mkt-p3` (`+176.8`) via segment trajectories into late 2025.
    - `no_unit_history` (`n=3,168`) and `no_hist & thin<5` (`n=727`) both positive in Δelpd with lower `>95%` tail rate than `range-j`.
+
+### Stage 3 Intermediate Results & Market Boundary-Knot Discovery (Commit `90628dc7`)
+- **Matérn-3/2 (`nugget=1e-4`) completely solved segment GP convergence:** Across ALL three completed H100 containers (`u3s-lat-a`, `u3s-lat-c`, `u3s-mkt-c`), every single one of the 9 GP hyperparameters passed even in 2 chains (`max_rhat = 1.0009–1.0058`, `min_ess = 1,321–1,815`; `gp_amp[seg:manhattan:2br]` went from `R-hat = 4.68, ESS = 1` to **`R-hat = 1.0021, ESS = 1,815`**!).
+- **4-chain partial pool (`u3s-lat-a + u3s-lat-c`):** Already at `max_rhat = 1.0154 (sigma[0])`, `min_ess = 389 (unit_sd)` across all 2,580 parameters. Three containers (`u3s-lat-b`, `u3s-mkt-a/b`) hit Modal's 3,600s standard container timeout (`exit=124`) during post-sampling diagnostics/saving (~676s for 1,905 `phase_scale` cells). Relaunched `u3s-lat-b2` (`seed 2`, `--large --gpu H100`, 12h timeout, identical `sampler_settings`) to complete the pre-registered 3-container 6-chain `u3s-lat` pool (`a + b2 + c`).
+- **Right-boundary knot discovery on `market` (`u3s-mkt-c` vs `u1-mkt-p3` vs `range-j`):**
+  - `u3s-mkt-c` achieved lower RMSE (`0.1059` vs `0.1070` `u1-mkt-p3` vs `0.1086` `range-j`) and beat `range-j` by `+138.3` elpd (SE `42.5`, A `+93.3`, B `+45.0`), but trailed `u1-mkt-p3` (`+176.8`) by `-38.5` elpd.
+  - **Root cause (confirmed against `u3s-lat-a`'s true 2026 knots):** `quarter_starts(d)` creates a future knot `2026q1` (52 days after `2025-11-10`) with almost no training weight; the zero-mean GP shrinks `2026q1` back toward 0 (`seg:manhattan:3br+:2026q1 = -0.0105` vs true `+0.0306`, `-4.1%` error; `seg:manhattan:2br:2026q1 = -0.0054` vs true `+0.0162`, `-2.2%` error), even though `2025q4` was accurate to within `±0.004`. Simultaneously, absorbing 2020–24 segment variance slightly tightened 2BR/3BR+ `sigma`, nudging `market` 80% coverage down to `76.3%`.
+- **Stage 3b Market Gate Fit (`u3-mkt` = 3-container 6-chain pool of `u3-mkt-a/b/c`, `drift-building-phase-unitkn-unified`, commit `90628dc7`, `2 500 1600 25`, seeds `1, 2, 3`):**
+  - Launched 3 containers in parallel on standard H100 (`~50 min`, `~$3.60` each, `9,600` pooled draws).
+  - **Pre-fit predictions for `u3-mkt` (6 chains pooled):**
+    1. Passes strict convergence gate (`max_rhat ≤ 1.01`, `min_ess > 400` across all scalars, betas, and `phase_scale`).
+    2. Beats `range-j` by **`+160 to +240` elpd** (`z > +4.8`, both halves A & B positive) on `9,346` open ads (`asof-20251110`), with positive Δelpd on `has_unit_history`, `no_unit_history`, and `no_hist & thin<5` (`<5%` tail `4.5%–5.8%`).
+
+### Stage 3c Final Gate Fit on `latest` (`u4s-lat` = 3-container 6-chain pool, `2 500 2600 40 --budget-seconds 4500`, `--large --gpu H200`)
+- **Diagnosis of `u3s-lat` (`1,375` draws/chain × 6 chains = `8,250` draws):**
+  - `min_ess = 588 (unit_sd)` **PASSED** (`> 400`), all 9 GP hyperparameters passed overwhelmingly (`gp_amp max_rhat = 1.0015, min_ess = 5,554`; `gp_ls max_rhat = 1.0020, min_ess = 4,187`), `bld_sd max_rhat = 1.0029, min_ess = 1,673`.
+  - Missed `R-hat ≤ 1.01` by just `0.0023` (`max_rhat = 1.0123` on `phase_scale[86]`, `1.0117` on `sigma[0]`, `1.0109` on `beta[seg:outer:3br+:2015q3]`) solely because `budget_seconds = 2520` cut sampling at `1,375` draws/chain (half of `l2bt`'s `2,800` draws/chain), leaving ~125 effective samples per chain on `sigma`/`phase_scale` (all 6 chains stationary and agreeing to 4 significant digits: `sigma[0] = 0.01456 ± 0.00015`, `phase_scale[86] = 1.850 ± 0.021`).
+- **Pre-registered fix & launch (`u4s-lat-a/b/c`, 3 containers × 2 chains, seeds `1, 2, 3`, `2 500 2600 40 --budget-seconds 4500` on `--large --gpu H200`, ~$24 total → ~$90 cumulative out of $100):**
+  - Added `--budget-seconds` CLI override in `drift.run_parser` (defaulting to `Settings.budget_seconds = 2520.0`).
+  - Matches `l2bt`'s draw count (`2,600` draws/chain × 6 chains = `15,600` draws, 1.89× longer per chain than `u3s-lat`).
+  - **Pre-fit predictions for `u4s-lat`:**
+    1. **PASSES strict convergence gate** with comfortable margin: `max_rhat ≤ 1.008` (projected `~1.005–1.006`), `min_ess > 900` (projected `~1,100` on `unit_sd`).
+    2. Retains the exact held-out Δelpd of `u3s-lat` over `l2bt` within MC error (`~+4,900` all years, `~+3,100` on `2022+`, both halves A & B strongly positive).

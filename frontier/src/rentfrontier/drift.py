@@ -3021,6 +3021,12 @@ def run_parser(name=NAME, level_dof=None):
     parser.set_defaults(model=name)
     parser.add_argument("--site-block", type=int)
     parser.add_argument(
+        "--budget-seconds",
+        type=float,
+        help="stop drawing once sweeps exceed this many seconds "
+        "(default: Settings.budget_seconds)",
+    )
+    parser.add_argument(
         "--level-dof",
         type=_level_dof,
         default=level_dof,
