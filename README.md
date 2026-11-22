@@ -36,16 +36,18 @@ Scores on the same 189,647 held-out ads (a 10% draw, each the newest ad of an ap
 | Fit 4 (a fixed level per apartment) | 177,137 | 5.8% | 78.9% | missed |
 | `drift` (a level per apartment that drifts) | 195,320 | 5.2% | 79.9% | passed |
 | **`drift-building`** (plus a path per building; Student-t building levels) | **230,989** | **4.1%** | **80.7%** | **passed** |
+| `l2bt` (`drift-building-phase-unitkn-level-bedtext`, latest-split frontier, unserved) | **237,654** | **4.0%** | **80.1%** | **passed** |
 
 - **The Deals page** (`/deals` on the site) ranks the 6,502 ads on the market on 2026-11-20
   by how low each ask is for its apartment. It was published from the market fit with its
-  backtest on 2026-11-20 at 6:02 PM ET. 1,618 ads carry a caution and are left out of the
-  list unless asked for. A caution marks a plain reason for a low ask that the model does
-  not know: the text says income-restricted, an office, owners only, or a takeover of
-  someone's lease; the apartment's ads disagree on its bedrooms; the ad codes more rooms
-  than the apartment's previous ad; the page price is a net rent with no coded free months;
-  the building has raised an ad after opening it low; the building's level is high on five
-  or fewer ads; the ad is off the market (`frontier/src/rentfrontier/cautions.py`).
+  backtest on 2026-11-21 at 1:20 AM ET (with exact CDF quantiles and fit-own previous asks).
+  1,675 ads (25.8%) carry a caution and are left out of the list unless asked for. A caution
+  marks a plain reason for a low ask that the model does not know: the text says
+  income-restricted, an office, owners only, a lease takeover, or a short lease under a year;
+  the apartment's ads disagree on its bedrooms; the ad codes more rooms than the apartment's
+  previous ad; the page price is a net rent with no coded free months (from price or security
+  deposit); the building has raised an ad after opening it low; the building's level is high
+  on five or fewer ads; the ad is off the market (`frontier/src/rentfrontier/cautions.py`).
   Read against their own text on 2026-11-10 at 9:25 AM ET, 36 of the first 40 ads then shown
   were ordinary apartments with no plain reason for the low ask (2 had one: a lease
   takeover, which carries a caution since, and a text that names one more bedroom than
@@ -83,6 +85,8 @@ Scores on the same 189,647 held-out ads (a 10% draw, each the newest ad of an ap
   `docs/TODO.md`. A base refit with free scales, about $22, waits on Ben's decision
   (`docs/handoff/project-owner.md`).
 
+[docs/model/lineage.md](docs/model/lineage.md) gives the four-generation model evolution tree,
+the Bayesian plate diagram, and the current production stack across all site sections.
 [docs/model/drift-explainer.html](docs/model/drift-explainer.html) is a visual walk
 through the model and these results. [docs/handoff/project-owner.md](docs/handoff/project-owner.md)
 says where work stopped.
@@ -159,7 +163,7 @@ project has tried, with its numbers and what became of it.
 
 | Path | What is there |
 |---|---|
-| `frontier/src/rentfrontier/` | The models, samplers, scoring and splits. Start with `drift.py`. |
+| `frontier/src/rentfrontier/` | The models, samplers, scoring and splits. Start with [frontier/README.md](frontier/README.md) and `drift.py`. |
 | `frontier/tests/` | Their tests. Each sampler step is checked against dense algebra. |
 | `pipeline/` | The data pipeline: steps, data rules, audits, materialized tables. |
 | `src/apartments/` | The scraper, the archive and the listings site. |

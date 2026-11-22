@@ -6,9 +6,11 @@ Start with the three files at the top. The rest is the record behind them.
 
 | File | What it answers |
 |---|---|
+| [model/lineage.md](model/lineage.md) | How did the model evolve across four generations? Includes the evolution tree, Bayesian plate diagram, and live production stack. |
 | [model/drift.md](model/drift.md) | What is the current model, how is it fitted, and how well does it predict? |
 | [research-record.md](research-record.md) | What has the project tried, and what came of each try? |
 | [handoff/project-owner.md](handoff/project-owner.md) | Where did the last working session stop, and what is next? |
+| [../frontier/README.md](../frontier/README.md) | Which `rentfrontier` modules are live, active research, or historical? |
 
 ## Standing documents
 
