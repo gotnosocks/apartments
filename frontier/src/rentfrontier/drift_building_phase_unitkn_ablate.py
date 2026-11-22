@@ -146,6 +146,11 @@ def _extract_variant(argv: list[str]) -> tuple[tuple[str, ...], list[str]]:
         elif argv[i].startswith("--variant="):
             val = argv[i].split("=", 1)[1]
             i += 1
+        elif argv[i] == "--ablate" or argv[i].startswith("--ablate="):
+            raise ValueError(
+                "unknown flag --ablate; pass --variant TOKENS instead "
+                "(b0.parse_known_args would otherwise silently drop it)"
+            )
         else:
             out.append(argv[i])
             i += 1

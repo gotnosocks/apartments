@@ -311,3 +311,10 @@ def test_segment_variant_reuses_unified_identifiable_paths_and_gp_priors(
     assert [g["name"] for g in ablate.gp_spec(d.names)] == [g["name"] for g in gps]
     monkeypatch.setattr(drift, "run", lambda *args, **kw: kw["gp"])
     assert ablate.run(base, ablate.Priors(), settings) == "spec"
+
+
+def test_extract_variant_rejects_legacy_ablate_flag():
+    with pytest.raises(ValueError, match="--variant"):
+        ablate._extract_variant(["--ablate", "mark_baths"])
+    with pytest.raises(ValueError, match="--variant"):
+        ablate._extract_variant(["--ablate=mark_baths"])
