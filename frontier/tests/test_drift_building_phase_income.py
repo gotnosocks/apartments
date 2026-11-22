@@ -223,22 +223,22 @@ def income_run():
 def test_a_run_keeps_every_cells_factor_and_traces_k(income_run):
     full, held, out = income_run
     trace, kept = out["trace"], out["kept"]
-    assert trace["phase_scale"].shape == (2, 8, P * K)
+    assert trace["phase_factor"].shape == (2, 8, FREE)
     assert kept["phase_scale"].shape == (2, 4, P * K)
-    phase, k = M.factors(trace["phase_scale"])
+    phase, k = M.factors(kept["phase_scale"])
     np.testing.assert_allclose(
-        trace["phase_scale"],
+        kept["phase_scale"],
         (
             phase[..., :, None] * np.stack([np.ones_like(k), k], -1)[..., None, :]
-        ).reshape(2, 8, -1),
+        ).reshape(2, 4, -1),
         rtol=1e-6,
     )
     np.testing.assert_array_equal(kept["pred_phase"], full.phase[held])
     assert len(out["result"]["gibbs"]["hyp_dirs"]) == 8 + FREE
     rows = drift.diagnostics(trace, full.names)["per_quantity"]
-    # k is the factor of the reference phase's marked cell.
-    assert "phase_scale[1]" in rows
-    assert {f"phase_scale[{p * K}]" for p in range(1, P)} <= set(rows)
+    assert {k for k in rows if k.startswith("phase_")} == {
+        f"phase_factor[{j}]" for j in range(FREE)
+    }
 
 
 def test_scores_scale_each_rows_sigma_by_its_cells_factor(income_run, tmp_path):
@@ -283,8 +283,7 @@ def test_an_income_design_draws_what_it_drew_when_pinned():
         drift.Settings(chains=2, warmup=60, draws=8, level_dof=4.0, seed=3),
         log=lambda m: None,
     )
-    arrays = {f"trace/{k}": v for k, v in out["trace"].items()}
-    arrays |= {f"kept/{k}": v for k, v in out["kept"].items()}
+    arrays = td._legacy_phase_arrays(out, train.phase_map)
     h = hashlib.sha256()
     for k in sorted(arrays):
         h.update(k.encode())

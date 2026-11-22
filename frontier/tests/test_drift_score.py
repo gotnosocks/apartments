@@ -106,3 +106,37 @@ def test_more_replicates_bring_the_quantiles_to_the_exact_cdf():
         miss[samples] = np.sqrt(np.mean((at["cdf_at"] - 0.05) ** 2))
     assert miss[drift_score.SAMPLES] < 0.6 * miss[4]
     assert miss[drift_score.SAMPLES] < 0.004
+
+
+def test_score_run_open_scale_widens_predictive_intervals(tmp_path):
+    rng = np.random.default_rng(7)
+    draws, rows = 80, 40
+    loc = np.full((draws, rows), 8.0)
+    usd = np.full((draws, rows), 0.06)
+    sigma = np.full((draws, 2), 0.04)
+    nu = np.full(draws, 6.0)
+    y = 8.0 + 0.08 * rng.standard_normal(rows)
+    np.savez(
+        tmp_path / "posterior.npz",
+        **{
+            "kept/pred_loc": loc[None],
+            "kept/pred_unit_sd": usd[None],
+            "kept/sigma": sigma[None],
+            "kept/nu": nu[None],
+            "kept/pred_y": y,
+            "kept/pred_group": np.zeros(rows, dtype=np.int64),
+        },
+        heldout=np.ones(rows, dtype=bool),
+    )
+    base = drift_score.score_run(tmp_path, seed=1, exact=True)
+    wide = drift_score.score_run(tmp_path, seed=1, exact=True, open_scale=1.12)
+    assert "open_scale" not in base
+    assert float(wide["open_scale"]) == pytest.approx(1.12)
+    np.testing.assert_allclose(wide["pred"], base["pred"], atol=1e-6)
+    np.testing.assert_allclose(
+        wide["q"][:, 5] - wide["q"][:, 2],
+        1.12 * (base["q"][:, 5] - base["q"][:, 2]),
+        rtol=1e-5,
+    )
+    with pytest.raises(ValueError, match="open_scale"):
+        drift_score.score_run(tmp_path, open_scale=0.0)

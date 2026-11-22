@@ -130,10 +130,21 @@ def score_rows(
     return out
 
 
-def score_run(run_dir: Path, seed: int = 0, at=None, exact: bool = False) -> dict:
+def score_run(
+    run_dir: Path,
+    seed: int = 0,
+    at=None,
+    exact: bool = False,
+    open_scale: float = 1.0,
+) -> dict:
     """Scores for every row the run at `run_dir` predicted. `at` (rows,) asks for `cdf_at`,
     the predictive probability of a log rent below each row's value. `exact` takes the
-    quantiles and the median from the cdf's roots, not from replicates."""
+    quantiles and the median from the cdf's roots, not from replicates. `open_scale` (> 0)
+    scales both `pred_unit_sd` and observation `sigma` uniformly for held-out scoring (e.g.
+    to calibrate closed-ad fits for wider open-market ask dispersion without target leakage)."""
+    open_scale = float(open_scale)
+    if not np.isfinite(open_scale) or open_scale <= 0:
+        raise ValueError(f"open_scale must be finite and > 0, got {open_scale}")
     z = np.load(run_dir / "posterior.npz")
     if "kept/pred_loc" not in z:
         raise SystemExit(f"{run_dir} predicted no rows")
@@ -154,12 +165,15 @@ def score_run(run_dir: Path, seed: int = 0, at=None, exact: bool = False) -> dic
         at = np.asarray(at, float)
     for a in range(0, len(y), CHUNK):
         sl = slice(a, a + CHUNK)
-        part = score_rows(
-            loc[:, sl],
-            usd[:, sl],
+        row_sig = (
             sig[:, group[sl]]
             if phase is None
-            else sig[:, group[sl]] * factor[:, phase[sl]],
+            else sig[:, group[sl]] * factor[:, phase[sl]]
+        )
+        part = score_rows(
+            loc[:, sl],
+            usd[:, sl] * open_scale,
+            row_sig * open_scale,
             nu,
             y[sl],
             seed + a,
@@ -170,6 +184,8 @@ def score_run(run_dir: Path, seed: int = 0, at=None, exact: bool = False) -> dic
             out[k].append(v)
     res = {k: np.concatenate(v) for k, v in out.items()}
     res |= dict(y=y, group=group, quantiles=np.array(Q), heldout=z["heldout"])
+    if open_scale != 1.0:
+        res["open_scale"] = np.asarray(open_scale, dtype=np.float64)
     dataset = dataset_dir(run_dir)
     if dataset is not None:
         import pandas as pd
@@ -234,9 +250,15 @@ def main(argv=None):
     p.add_argument("run")
     p.add_argument("--out")
     p.add_argument("--runs", default=str(run_module.RUNS))
+    p.add_argument(
+        "--open-scale",
+        type=float,
+        default=1.0,
+        help="uniform scale multiplier (>0) applied to unit_sd and sigma during scoring",
+    )
     args = p.parse_args(argv)
     run_dir = Path(args.runs) / args.run
-    res = score_run(run_dir)
+    res = score_run(run_dir, open_scale=args.open_scale)
     out = Path(args.out) if args.out else run_dir / "pred_scores.npz"
     np.savez_compressed(out, **res)
     print(json.dumps(summary(res), indent=2))

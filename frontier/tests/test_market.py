@@ -172,3 +172,22 @@ def test_backtest_sets_aside_a_closed_ad_whose_last_ask_is_later(tmp_path):
     market.with_status(src, tmp_path / "late", ads, as_of="2026-10-25")
     late = pd.read_parquet(tmp_path / "late" / "rows.parquet")
     assert late.open[late.listing_id.astype(str) == "3"].iloc[0]
+
+
+def test_draft_ads_are_set_aside_in_live_and_backtest(tmp_path):
+    src, ads_path = _dataset(tmp_path)
+    ads = pd.read_parquet(ads_path)
+    ads.loc[ads.listing_id == 3, "status"] = "DRAFT"
+    ads.to_parquet(ads_path, index=False)
+
+    live_out = tmp_path / "live"
+    market.with_status(src, live_out, ads_path)
+    live = pd.read_parquet(live_out / "rows.parquet")
+    assert "3" not in set(live.listing_id)
+    assert "3" in set(pd.read_parquet(live_out / "set_aside.parquet").listing_id)
+
+    bt_out = tmp_path / "bt"
+    market.with_status(src, bt_out, ads_path, as_of="2026-10-10")
+    bt = pd.read_parquet(bt_out / "rows.parquet")
+    assert "3" not in set(bt.listing_id)
+    assert "3" in set(pd.read_parquet(bt_out / "set_aside.parquet").listing_id)

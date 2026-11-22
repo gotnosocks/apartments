@@ -61,7 +61,22 @@ columns follow the phase today. D1 (`drift_building_phase_duplex`) crosses the p
 the row's mark for a duplex or a text penthouse, and an apartment keeps its last ad's mark.
 The segment model (`drift_building_phase_segment`) adds a path in time for each bedroom
 group and zone, and its columns follow `--day` as the walk does; past the last quarter start
-a path holds its value there.
+a path holds its value there. The unified segment model
+(`drift_building_phase_unitkn_unified_seg`) leaves out its reference segment's and its
+reference quarter's columns, which count as 0 in the same paths.
+
+Noise cells. The unified models (`drift_building_phase_unitkn_unified` and its segment
+model) and the ablation model's scale variants (`drift_building_phase_unitkn_ablate`) give
+each row a cell of additive log noise factors (`Design.phase_map`): its lease phase, its
+year, the Covid regime 14 days before it and marks of the ad (`KEPT_MARKS`, `DAY_MARKS`).
+An ad on the market keeps its own cell. Any other apartment takes the lease phase, the
+year and the Covid regime of `--day`; the thin first ad and new-unit marks, which hold
+only for an ad with no earlier one of its unit, follow the phase today; and the marks of
+its coded fields keep its last ad's values. The kept draws hold every observed cell's
+factor, exp(pmap log f), and a cell the fit never saw takes exp(v log f) with log f solved
+from them. L2's level columns in these models follow the lease phase alone. The ablation
+model's design is rebuilt with the variant the run records, and variants whose mean
+columns move with the ad's day (`DAY_MEAN_TOKENS`) are refused.
 
 Lines. LN1 (`drift_building_phase_line`) centers each apartment's lasting level on a level
 for its line, the apartments of its building with its bedrooms and full baths, with
@@ -141,9 +156,13 @@ from . import (
     drift_building_phase_segment,
     drift_building_phase_unitk,
     drift_building_phase_unitkn,
+    drift_building_phase_unitkn_ablate,
     drift_building_phase_unitkn_level,
     drift_building_phase_unitkn_segment,
+    drift_building_phase_unitkn_unified,
+    drift_building_phase_unitkn_unified_seg,
     drift_building_phase_unitt,
+    drift_building_phase_year,
     drift_building_unitt,
     drift_deals,
     drift_estimates,
@@ -163,8 +182,10 @@ from .total_walk import SEASON
 # the design, LN1 adds a level for each line of a building, integrated out with the path,
 # and P1 reads L1's MapPLUTO columns as of each row's month. The Student-t models (U2,
 # L1T, L1TK, L1TKN and L2 and the segment model on L1TKN) give each apartment's lasting
-# level a mixing scale, which the lam step carries. Models with slowly reverting unit
-# levels or more local-drift terms are refused.
+# level a mixing scale, which the lam step carries. The unified models and the ablation
+# model give each row a cell of additive noise factors (`Design.phase_map`), whose cell today
+# `cell_today` works out. Models with slowly reverting unit levels or more local-drift terms
+# are refused.
 MODELS = {
     m.NAME: m
     for m in (
@@ -182,8 +203,40 @@ MODELS = {
         drift_building_phase_unitkn,
         drift_building_phase_unitkn_level,
         drift_building_phase_unitkn_segment,
+        drift_building_phase_unitkn_unified,
+        drift_building_phase_unitkn_unified_seg,
+        drift_building_phase_unitkn_ablate,
     )
 }
+# The ablation model's tokens whose mean columns move with the ad's day: Covid's lagged
+# counts, the 2020-2022 concession window and DHCR's as-of year with its regimes. An
+# apartment keeps its last ad's columns but for the season, the phase levels and the segment
+# paths, so a fit with any of these is refused.
+DAY_MEAN_TOKENS = ("covid_mean", "concess_gap", "stab_dhcr")
+# The noise factors of a `phase_map` design that keep the apartment's last ad's value: they
+# read the ad's own coded fields, or the apartment's and its building's earlier ads as of it.
+KEPT_MARKS = (
+    "mark:changed_counts",
+    "mark:baths_2",
+    "mark:baths_3p",
+    "mark:floor_1",
+    "mark:large_01br",
+    "mark:income_restricted",
+)
+# The marks set for `--day` (`cell_today`), besides the lease phase and the year.
+DAY_MARKS = (
+    "mark:thin_first_ad",
+    "mark:new_bed2",
+    "mark:new_bed3p",
+    "mark:covid_surge",
+    "mark:covid_elevated",
+)
+# The ablation model's Covid volatility regime (`covid_features`): NYC's 7-day average of
+# hospitalizations 14 days before the ad, a surge at 150 or more and elevated at 30 or more,
+# and none from 30 days past the data's last day.
+COVID_LAG = pd.Timedelta(days=14)
+COVID_TAIL = pd.Timedelta(days=30)
+COVID_SURGE, COVID_ELEVATED = 150.0, 30.0
 # The seed's second word for the stream the lines' prior draws come from, apart from the
 # stream the lam step's other draws come from.
 LINE_STREAM = 1
@@ -872,7 +925,8 @@ class Fit:
     Bc: np.ndarray
     lay: dict
     xb: np.ndarray  # (draws, training rows) x beta, alpha included
-    # each frame row's unit, site, week, frac, t, group, phase, line (None with no lines), x
+    # each frame row's unit, site, week, frac, t, group, phase, lease phase, a `phase_map`
+    # design's cells (`cell_terms`, else None), line (None with no lines), x
     full: SimpleNamespace
     season: np.ndarray  # (frame rows, len(SEASON)) the season columns
     season_cols: list
@@ -954,6 +1008,97 @@ def segment_terms(d: b0.Design, names: list[str]) -> SimpleNamespace | None:
     return out
 
 
+def design_kw(spec, record: dict) -> dict:
+    """The keywords `spec.design` takes to rebuild the run's design: the ablation model's
+    variant, as the run records it. A variant whose mean columns move with the ad's day
+    (`DAY_MEAN_TOKENS`) is refused."""
+    if spec is not drift_building_phase_unitkn_ablate:
+        return {}
+    variant = record.get("ablate_variant")
+    if variant is None:
+        raise SystemExit(f"the {spec.NAME} run records no ablate_variant")
+    tokens = spec.parse_variant(",".join(variant))
+    day = [t for t in tokens if t in DAY_MEAN_TOKENS]
+    if day:
+        raise SystemExit(
+            f"the {spec.NAME} variant's {', '.join(day)} columns move with the day"
+        )
+    return {"variant": tokens}
+
+
+def factor_names(phases, pmap: np.ndarray) -> list[str]:
+    """The names of a `phase_map` design's free factors, its map's columns. A cell's name
+    joins the names of the factors it holds, in the columns' order (`compact_phase_map`),
+    and every factor is held by a cell of training rows."""
+    names: list[str | None] = [None] * pmap.shape[1]
+    for cell, row in zip(phases, pmap):
+        on = np.flatnonzero(row > 0.5)
+        tokens = [] if cell == "ref" else str(cell).split("|")
+        if len(tokens) != len(on):
+            raise SystemExit(f"the cell {cell} does not name its factors")
+        for j, tok in zip(on, tokens):
+            if names[j] not in (None, tok):
+                raise SystemExit(f"factor {j} is named both {names[j]} and {tok}")
+            names[j] = tok
+    if None in names:
+        raise SystemExit("a free factor is held by no cell")
+    return names
+
+
+def cell_terms(
+    d: b0.Design, frame: pd.DataFrame, ref_years: set[int] | None = None
+) -> SimpleNamespace | None:
+    """What `cell_today` reads of a `phase_map` design: its map from cells to free factors,
+    the factors' names, and each frame row's lease phase as its place in L1's `PHASES`.
+    None for a design without a map. The factors must be ones `cell_today` knows, and the
+    rows' lease phase and year factors the ones their price_at gives."""
+    if d.phase is None or getattr(d, "phase_map", None) is None:
+        return None
+    pmap = np.asarray(d.phase_map, float)
+    if not np.all((pmap == 0) | (pmap == 1)):
+        raise SystemExit("the design's phase_map is not 0/1")
+    names = factor_names(d.phases, pmap)
+    P, Y = drift_building_phase.PHASES, drift_building_phase_year.YEARS
+    known = (
+        {f"phase:{p}" for p in P[1:]}
+        | {f"yr:{y}" for y in Y[1:]}
+        | set(KEPT_MARKS)
+        | set(DAY_MARKS)
+    )
+    unknown = [n for n in names if n not in known]
+    if unknown:
+        raise SystemExit(f"noise factors drift_today cannot set for a day: {unknown}")
+    lease = drift_building_phase.phase_index(frame)
+    year = drift_building_phase_year.year_index(frame)
+    for j, n in enumerate(names):
+        kind, _, v = n.partition(":")
+        own = {"phase": (lease, P), "yr": (year, Y)}.get(kind)
+        if own is None:
+            continue
+        want = own[0] == own[1].index(v if kind == "phase" else int(v))
+        if not np.array_equal(pmap[d.phase, j] > 0.5, want):
+            raise SystemExit(
+                f"the rows' {n} factor is not the one their price_at gives"
+            )
+    return SimpleNamespace(
+        pmap=pmap,
+        names=names,
+        lease=lease,
+        ref_years=set(ref_years) if ref_years is not None else {Y[0]},
+        log_factor=None,
+    )
+
+
+def log_factors(pmap: np.ndarray, phase_scale: np.ndarray) -> np.ndarray:
+    """The free factors' logs at each kept draw, (draws, factors), from the cells' factors
+    (`kept/phase_scale`), which are exp(pmap log f)."""
+    S = np.log(np.asarray(phase_scale, float)).T
+    logf = np.linalg.lstsq(pmap, S, rcond=None)[0]
+    if not np.allclose(pmap @ logf, S, rtol=0, atol=1e-4):
+        raise SystemExit("the kept phase factors are not the phase_map's cells")
+    return logf.T
+
+
 def load(run_dir: Path, draws: int = DRAWS, log=print) -> Fit:
     """Rebuild the run's design from its dataset and pick its kept draws."""
     record = json.loads((run_dir / "result.json").read_text())
@@ -977,7 +1122,8 @@ def load(run_dir: Path, draws: int = DRAWS, log=print) -> Fit:
     frame = b0.load_frame(dataset)
     set_split(record["split"])
     held = splits.SPLITS[record["split"]](frame)
-    d = spec.design(frame)
+    kw = design_kw(spec, record)
+    d = spec.design(frame, **kw)
     # The snapshots the design read must be the fit's, as `simulate` checks them.
     now = spec.run_record(d)
     for k in simulate.SNAPSHOT_KEYS:
@@ -1013,21 +1159,40 @@ def load(run_dir: Path, draws: int = DRAWS, log=print) -> Fit:
         raise SystemExit(f"{name}'s design and kept draws disagree on lines")
     if lines and record.get("line", {}).get("lines") != int(d.lines):
         raise SystemExit("the rebuilt design's lines differ from the fit's")
-    if d.phase is not None and not {str(p).split("|", 1)[0] for p in d.phases} <= set(
-        drift_building_phase.PHASES
+    ref_years = None
+    if "y1_pre2024" in kw.get("variant", ()):
+        ref_years = {
+            y
+            for y in drift_building_phase_year.YEARS
+            if y >= drift_building_phase_year.REFERENCE_YEAR
+        }
+    cells = cell_terms(d, frame, ref_years=ref_years)
+    if (
+        cells is None
+        and d.phase is not None
+        and not {str(p).split("|", 1)[0] for p in d.phases}
+        <= set(drift_building_phase.PHASES)
     ):
         raise SystemExit(f"{name}'s noise phases are not L1's lease phases")
+    # Each row's lease phase, which L2's level columns follow: its noise phase, or in a
+    # `phase_map` design the lease phase its cell's factors were built from.
+    if cells is None:
+        lease, leases = d.phase, d.phases
+    else:
+        lease, leases = cells.lease, drift_building_phase.PHASES
     log(f"design rebuilt: {d.x.shape} in {time.perf_counter() - t0:.0f}s")
     alpha = names.index("alpha")
     if not np.all(d.x[:, alpha] == 1):
         raise SystemExit("the design's alpha column is not all ones")
-    cols, which = level_columns(names, d.phases)
-    if cols and not np.array_equal(d.x[:, cols], d.phase[:, None] == which[None, :]):
+    cols, which = level_columns(names, leases)
+    if cols and not np.array_equal(d.x[:, cols], lease[:, None] == which[None, :]):
         raise SystemExit("the design's phase columns are not its rows' phases")
     seg = segment_terms(d, names)
     C, K = kept["beta"].shape[:2]
     pick = thin(C, K, draws)
     kept = {k: v.reshape(C * K, *v.shape[2:])[pick] for k, v in kept.items()}
+    if cells is not None:
+        cells.log_factor = log_factors(cells.pmap, kept["phase_scale"])
     train = np.flatnonzero(~held)
     t_all = drift.years(d)
     order = np.lexsort((t_all[train], d.unit[train], d.site[train]))
@@ -1054,6 +1219,9 @@ def load(run_dir: Path, draws: int = DRAWS, log=print) -> Fit:
         group=d.group,
         phase=d.phase,
         phases=d.phases,
+        lease=lease,
+        leases=leases,
+        cells=cells,
         line=d.line if lines else None,
         x_held=d.x[held],
     )
@@ -1302,13 +1470,9 @@ def apartments(fit: Fit) -> pd.DataFrame:
     return out
 
 
-def phase_today(fit: Fit, rows: np.ndarray, day: pd.Timestamp) -> np.ndarray | None:
-    """Each apartment's lease phase for an ad on `day` (phase models only): an ad on the
-    market keeps its own phase, and any other is binned by the months from its last ad's
-    price_at to `day`. Where the fit's phases are cells of phase and mark (D1's
-    "phase|mark"), an apartment keeps its last ad's mark."""
-    if fit.full.phase is None:
-        return None
+def lease_names(fit: Fit, rows: np.ndarray, day: pd.Timestamp) -> np.ndarray:
+    """Each apartment's lease phase's name for an ad on `day`: the months from its last
+    ad's price_at to `day`, binned, and "none" for an ad with no unit."""
     f = fit.frame.iloc[rows]
     at = pd.to_datetime(f.price_at, utc=True).dt.tz_convert(None).to_numpy()
     months = (pd.Timestamp(day).to_datetime64() - at) / np.timedelta64(1, "D")
@@ -1316,7 +1480,20 @@ def phase_today(fit: Fit, rows: np.ndarray, day: pd.Timestamp) -> np.ndarray | N
     names = np.asarray(drift_building_phase.BINNED, dtype=object)[
         np.searchsorted(drift_building_phase.EDGES, months, side="right")
     ]
-    names = np.where(f.unit_id.isna().to_numpy(), "none", names).astype(object)
+    return np.where(f.unit_id.isna().to_numpy(), "none", names).astype(object)
+
+
+def phase_today(fit: Fit, rows: np.ndarray, day: pd.Timestamp) -> np.ndarray | None:
+    """Each apartment's noise phase for an ad on `day` (phase models only): an ad on the
+    market keeps its own phase, and any other is binned by the months from its last ad's
+    price_at to `day`. Where the fit's phases are cells of phase and mark (D1's
+    "phase|mark"), an apartment keeps its last ad's mark. A `phase_map` design's cells are
+    `cell_today`'s."""
+    if fit.full.phase is None:
+        return None
+    if fit.full.cells is not None:
+        return cell_today(fit, rows, day)
+    names = lease_names(fit, rows, day)
     own = pd.Series(np.asarray(fit.full.phases, dtype=object)[fit.full.phase[rows]])
     parts = own.str.partition("|")
     names = names + parts[1].to_numpy(object) + parts[2].to_numpy(object)
@@ -1328,12 +1505,133 @@ def phase_today(fit: Fit, rows: np.ndarray, day: pd.Timestamp) -> np.ndarray | N
     return out
 
 
-def phase_level_shift(fit: Fit, rows: np.ndarray, phase: np.ndarray) -> np.ndarray:
+def lease_today(
+    fit: Fit, rows: np.ndarray, day: pd.Timestamp, phase: np.ndarray
+) -> np.ndarray:
+    """Each apartment's lease phase on `day`, as its place in `fit.full.leases`, given its
+    noise phase today `phase`: the noise phase itself, or in a `phase_map` design its lease
+    phase, an ad on the market keeping its own."""
+    if fit.full.cells is None:
+        return phase
+    out = pd.Index(fit.full.leases).get_indexer(lease_names(fit, rows, day))
+    held = fit.held[rows]
+    out[held] = fit.full.lease[rows][held]
+    return out.astype(np.int64)
+
+
+def utc_day(day: pd.Timestamp) -> pd.Timestamp:
+    """`day` at midnight UTC, as the designs floor an ad's price_at."""
+    day = pd.Timestamp(day)
+    day = day.tz_localize("UTC") if day.tz is None else day.tz_convert("UTC")
+    return day.floor("D")
+
+
+def covid_regime(day: pd.Timestamp, csv: Path | None = None) -> tuple[float, float]:
+    """The ablation model's Covid volatility marks (surge, elevated) for an ad on `day`, as
+    `covid_features` sets them from NYC's hospitalizations `COVID_LAG` before it."""
+    ab = drift_building_phase_unitkn_ablate
+    cov = ab._load_covid_daily(csv or ab.COVID_CSV)
+    lag = utc_day(day) - COVID_LAG
+    past = cov.loc[cov.day <= lag, "HOSP_COUNT_7DAY_AVG"]
+    hosp = float(past.iloc[-1]) if len(past) else 0.0
+    if not np.isfinite(hosp) or lag > cov.day.max() + COVID_TAIL:
+        hosp = 0.0
+    return float(hosp >= COVID_SURGE), float(COVID_ELEVATED <= hosp < COVID_SURGE)
+
+
+def thin_count(fit: Fit, rows: np.ndarray, day: pd.Timestamp) -> np.ndarray:
+    """For each apartment, the training rows of its building with its bedrooms (capped at 4)
+    priced on days before `day`, as `prior_bld_bed_count` counts them for an ad on `day`."""
+    f = fit.frame
+    bed = f.bedrooms.clip(0, 4).fillna(-1).astype(int).astype(str)
+    key = f.building.astype(str) + "|" + bed
+    at = pd.to_datetime(f.price_at, utc=True).dt.floor("D")
+    before = ~np.asarray(fit.held, bool) & (at < utc_day(day)).to_numpy()
+    counts = key[before].value_counts()
+    return key.iloc[rows].map(counts).fillna(0).to_numpy(np.int64)
+
+
+def cell_today(fit: Fit, rows: np.ndarray, day: pd.Timestamp) -> np.ndarray:
+    """Each apartment's cell of a `phase_map` design for an ad on `day`. An ad on the
+    market keeps its own cell. Any other keeps its last ad's marks (`KEPT_MARKS`), and takes
+    for `day` its lease phase, its year, the thin first ad and new-unit marks, which hold only
+    at phase none, and the Covid regime. A cell the fit never saw is added (`cell_index`)."""
+    cl = fit.full.cells
+    own = fit.full.phase[rows]
+    v = cl.pmap[own].copy()
+    col = {n: j for j, n in enumerate(cl.names)}
+    lease = lease_names(fit, rows, day)
+
+    def put(name, value):
+        if name in col:
+            v[:, col[name]] = value
+
+    P, Y = drift_building_phase.PHASES, drift_building_phase_year.YEARS
+    year = Y[drift_building_phase_year.year_index(pd.DataFrame({"price_at": [day]}))[0]]
+    # A phase or year with no training rows has no factor (`compact_phase_map`), and its
+    # rows would read as the reference's.
+    for kind, want in (
+        ("phase", set(lease[~fit.held[rows]]) - {P[0]}),
+        ("yr", {year} - cl.ref_years),
+    ):
+        if any(n.startswith(kind + ":") for n in cl.names):
+            free = sorted(str(w) for w in want if f"{kind}:{w}" not in col)
+            if free:
+                raise SystemExit(f"the fit has no {kind} factor for {', '.join(free)}")
+    for p in P[1:]:
+        put(f"phase:{p}", lease == p)
+    for y in Y[1:]:
+        put(f"yr:{y}", y == year)
+    new = lease == "none"
+    if "mark:thin_first_ad" in col:
+        thin = drift_building_phase_unitkn_unified.THIN_BLD_BED_MAX
+        put("mark:thin_first_ad", new & (thin_count(fit, rows, day) < thin))
+    bed = fit.frame.bedrooms.iloc[rows].fillna(-1).to_numpy(float)
+    put("mark:new_bed2", new & (bed == 2))
+    put("mark:new_bed3p", new & (bed >= 3))
+    if "mark:covid_surge" in col or "mark:covid_elevated" in col:
+        surge, elevated = covid_regime(day)
+        put("mark:covid_surge", surge)
+        put("mark:covid_elevated", elevated)
+    out = cell_index(fit, v)
+    held = fit.held[rows]
+    out[held] = own[held]
+    return out
+
+
+def cell_index(fit: Fit, v: np.ndarray) -> np.ndarray:
+    """The cell of each row of 0/1 factors `v` (rows, factors), as its place in the fit's
+    phases. A cell the fit never saw is appended to them, with its factor at each kept draw
+    exp(v log f), which the cells' factors fix when v lies in the span of their rows."""
+    cl = fit.full.cells
+    uniq, inv = np.unique(np.asarray(v).astype(np.int8), axis=0, return_inverse=True)
+    known = {tuple(r): i for i, r in enumerate(cl.pmap.astype(np.int8))}
+    place = np.asarray([known.get(tuple(r), -1) for r in uniq], np.int64)
+    fresh = np.flatnonzero(place < 0)
+    if len(fresh):
+        add = uniq[fresh].astype(float)
+        span = add @ np.linalg.pinv(cl.pmap) @ cl.pmap
+        if not np.allclose(span, add, rtol=0, atol=1e-8):
+            raise SystemExit(
+                "an apartment's cell today has a factor the fit's cells leave free"
+            )
+        place[fresh] = len(cl.pmap) + np.arange(len(fresh))
+        cl.pmap = np.vstack([cl.pmap, add])
+        fit.full.phases = tuple(fit.full.phases) + tuple(
+            "|".join(n for n, on in zip(cl.names, r) if on) or "ref" for r in add
+        )
+        fit.kept["phase_scale"] = np.concatenate(
+            [fit.kept["phase_scale"], np.exp(cl.log_factor @ add.T)], axis=1
+        )
+    return place[np.ravel(inv)]
+
+
+def phase_level_shift(fit: Fit, rows: np.ndarray, lease: np.ndarray) -> np.ndarray:
     """The change in x beta of frame rows `rows` at each kept draw, (draws, rows), when L2's
-    phase columns move from each row's own phase to `phase`."""
-    cols, which = level_columns(fit.names, fit.full.phases)
-    old = fit.full.phase[rows][:, None] == which[None, :]
-    new = np.asarray(phase)[:, None] == which[None, :]
+    phase columns move from each row's own lease phase to `lease`."""
+    cols, which = level_columns(fit.names, fit.full.leases)
+    old = fit.full.lease[rows][:, None] == which[None, :]
+    new = np.asarray(lease)[:, None] == which[None, :]
     return fit.kept["beta"][:, cols] @ (new.astype(float) - old).T
 
 
@@ -1390,8 +1688,8 @@ def today_rows(fit: Fit, apts: pd.DataFrame, day: pd.Timestamp) -> Rows:
         xb += beta_s @ (new[:, None] - fit.season[rows].T)
     week, frac = grid_time(fit, day)
     phase = phase_today(fit, rows, day)
-    if level_columns(fit.names, fit.full.phases)[0]:
-        xb += phase_level_shift(fit, rows, phase)
+    if level_columns(fit.names, fit.full.leases)[0]:
+        xb += phase_level_shift(fit, rows, lease_today(fit, rows, day, phase))
     if fit.seg is not None:
         xb += segment_shift(fit, rows, (week + frac) / drift.YEAR_WEEKS)
     n = len(rows)

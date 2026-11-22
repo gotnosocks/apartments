@@ -7,8 +7,18 @@ import pytest
 import test_drift as td
 import test_drift_building_phase_line as tln
 
-from rentfrontier import drift, drift_building_phase, drift_building_phase_duplex
+from rentfrontier import (
+    building_attrs,
+    drift,
+    drift_building_phase,
+    drift_building_phase_duplex,
+    drift_building_phase_year,
+    drift_score,
+)
 from rentfrontier import drift_building_phase_segment as seg_model
+from rentfrontier import drift_building_phase_unitkn_ablate as ablate
+from rentfrontier import drift_building_phase_unitkn_unified as unified
+from rentfrontier import drift_building_phase_unitkn_unified_seg as unified_seg
 from rentfrontier import drift_today as dt
 
 SC = dict(ss=0.06, sd=0.08, tau_u=2.5, s2=0.03**2, rho=0.8, nu=5.0)
@@ -596,7 +606,9 @@ def phase_fit(phases, phase, price_at, unit_id, held):
     fit = SimpleNamespace()
     fit.frame = pd.DataFrame({"price_at": price_at, "unit_id": unit_id})
     fit.held = np.asarray(held)
-    fit.full = SimpleNamespace(phase=np.asarray(phase), phases=tuple(phases))
+    fit.full = SimpleNamespace(
+        phase=np.asarray(phase), phases=tuple(phases), cells=None
+    )
     return fit
 
 
@@ -636,7 +648,7 @@ def test_phase_level_shift_moves_the_columns_to_todays_phase():
     fit = SimpleNamespace(
         names=names,
         kept={"beta": beta},
-        full=SimpleNamespace(phase=own, phases=P),
+        full=SimpleNamespace(phase=own, phases=P, lease=own, leases=P),
     )
     today = np.array([2, 1, 6, 0, 6, 3])
 
@@ -664,7 +676,13 @@ def test_today_rows_moves_l2s_levels_and_the_paths_to_the_day(monkeypatch):
         season_cols=[],
         start=pd.Timestamp("2025-01-06"),
         full=SimpleNamespace(
-            phase=own, phases=P, site=np.arange(4), group=np.zeros(4, int)
+            phase=own,
+            phases=P,
+            lease=own,
+            leases=P,
+            cells=None,
+            site=np.arange(4),
+            group=np.zeros(4, int),
         ),
         seg=SimpleNamespace(),
     )
@@ -873,3 +891,376 @@ def test_the_student_t_unit_models_are_served():
         "drift-building-phase-unitkn-segment",
     ):
         assert name in dt.MODELS
+
+
+# ------------------------------------------------------------------ noise cells
+
+
+def test_the_unified_and_ablation_models_are_served():
+    for spec in (unified, unified_seg, ablate):
+        assert dt.MODELS[spec.NAME] is spec
+
+
+def test_the_ablation_design_takes_the_runs_variant():
+    assert dt.design_kw(unified, {"ablate_variant": ["y1"]}) == {}
+    got = dt.design_kw(ablate, {"ablate_variant": ["sbf", "y1", "marks", "covid_vol"]})
+    assert got == {"variant": ("sbf", "y1", "marks", "covid_vol")}
+    with pytest.raises(SystemExit, match="no ablate_variant"):
+        dt.design_kw(ablate, {})
+    for token in dt.DAY_MEAN_TOKENS:
+        with pytest.raises(SystemExit, match=token):
+            dt.design_kw(ablate, {"ablate_variant": ["y1", token]})
+
+
+def cell_frame(seed=0, n=500):
+    """Ads of 6 buildings over 2022 to mid 2026, a tenth with no unit."""
+    rng = np.random.default_rng(seed)
+    unit = pd.Series([f"u{i}" for i in rng.integers(0, 20, n)], dtype=object)
+    unit[rng.uniform(size=n) < 0.1] = None
+    at = pd.Timestamp("2022-01-03", tz="UTC") + pd.to_timedelta(
+        rng.integers(0, 1640 * 86400, n), "s"
+    )
+    return pd.DataFrame(
+        {
+            "audit_id": np.arange(n).astype(str),
+            "building": [f"B{i}" for i in rng.integers(0, 6, n)],
+            "unit_id": unit,
+            "price_at": at,
+            "bedrooms": rng.integers(0, 4, n).astype(float),
+        }
+    )
+
+
+def cell_design(frame, held, changed, covid):
+    """The unified models' noise cells of `frame`, as their designs build them: lease
+    phase, year, a coded mark, the thin first ad, the new-unit marks and the Covid regime."""
+    P, Y = drift_building_phase.PHASES, drift_building_phase_year.YEARS
+    lease = drift_building_phase.phase_index(frame)
+    year = drift_building_phase_year.year_index(frame)
+    none = lease == P.index("none")
+    count = unified.prior_bld_bed_count(frame, ~held)
+    bed = frame.bedrooms.to_numpy()
+    cols = (
+        {f"phase:{p}": lease == P.index(p) for p in P[1:]}
+        | {f"yr:{y}": year == Y.index(y) for y in Y[1:]}
+        | {
+            "mark:changed_counts": changed,
+            "mark:thin_first_ad": none & (count < unified.THIN_BLD_BED_MAX),
+            "mark:covid_surge": covid == 2,
+            "mark:covid_elevated": covid == 1,
+            "mark:new_bed2": none & (bed == 2),
+            "mark:new_bed3p": none & (bed >= 3),
+        }
+    )
+    mat = np.column_stack(list(cols.values())).astype(float)
+    phase, phases, pmap, free = unified.compact_phase_map(list(cols), mat, ~held)
+    return SimpleNamespace(phase=phase, phases=phases, phase_map=pmap), free
+
+
+def cell_fit(seed=0, draws=4, held_2026=False):
+    frame = cell_frame(seed)
+    rng = np.random.default_rng(seed + 1)
+    n = len(frame)
+    held = rng.uniform(size=n) < 0.2
+    if held_2026:
+        held |= frame.price_at.dt.year.to_numpy() == 2026
+    changed = rng.uniform(size=n) < 0.2
+    d, free = cell_design(frame, held, changed, rng.integers(0, 3, n))
+    cells = dt.cell_terms(d, frame)
+    logf = rng.normal(0, 0.3, (draws, cells.pmap.shape[1]))
+    scale = np.exp(logf @ cells.pmap.T)
+    cells.log_factor = dt.log_factors(cells.pmap, scale)
+    full = SimpleNamespace(
+        phase=d.phase,
+        phases=d.phases,
+        lease=cells.lease,
+        leases=drift_building_phase.PHASES,
+        cells=cells,
+        site=np.zeros(n, int),
+        group=np.arange(n) % 4,
+    )
+    fit = SimpleNamespace(
+        frame=frame, held=held, kept={"phase_scale": scale}, full=full
+    )
+    return fit, d, free, logf, changed
+
+
+def test_cell_terms_read_the_factors_from_the_cells_names():
+    fit, d, free, logf, _ = cell_fit()
+    cells = fit.full.cells
+    assert cells.names == free
+    np.testing.assert_array_equal(
+        cells.lease, drift_building_phase.phase_index(fit.frame)
+    )
+    np.testing.assert_allclose(cells.log_factor, logf, atol=1e-10)
+    # A row whose cell does not hold its own lease phase is not the design's.
+    bad = d.phase.copy()
+    bad[np.flatnonzero(cells.lease == drift_building_phase.PHASES.index("0-2"))[0]] = 0
+    with pytest.raises(SystemExit, match="phase:0-2"):
+        dt.cell_terms(SimpleNamespace(**(vars(d) | {"phase": bad})), fit.frame)
+    # A factor drift_today cannot set for a day is refused.
+    odd = vars(d) | {
+        "phases": tuple(p.replace("mark:changed", "mark:odd") for p in d.phases)
+    }
+    with pytest.raises(SystemExit, match="mark:odd"):
+        dt.cell_terms(SimpleNamespace(**odd), fit.frame)
+    with pytest.raises(SystemExit, match="not the phase_map"):
+        dt.log_factors(
+            cells.pmap, fit.kept["phase_scale"] * 1.01 ** np.arange(len(d.phases))
+        )
+    assert (
+        dt.cell_terms(SimpleNamespace(phase=d.phase, phases=d.phases), fit.frame)
+        is None
+    )
+
+
+def test_cell_today_moves_the_lease_year_and_day_marks_and_keeps_the_rest(monkeypatch):
+    fit, _, _, logf, changed = cell_fit()
+    monkeypatch.setattr(dt, "covid_regime", lambda day: (0.0, 1.0))
+    day = pd.Timestamp("2026-07-01")
+    n = len(fit.frame)
+    own = fit.full.phase.copy()
+    before = fit.kept["phase_scale"].copy()
+    got = dt.cell_today(fit, np.arange(n), day)
+    cl, held = fit.full.cells, fit.held
+    # An ad on the market keeps its own cell.
+    np.testing.assert_array_equal(got[held], own[held])
+    v = pd.DataFrame(cl.pmap[got], columns=cl.names)
+    lease = dt.lease_names(fit, np.arange(n), day)
+    free = ~held
+    for p in drift_building_phase.PHASES[1:]:
+        np.testing.assert_array_equal(v[f"phase:{p}"][free], (lease == p)[free])
+    assert (v.filter(like="yr:")[free].sum(axis=1) == 1).all()
+    assert v["yr:2026"][free].all()
+    np.testing.assert_array_equal(v["mark:changed_counts"][free], changed[free])
+    assert (v["mark:covid_elevated"][free] == 1).all()
+    assert (v["mark:covid_surge"][free] == 0).all()
+    f = fit.frame
+    key = f.building + "|" + f.bedrooms.astype(int).astype(str)
+    count = key.map(key[free].value_counts()).fillna(0).to_numpy()
+    new = lease == "none"
+    thin = new & (count < unified.THIN_BLD_BED_MAX)
+    np.testing.assert_array_equal(v["mark:thin_first_ad"][free], thin[free])
+    np.testing.assert_array_equal(
+        v["mark:new_bed2"][free], (new & (f.bedrooms == 2).to_numpy())[free]
+    )
+    np.testing.assert_array_equal(
+        v["mark:new_bed3p"][free], (new & (f.bedrooms >= 3).to_numpy())[free]
+    )
+    # Cells the fit never saw are added with their factors from the fit's, and the
+    # cells it saw keep theirs.
+    k = len(before[0])
+    assert got.max() >= k
+    np.testing.assert_array_equal(fit.kept["phase_scale"][:, :k], before)
+    np.testing.assert_allclose(
+        fit.kept["phase_scale"][:, got], np.exp(logf @ cl.pmap[got].T), rtol=1e-8
+    )
+    assert len(fit.full.phases) == len(cl.pmap) == fit.kept["phase_scale"].shape[1]
+    for i in np.flatnonzero(free)[:20]:
+        on = [m for m, x in zip(cl.names, cl.pmap[got[i]]) if x]
+        assert fit.full.phases[got[i]] == ("|".join(on) or "ref")
+    # Asked again, the cells are the ones already added.
+    np.testing.assert_array_equal(dt.cell_today(fit, np.arange(n), day), got)
+    assert fit.kept["phase_scale"].shape[1] == len(cl.pmap)
+
+
+def test_a_year_or_cell_the_fit_cannot_price_is_refused(monkeypatch):
+    monkeypatch.setattr(dt, "covid_regime", lambda day: (0.0, 0.0))
+    fit = cell_fit(held_2026=True)[0]
+    assert "yr:2026" not in fit.full.cells.names
+    with pytest.raises(SystemExit, match="yr factor for 2026"):
+        dt.cell_today(fit, np.arange(len(fit.frame)), pd.Timestamp("2026-07-01"))
+    # Two factors that only ever come together leave each one's factor free.
+    cl = SimpleNamespace(
+        pmap=np.array([[0, 0, 0], [1, 1, 0], [0, 0, 1]], float),
+        names=["phase:none", "mark:thin_first_ad", "mark:baths_2"],
+        log_factor=np.log([[1.0, 2.0, 3.0]]),
+    )
+    fit = SimpleNamespace(
+        full=SimpleNamespace(cells=cl, phases=("ref", "a", "b")),
+        kept={"phase_scale": np.array([[1.0, 2.0, 3.0]])},
+    )
+    got = dt.cell_index(fit, np.array([[1, 1, 1], [0, 0, 1], [1, 1, 1]]))
+    np.testing.assert_array_equal(got, [3, 2, 3])
+    np.testing.assert_allclose(fit.kept["phase_scale"], [[1.0, 2.0, 3.0, 6.0]])
+    assert fit.full.phases[3] == "phase:none|mark:thin_first_ad|mark:baths_2"
+    with pytest.raises(SystemExit, match="leave free"):
+        dt.cell_index(fit, np.array([[1, 0, 0]]))
+
+
+def test_covid_regime_is_the_ablation_designs(tmp_path, monkeypatch):
+    reg = tmp_path / "registry.parquet"
+    pd.DataFrame({"building": ["B"], "bbl": [1000000001]}).to_parquet(reg, index=False)
+    monkeypatch.setattr(building_attrs, "REGISTRY", reg)
+    csv = tmp_path / "covid.csv"
+    days = pd.date_range("2020-03-01", "2020-07-01", freq="D")
+    hosp = np.r_[np.linspace(0, 400, 60), np.linspace(400, 10, len(days) - 60)]
+    hosp[40] = np.nan
+    table = {"date_of_interest": days.strftime("%m/%d/%Y"), "HOSP_COUNT_7DAY_AVG": hosp}
+    for b in ("MN", "BX", "BK", "QN", "SI"):
+        table[f"{b}_HOSPITALIZED_COUNT_7DAY_AVG"] = hosp / 5
+        table[f"{b}_CASE_COUNT_7DAY_AVG"] = hosp * 3
+    table["CASE_COUNT_7DAY_AVG"] = hosp * 15
+    pd.DataFrame(table).to_csv(csv, index=False)
+    at = pd.date_range("2019-12-01", "2020-09-30", freq="37h", tz="UTC")
+    frame = pd.DataFrame(
+        {"building": "B", "price_at": at.astype(str), "bedrooms": np.ones(len(at))}
+    )
+
+    class Design:
+        names = ("alpha",)
+        x = np.ones((len(at), 1))
+        y = np.zeros(len(at))
+
+    want = ablate.covid_features(frame, Design(), csv_path=csv)[2]
+    got = np.array([dt.covid_regime(t, csv) for t in at])
+    assert want[:, 0].any() and want[:, 1].any() and (want.sum(axis=1) == 0).any()
+    np.testing.assert_array_equal(got, want)
+
+
+def test_the_unified_segment_paths_leave_their_reference_columns_out():
+    rng = np.random.default_rng(3)
+    n = 600
+    week = np.sort(rng.integers(0, 90, n))
+    base = SegDesign(
+        x=np.ones((n, 1)),
+        names=["alpha"],
+        count={},
+        week=week,
+        frac=rng.uniform(0, 1, n),
+        start=pd.Timestamp("2023-10-02"),
+        site=rng.integers(0, 3, n),
+        group=rng.integers(0, 4, n),
+        surfaces=[{"name": "manhattan", "sites": 2}, {"name": "outer", "sites": 1}],
+    )
+    d = unified_seg.identifiable_segment_paths(base)
+    seg = [c for c in d.names if c.startswith("seg:")]
+    assert seg and not any(
+        c.startswith(f"seg:{unified_seg.REF_SEGMENT}:")
+        or c.endswith(f":{unified_seg.REF_QUARTER}")
+        for c in seg
+    )
+    sg = dt.segment_terms(d, d.names)
+    full = seg_model.segment_paths(base)
+    assert len(sg.cols) < len(dt.segment_terms(full, full.names).cols)
+    beta = rng.standard_normal((2, len(d.names)))
+    fit = SimpleNamespace(
+        seg=sg,
+        pick=np.arange(2),
+        kept={"beta": beta},
+        full=SimpleNamespace(t=drift.years(d)),
+    )
+    rows = rng.choice(n, 60, replace=False)
+
+    def x_at(t):
+        h = seg_model.hat_weights(np.full(len(rows), t), sg.knots)[:, sg.j]
+        return h * ((sg.row[rows][:, None] == sg.k) - sg.share[sg.j, sg.k])
+
+    old = d.x[rows][:, sg.cols]
+    for t_new in (0.1, 0.9, sg.knots[-1]):
+        want = (x_at(t_new) - old) @ beta[:, sg.cols].T
+        np.testing.assert_allclose(
+            dt.segment_shift(fit, rows, t_new), want.T, atol=1e-12
+        )
+    # On 2024-01-01 every path is 0, so an ad then moves only by its own time's path.
+    ref = (unified_seg.REFERENCE - base.start).days / seg_model.YEAR_DAYS
+    np.testing.assert_allclose(
+        dt.segment_shift(fit, rows, ref), -(old @ beta[:, sg.cols].T).T, atol=1e-12
+    )
+
+
+def test_todays_held_out_ads_score_as_drift_score_scores_them(tmp_path, monkeypatch):
+    monkeypatch.setattr(dt, "covid_regime", lambda day: (1.0, 0.0))
+    fit = cell_fit(seed=4, draws=6)[0]
+    held = np.flatnonzero(fit.held)
+    m, draws = len(held), len(fit.kept["phase_scale"])
+    rng = np.random.default_rng(5)
+    y = rng.normal(8, 0.4, m)
+    fit.frame["latest_ask"] = np.nan
+    fit.frame.loc[held, "latest_ask"] = np.exp(y)
+    loc = y + rng.normal(0, 0.1, (draws, m))
+    usd = rng.uniform(0.05, 0.15, (draws, m))
+    sigma = rng.uniform(0.05, 0.2, (draws, 4))
+    nu = rng.uniform(3, 9, draws)
+    group = fit.full.group[held]
+    np.savez(
+        tmp_path / "posterior.npz",
+        **{
+            "kept/pred_loc": loc[None],
+            "kept/pred_unit_sd": usd[None],
+            "kept/sigma": sigma[None],
+            "kept/nu": nu[None],
+            "kept/phase_scale": fit.kept["phase_scale"][None],
+            "kept/pred_y": y,
+            "kept/pred_group": group,
+            "kept/pred_phase": fit.full.phase[held],
+        },
+        heldout=held,
+    )
+    theirs = drift_score.score_run(tmp_path)
+    # The Today table's apartments come first and add the day's cells to the fit's.
+    k = fit.kept["phase_scale"].shape[1]
+    dt.phase_today(fit, np.arange(len(fit.frame)), pd.Timestamp("2026-07-01"))
+    assert fit.kept["phase_scale"].shape[1] > k
+    phase = dt.phase_today(fit, held, pd.Timestamp("2026-07-01"))
+    np.testing.assert_array_equal(phase, fit.full.phase[held])
+    comp = dict(loc=loc, usd=usd, sigma=sigma, nu=nu, phase=fit.kept["phase_scale"])
+    got = dt.check(fit, comp, SimpleNamespace(group=group, phase=phase), theirs)
+    assert got["elpd"]["today"] == got["elpd"]["fit"]
+    assert got["median_gap"]["median_abs"] == 0 and got["median_gap"]["p95_abs"] == 0
+    assert got["coverage"]["today"] == got["coverage"]["fit"]
+
+
+def test_today_rows_moves_l2s_levels_by_the_lease_phase_not_the_cell(monkeypatch):
+    monkeypatch.setattr(dt, "covid_regime", lambda day: (0.0, 0.0))
+    fit = cell_fit(seed=6)[0]
+    n = len(fit.frame)
+    P = drift_building_phase.PHASES
+    names = ["alpha", "phase:none", "phase:0-2", "phase:26+"]
+    rng = np.random.default_rng(7)
+    base = rng.standard_normal((4, n))
+    fit.names, fit.season_cols, fit.seg = names, [], None
+    fit.kept["beta"] = rng.standard_normal((4, len(names)))
+    fit.start = pd.Timestamp("2022-01-03")
+    monkeypatch.setattr(dt, "base_xb", lambda f, rows: base.copy())
+    apts = pd.DataFrame({"row": np.arange(n), "unit": np.arange(n)})
+    day = pd.Timestamp("2026-07-01")
+    rw = dt.today_rows(fit, apts, day)
+    lease = pd.Index(P).get_indexer(dt.lease_names(fit, np.arange(n), day))
+    lease[fit.held] = fit.full.lease[fit.held]
+    want = (
+        fit.kept["beta"][:, 1:]
+        @ (
+            (lease[:, None] == [1, 2, 6]).astype(float)
+            - (fit.full.lease[:, None] == [1, 2, 6])
+        ).T
+    )
+    assert np.abs(want).max() > 0
+    np.testing.assert_allclose(rw.xb, base + want)
+    np.testing.assert_array_equal(rw.phase[fit.held], fit.full.phase[fit.held])
+    assert rw.phase.max() < len(fit.full.phases)
+
+
+def test_y1_pre2024_treats_2024_and_later_as_reference(monkeypatch):
+    monkeypatch.setattr(dt, "covid_regime", lambda day: (0.0, 0.0))
+    fit = cell_fit(seed=8)[0]
+    cl = fit.full.cells
+    keep = [
+        j
+        for j, name in enumerate(cl.names)
+        if not (name.startswith("yr:") and int(name.split(":")[1]) >= 2024)
+    ]
+    cl.names = [cl.names[j] for j in keep]
+    cl.pmap = cl.pmap[:, keep]
+    cl.log_factor = cl.log_factor[:, keep]
+    cl.ref_years = {2024, 2025, 2026}
+    fit.full.phases = tuple(
+        "|".join(n for n, on in zip(cl.names, r) if on) or "ref" for r in cl.pmap
+    )
+    fit.kept["phase_scale"] = np.exp(cl.log_factor @ cl.pmap.T)
+    rows = np.flatnonzero(~fit.held)
+    for day in ("2024-06-01", "2025-11-10", "2026-11-22"):
+        phase = dt.cell_today(fit, rows, pd.Timestamp(day))
+        # No yr:* factor is active for 2024+ under y1_pre2024.
+        yr_cols = [j for j, n in enumerate(cl.names) if n.startswith("yr:")]
+        assert not (cl.pmap[phase][:, yr_cols] > 0.5).any()

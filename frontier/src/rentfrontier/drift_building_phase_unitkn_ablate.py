@@ -10,9 +10,13 @@ Supported variant tokens (all strictly leak-free):
 - `bedunit`: adds unit-ever `uever:ad:bed_text_smaller` (replaces `bedtext` with `bedunit`).
 - `layrng`: adds 8 strictly as-of bed/bath change and range columns (`layout` + `layout-range`).
 - `size`: adds filled-size slope (`ad:size_imp_log_size_rel`) + `ad:large_01br`.
-- `y1`: adds calendar-year additive noise scale factors (`yr:2014..2026`).
+- `y1`: adds calendar-year additive noise scale factors with 2024 as the reference.
+- `y1_pre2024`: restricts year factors to 2014–2023, keeping 2024 onward at reference.
 - `marks`: adds all 6 exogenous noise-scale marks from `unified`.
 - `marks_no_thin`: adds 5 exogenous noise-scale marks (excluding `mark:thin_first_ad`).
+- `mark_changed`, `mark_baths`, `mark_floor1`, `mark_large01br`, `mark_thin`:
+  add the selected unified scale marks. `mark_baths` adds both bath categories.
+- `seg`: adds the identifiable quarterly Matérn-3/2 segment paths from `unified-seg`.
 - `covid_mean`: adds 14-day-lagged NYC DOHMH borough-relative Covid hospitalizations/cases and
   Covid x property-type (Manhattan, 2+BR, doorman, private outdoor) mean interactions.
 - `covid_vol`: adds 2 causal 14-day-lagged Covid volatility regime scale marks (`surge`, `elevated`).
@@ -43,6 +47,7 @@ from . import (
     drift_building_phase_unitkn_level_bedtext,
     drift_building_phase_unitkn_level_bedunit,
     drift_building_phase_unitkn_unified,
+    drift_building_phase_unitkn_unified_seg,
     drift_building_phase_year,
 )
 from .building_zones_kitchen_sink import EXTERNAL_ROOT, append
@@ -64,8 +69,6 @@ from .drift_building_phase_unitkn_level import (  # noqa: F401
     Design,
     Priors,
     Settings,
-    diagnostics,
-    gp_spec,
     make_sampler,
     months_since_previous,
     phase_index,
@@ -74,23 +77,33 @@ from .drift_building_phase_unitkn_level import (  # noqa: F401
     site_zone,
     split_index,
     subset,
-    summarize,
     wave_matrix,
     years,
 )
+from .drift_building_phase_unitkn_unified_seg import diagnostics  # noqa: F401
 
 NAME = "drift-building-phase-unitkn-ablate"
 COVID_CSV = EXTERNAL_ROOT / "covid" / "20261122-nychealth" / "data-by-day.csv"
 RENTSTAB_PARQUET = EXTERNAL_ROOT / "rentstab" / "20261008-b487c8a" / "rentstab.parquet"
 
+MARK_TOKENS = {
+    "mark_changed": ("mark:changed_counts",),
+    "mark_baths": ("mark:baths_2", "mark:baths_3p"),
+    "mark_floor1": ("mark:floor_1",),
+    "mark_large01br": ("mark:large_01br",),
+    "mark_thin": ("mark:thin_first_ad",),
+}
 ALL_TOKENS = (
     "sbf",
     "bedunit",
     "layrng",
     "size",
     "y1",
+    "y1_pre2024",
     "marks",
     "marks_no_thin",
+    *MARK_TOKENS,
+    "seg",
     "covid_mean",
     "covid_vol",
     "concess_gap",
@@ -133,6 +146,11 @@ def _extract_variant(argv: list[str]) -> tuple[tuple[str, ...], list[str]]:
         elif argv[i].startswith("--variant="):
             val = argv[i].split("=", 1)[1]
             i += 1
+        elif argv[i] == "--ablate" or argv[i].startswith("--ablate="):
+            raise ValueError(
+                "unknown flag --ablate; pass --variant TOKENS instead "
+                "(b0.parse_known_args would otherwise silently drop it)"
+            )
         else:
             out.append(argv[i])
             i += 1
@@ -425,12 +443,19 @@ def design(
         d = drift_building_phase_unitkn_level_bedtext.with_flag(d, frame, held)
 
     # 3. Mean upgrades
-    need_layrng = ("layrng" in tok) or ("marks" in tok) or ("marks_no_thin" in tok)
     if "layrng" in tok:
         d = drift_building_bedtext_layout.with_layout(d, frame, held)
         d = drift_building_bedtext_layout_range.with_range(d, frame, held)
 
-    l01 = drift_building_phase_unitkn_unified.large_01br_flag(d, frame)
+    mark_tokens = tok & MARK_TOKENS.keys()
+    if "marks" in tok:
+        mark_tokens.update(MARK_TOKENS)
+    elif "marks_no_thin" in tok:
+        mark_tokens.update(MARK_TOKENS.keys() - {"mark_thin"})
+    marks = {mark for token in mark_tokens for mark in MARK_TOKENS[token]}
+
+    if "size" in tok or "mark:large_01br" in marks:
+        l01 = drift_building_phase_unitkn_unified.large_01br_flag(d, frame)
     if "size" in tok:
         imp = _col(d, "unit:size_imputed")
         lsr = _col(d, "unit:log_size_rel")
@@ -457,13 +482,12 @@ def design(
     # 4. Additive noise-scale upgrades (only when any scale token is active)
     scale_tokens = tok & {
         "y1",
-        "marks",
-        "marks_no_thin",
+        "y1_pre2024",
         "covid_vol",
         "income_scale",
         "u4_bed",
     }
-    if scale_tokens:
+    if scale_tokens or marks:
         ph_names = [f"phase:{p}" for p in PHASES[1:]]
         ph_mat = (base_phase[:, None] == np.arange(1, len(PHASES))[None, :]).astype(
             float
@@ -471,58 +495,47 @@ def design(
         factor_names = list(ph_names)
         mats = [ph_mat]
 
-        if "y1" in tok:
-            yr_idx = drift_building_phase_year.year_index(frame)
-            yr_names = [f"yr:{y}" for y in drift_building_phase_year.YEARS[1:]]
-            yr_mat = (
-                yr_idx[:, None]
-                == np.arange(1, len(drift_building_phase_year.YEARS))[None, :]
-            ).astype(float)
-            factor_names.extend(yr_names)
-            mats.append(yr_mat)
-
-        if "marks" in tok or "marks_no_thin" in tok:
-            # Compute changed_counts strictly from layout-range helper without adding mean cols
-            # unless `layrng` was requested.
-            if "layrng" in tok:
-                d_rng = d
-            else:
-                d_rng = drift_building_bedtext_layout_range.with_range(
-                    drift_building_bedtext_layout.with_layout(d, frame, held),
-                    frame,
-                    held,
-                )
-            rng_cols = [
-                _col(d_rng, c) > 0.5
-                for c in drift_building_bedtext_layout_range.COLUMNS
+        if tok & {"y1", "y1_pre2024"}:
+            year = drift_building_phase_year
+            selected = [
+                (j, y)
+                for j, y in enumerate(year.YEARS[1:], 1)
+                if "y1_pre2024" not in tok or y < year.REFERENCE_YEAR
             ]
-            changed_counts = np.logical_or.reduce(rng_cols).astype(float)
-            fb = frame.full_baths.to_numpy(float)
-            baths_2 = (fb == 2).astype(float)
-            baths_3p = (fb >= 3).astype(float)
-            fl1 = drift_building_phase_unitkn_unified.floor_1_flag(d)
-            if "marks" in tok:
-                none_idx = PHASES.index("none")
-                prior_bb = drift_building_phase_unitkn_unified.prior_bld_bed_count(
-                    frame, train
-                )
-                thin_first = (
-                    (base_phase == none_idx)
-                    & (prior_bb < drift_building_phase_unitkn_unified.THIN_BLD_BED_MAX)
-                ).astype(float)
-                factor_names.extend(drift_building_phase_unitkn_unified.SCALE_MARKS)
-                mats.append(
-                    np.column_stack(
-                        [changed_counts, baths_2, baths_3p, fl1, l01, thin_first]
-                    )
-                )
+            yr_idx = year.year_index(frame)
+            factor_names.extend(f"yr:{y}" for _, y in selected)
+            mats.append(yr_idx[:, None] == [j for j, _ in selected])
+
+        mark_cols = {}
+        if "mark:changed_counts" in marks:
+            if "layrng" in tok:
+                cols = drift_building_bedtext_layout_range.COLUMNS
+                changed = np.logical_or.reduce([_col(d, c) > 0.5 for c in cols])
             else:
-                factor_names.extend(
-                    drift_building_phase_unitkn_unified.SCALE_MARKS[:-1]
+                changed = drift_building_bedtext_layout_range.marks(frame, train).any(
+                    axis=1
                 )
-                mats.append(
-                    np.column_stack([changed_counts, baths_2, baths_3p, fl1, l01])
-                )
+            mark_cols["mark:changed_counts"] = changed
+        if "mark:baths_2" in marks:
+            fb = frame.full_baths.to_numpy(float)
+            mark_cols["mark:baths_2"] = fb == 2
+            mark_cols["mark:baths_3p"] = fb >= 3
+        if "mark:floor_1" in marks:
+            mark_cols["mark:floor_1"] = (
+                drift_building_phase_unitkn_unified.floor_1_flag(d)
+            )
+        if "mark:large_01br" in marks:
+            mark_cols["mark:large_01br"] = l01
+        if "mark:thin_first_ad" in marks:
+            prior_bb = drift_building_phase_unitkn_unified.prior_bld_bed_count(
+                frame, train
+            )
+            mark_cols["mark:thin_first_ad"] = (base_phase == PHASES.index("none")) & (
+                prior_bb < drift_building_phase_unitkn_unified.THIN_BLD_BED_MAX
+            )
+        if mark_cols:
+            factor_names.extend(mark_cols)
+            mats.append(np.column_stack(list(mark_cols.values())))
 
         if "covid_vol" in tok:
             assert covid_vol_mat is not None
@@ -554,24 +567,42 @@ def design(
         )
         d = dataclasses.replace(d, phase=cell_idx, phases=cell_names, phase_map=pmap)
 
-    _ = need_layrng
-    return d
+    return (
+        drift_building_phase_unitkn_unified_seg.identifiable_segment_paths(d)
+        if "seg" in tok
+        else d
+    )
+
+
+def gp_spec(names: list[str]) -> list[dict] | None:
+    """The unified segment GP spec when enabled, including the existing floor GPs."""
+    if "seg" in ACTIVE_VARIANT or any(n.startswith("seg:") for n in names):
+        return drift_building_phase_unitkn_unified_seg.gp_spec(names)
+    return None
+
+
+def summarize(kept: dict, names: list[str]) -> dict:
+    """Summarize the noise factors and any fitted segment GP scales."""
+    if any(n.startswith("seg:") for n in names):
+        return drift_building_phase_unitkn_unified_seg.summarize(kept, names)
+    return drift.summarize(kept, names)
 
 
 def run(d: Design, priors: Priors, settings: Settings, log=print, checkpoint=None):
-    """Run L2-unitkn sweep, automatically enabling `phase_collapsed` when `phase_map` is set."""
+    """Run the L2-unitkn sweep, collapsing the noise step for free mapped factors."""
     return drift.run(
         d,
         priors,
         settings,
         log,
         checkpoint,
+        gp=gp_spec(d.names) or "spec",
         groups=drift.groups_of(d, GROUPS),
         unit_t=True,
         unit_dof_fixed=UNIT_DOF,
         unit_kap_collapsed=True,
         row_dof_fixed=ROW_DOF,
-        phase_collapsed=(d.phase_map is not None),
+        phase_collapsed=d.phase_map is not None and d.phase_map.shape[1] > 0,
     )
 
 

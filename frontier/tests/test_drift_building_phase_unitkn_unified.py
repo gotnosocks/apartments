@@ -144,7 +144,7 @@ def test_unified_scales_logp_matches_dense_and_runs_smoke():
     )
     out = U.run(train, U.Priors(), settings, log=lambda *_: None)
     assert out["kept"]["phase_scale"].shape[-1] == len(cell_names)
-    assert out["trace"]["phase_scale"].shape[-1] == len(cell_names)
+    assert out["trace"]["phase_factor"].shape[-1] == len(kept)
     out_seg = US.run(train_seg, US.Priors(), settings, log=lambda *_: None)
     assert out_seg["kept"]["phase_scale"].shape[-1] == len(cell_names)
     diag_seg = US.diagnostics(out_seg["trace"], train_seg.names)
