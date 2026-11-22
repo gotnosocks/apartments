@@ -799,10 +799,29 @@ def make_sampler(
     m_b, s_b, m_a, s_a = _prior_vectors(d, priors)
     prec_b, lin_b = 1 / s_b**2, m_b / s_b**2
     gps = []
+    gp_kernels = []
     for spec in gp or ():
         pos = np.searchsorted(others, [d.names.index(c) for c in spec["cols"]])
         prec_b[pos], lin_b[pos] = 0.0, 0.0
         gps.append((pos, np.asarray(spec["x"], float), spec["amp"], spec["ls"]))
+        gp_kernels.append((spec.get("kernel", "rbf"), spec.get("nugget")))
+
+    def _gp_cov(xk, ls, kernel, nugget):
+        if kernel == "rbf":
+            if nugget is None:
+                return gp_cov(jnp, xk, ls)
+            K = jnp.exp(-0.5 * (xk[:, None] - xk[None, :]) ** 2 / ls**2)
+            k0 = jnp.exp(-0.5 * xk**2 / ls**2)
+            return K - jnp.outer(k0, k0) + nugget * jnp.eye(xk.shape[0])
+        if kernel == "matern32":
+            r = jnp.sqrt(3.0) * jnp.abs(xk[:, None] - xk[None, :]) / ls
+            K = (1.0 + r) * jnp.exp(-r)
+            r0 = jnp.sqrt(3.0) * jnp.abs(xk) / ls
+            k0 = (1.0 + r0) * jnp.exp(-r0)
+            nug = 1e-4 if nugget is None else nugget
+            return K - jnp.outer(k0, k0) + nug * jnp.eye(xk.shape[0])
+        raise ValueError(f"unknown gp kernel: {kernel!r}")
+
     m_g, s_g = priors.g
     tau_rate = -math.log(priors.tau_alpha) / priors.tau_u
     which = np.concatenate([np.full(len(s["sd"]), k) for k, s in enumerate(d.surfaces)])
@@ -832,13 +851,12 @@ def make_sampler(
     else:
         free = len(d.phases) - 1
     phased = free > 0
-    assert not phase_collapsed or (phased and pmap is None), (
-        "phase_collapsed needs phases and no phase map"
-    )
+    assert not phase_collapsed or phased, "phase_collapsed needs phases"
     assert not ("noise" in fixed_steps and phased), (
         "a held noise step leaves the lease phases' factors undrawn"
     )
     pmap_j = None if pmap is None else jnp.asarray(pmap)
+    pmap_binary = pmap is not None and bool(np.all((pmap == 0.0) | (pmap == 1.0)))
 
     # Rows sorted by building, then unit, then time, and the buildings in blocks.
     t_all = years(d)
@@ -1192,7 +1210,7 @@ def make_sampler(
         A = A.at[sl_b, sl_b].add(jnp.diag(prec_b))
         h = h.at[sl_b].add(lin_b)
         for k, (pos, xk, _, _) in enumerate(gps):
-            Lk = jnp.linalg.cholesky(gp_cov(jnp, xk, st["gp_ls"][k]))
+            Lk = jnp.linalg.cholesky(_gp_cov(xk, st["gp_ls"][k], *gp_kernels[k]))
             Ki = jax.scipy.linalg.cho_solve((Lk, True), jnp.eye(len(pos)))
             A = A.at[np.ix_(pos, pos)].add(Ki / st["gp_amp"][k] ** 2)
         A = A.at[pb, pb].add(1 / s_a**2)
@@ -2078,19 +2096,90 @@ def make_sampler(
         if phase_collapsed:
             # Its key is folded in, so nu, sigma and lam take the keys they had without
             # this step.
-            def logp_phase(lf):
-                ll = b0.t_logpdf(r, nu, row_sd(D, sigma, jnp.exp(lf)))
-                by_phase = seg(ll, D["phase"], num_segments=free + 1)[1:]
-                return by_phase - lf**2 / (2 * PHASE_PRIOR**2)
+            k_ph = jax.random.fold_in(key, PHASE_KEY)
+            if pmap_j is None:
 
-            factor = jnp.exp(
-                b0.slice_vec(
-                    jax.random.fold_in(key, PHASE_KEY),
-                    jnp.log(factor),
-                    logp_phase,
-                    PHASE_NOISE_WIDTH,
+                def logp_phase(lf):
+                    ll = b0.t_logpdf(r, nu, row_sd(D, sigma, jnp.exp(lf)))
+                    by_phase = seg(ll, D["phase"], num_segments=free + 1)[1:]
+                    return by_phase - lf**2 / (2 * PHASE_PRIOR**2)
+
+                factor = jnp.exp(
+                    b0.slice_vec(k_ph, jnp.log(factor), logp_phase, PHASE_NOISE_WIDTH)
                 )
-            )
+            elif pmap_binary:
+                # Exact systematic-scan coordinate slice update over each binary log-factor
+                # in `phase_map` with `lam` integrated out, holding `r`, `nu`, `sigma` fixed.
+                # Carrying u2 = (r / sd)^2 / nu avoids array exp() inside every slice step.
+                lf0 = jnp.log(factor)
+                ph_idx = D["phase"]
+                sd0 = row_sd(D, sigma, factor)
+                u2_0 = (r / sd0) ** 2 / nu
+                half_nu1 = 0.5 * (nu + 1.0)
+
+                def step_factor_bin(carry, j):
+                    lf_cur, u2_cur = carry
+                    active = pmap_j[ph_idx, j] > 0.5
+                    old_v = lf_cur[j]
+                    n_act = jnp.sum(active)
+                    u2_act = jnp.where(active, u2_cur * jnp.exp(2.0 * old_v), 0.0)
+
+                    def logp_j(val):
+                        v = val[0]
+                        ll = -v * n_act - half_nu1 * jnp.sum(
+                            jnp.log1p(u2_act * jnp.exp(-2.0 * v))
+                        )
+                        return (ll - v * v / (2 * PHASE_PRIOR**2))[None]
+
+                    new_v = b0.slice_vec(
+                        jax.random.fold_in(k_ph, j),
+                        old_v[None],
+                        logp_j,
+                        PHASE_NOISE_WIDTH,
+                    )[0]
+                    lf_next = lf_cur.at[j].set(new_v)
+                    u2_next = jnp.where(
+                        active, u2_cur * jnp.exp(2.0 * (old_v - new_v)), u2_cur
+                    )
+                    return (lf_next, u2_next), None
+
+                (lf_new, _), _ = jax.lax.scan(
+                    step_factor_bin, (lf0, u2_0), jnp.arange(free)
+                )
+                factor = jnp.exp(lf_new)
+            else:
+                # General systematic-scan coordinate slice update for non-binary `phase_map`.
+                lf0 = jnp.log(factor)
+                ls_base = jnp.log(sigma[group_all]) + (pmap_j @ lf0)[D["phase"]]
+                ph_idx = D["phase"]
+
+                def step_factor(carry, j):
+                    lf_cur, ls_cur = carry
+                    m_j = pmap_j[ph_idx, j]
+                    active = m_j != 0.0
+                    old_v = lf_cur[j]
+                    ls_without = ls_cur - old_v * m_j
+
+                    def logp_j(val):
+                        v = val[0]
+                        sd_j = jnp.exp(ls_without + v * m_j)
+                        ll = jnp.sum(jnp.where(active, b0.t_logpdf(r, nu, sd_j), 0.0))
+                        return (ll - v * v / (2 * PHASE_PRIOR**2))[None]
+
+                    new_v = b0.slice_vec(
+                        jax.random.fold_in(k_ph, j),
+                        old_v[None],
+                        logp_j,
+                        PHASE_NOISE_WIDTH,
+                    )[0]
+                    lf_next = lf_cur.at[j].set(new_v)
+                    ls_next = ls_without + new_v * m_j
+                    return (lf_next, ls_next), None
+
+                (lf_new, _), _ = jax.lax.scan(
+                    step_factor, (lf0, ls_base), jnp.arange(free)
+                )
+                factor = jnp.exp(lf_new)
         z2 = (r / row_sd(D, sigma, factor)) ** 2
         lam = jax.random.gamma(k3, (nu + 1) / 2, (n,)) / ((nu + z2) / 2)
         return nu, sigma, lam, factor
@@ -2122,7 +2211,7 @@ def make_sampler(
         f = [theta[sl_b][pos] for pos, _, _, _ in gps]
 
         def quad(k, ls):
-            Lk = jnp.linalg.cholesky(gp_cov(jnp, gps[k][1], ls))
+            Lk = jnp.linalg.cholesky(_gp_cov(gps[k][1], ls, *gp_kernels[k]))
             z = jax.scipy.linalg.solve_triangular(Lk, f[k], lower=True)
             return z @ z, 2 * jnp.sum(jnp.log(jnp.diag(Lk)))
 
@@ -2935,6 +3024,12 @@ def run_parser(name=NAME, level_dof=None):
     parser.prog = f"rentfrontier.run --model {name}"
     parser.set_defaults(model=name)
     parser.add_argument("--site-block", type=int)
+    parser.add_argument(
+        "--budget-seconds",
+        type=float,
+        help="stop drawing once sweeps exceed this many seconds "
+        "(default: Settings.budget_seconds)",
+    )
     parser.add_argument(
         "--level-dof",
         type=_level_dof,
