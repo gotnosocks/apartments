@@ -77,7 +77,6 @@ from .drift_building_phase_unitkn_level import (  # noqa: F401
     months_since_previous,
     phase_index,
     phase_levels,
-    run,
     site_rows,
     site_zone,
     split_index,
@@ -88,6 +87,25 @@ from .drift_building_phase_unitkn_level import (  # noqa: F401
 )
 
 NAME = "drift-building-phase-unitkn-unified"
+
+
+def run(d: Design, priors: Priors, settings: Settings, log=print, checkpoint=None):
+    """L1TKN sweep with collapsed `phase_map` updates in the noise step."""
+    return drift.run(
+        d,
+        priors,
+        settings,
+        log,
+        checkpoint,
+        groups=drift.groups_of(d, GROUPS),
+        unit_t=True,
+        unit_dof_fixed=UNIT_DOF,
+        unit_kap_collapsed=True,
+        row_dof_fixed=ROW_DOF,
+        phase_collapsed=True,
+    )
+
+
 SIZE_COLUMNS = ("ad:size_imp_log_size_rel", "ad:large_01br")
 SCALE_MARKS = (
     "mark:changed_counts",

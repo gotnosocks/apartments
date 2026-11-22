@@ -124,8 +124,13 @@ def test_unified_scales_logp_matches_dense_and_runs_smoke():
     # Fixed row nu (unitkn) => 3 hyp + 4 sigma + 4 free factors = 11 scale coords
     assert st["hyp_dirs"].shape == (7 + 4, 7 + 4)
 
-    # Short end-to-end sampling smoke check on unified + unified-seg
-    d_seg = drift_building_phase_segment.segment_paths(d)
+    # Short end-to-end sampling smoke check on unified + unified-seg (with phase_collapsed=True
+    # and identifiable segment paths dropping ref segment + 2024q1)
+    d_seg = US.identifiable_segment_paths(d)
+    seg_cols = [n for n in d_seg.names if n.startswith("seg:")]
+    assert not any(n.endswith(f":{US.REF_QUARTER}") for n in seg_cols)
+    seg_names_present = {n.rsplit(":", 1)[0].split("seg:", 1)[1] for n in seg_cols}
+    assert len(seg_names_present) < len(drift_building_phase_segment.segment_names(d))
     train_seg, _, _ = td._split(d_seg)
     settings = U.Settings(
         chains=2, warmup=4, draws=4, keep_every=2, chunks=1, budget_seconds=None
