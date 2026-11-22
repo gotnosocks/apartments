@@ -799,10 +799,25 @@ def make_sampler(
     m_b, s_b, m_a, s_a = _prior_vectors(d, priors)
     prec_b, lin_b = 1 / s_b**2, m_b / s_b**2
     gps = []
+    gp_kernels = []
     for spec in gp or ():
         pos = np.searchsorted(others, [d.names.index(c) for c in spec["cols"]])
         prec_b[pos], lin_b[pos] = 0.0, 0.0
         gps.append((pos, np.asarray(spec["x"], float), spec["amp"], spec["ls"]))
+        gp_kernels.append((spec.get("kernel", "rbf"), spec.get("nugget")))
+
+    def _gp_cov(xk, ls, kernel, nugget):
+        if kernel == "rbf" and nugget is None:
+            return gp_cov(jnp, xk, ls)
+        if kernel == "matern32":
+            r = jnp.sqrt(3.0) * jnp.abs(xk[:, None] - xk[None, :]) / ls
+            K = (1.0 + r) * jnp.exp(-r)
+            r0 = jnp.sqrt(3.0) * jnp.abs(xk) / ls
+            k0 = (1.0 + r0) * jnp.exp(-r0)
+            nug = 1e-4 if nugget is None else nugget
+            return K - jnp.outer(k0, k0) + nug * jnp.eye(xk.shape[0])
+        raise ValueError(f"unknown gp kernel: {kernel!r}")
+
     m_g, s_g = priors.g
     tau_rate = -math.log(priors.tau_alpha) / priors.tau_u
     which = np.concatenate([np.full(len(s["sd"]), k) for k, s in enumerate(d.surfaces)])
@@ -1191,7 +1206,7 @@ def make_sampler(
         A = A.at[sl_b, sl_b].add(jnp.diag(prec_b))
         h = h.at[sl_b].add(lin_b)
         for k, (pos, xk, _, _) in enumerate(gps):
-            Lk = jnp.linalg.cholesky(gp_cov(jnp, xk, st["gp_ls"][k]))
+            Lk = jnp.linalg.cholesky(_gp_cov(xk, st["gp_ls"][k], *gp_kernels[k]))
             Ki = jax.scipy.linalg.cho_solve((Lk, True), jnp.eye(len(pos)))
             A = A.at[np.ix_(pos, pos)].add(Ki / st["gp_amp"][k] ** 2)
         A = A.at[pb, pb].add(1 / s_a**2)
@@ -2192,7 +2207,7 @@ def make_sampler(
         f = [theta[sl_b][pos] for pos, _, _, _ in gps]
 
         def quad(k, ls):
-            Lk = jnp.linalg.cholesky(gp_cov(jnp, gps[k][1], ls))
+            Lk = jnp.linalg.cholesky(_gp_cov(gps[k][1], ls, *gp_kernels[k]))
             z = jax.scipy.linalg.solve_triangular(Lk, f[k], lower=True)
             return z @ z, 2 * jnp.sum(jnp.log(jnp.diag(Lk)))
 

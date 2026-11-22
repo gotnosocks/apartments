@@ -33,7 +33,6 @@ from .drift_building_phase_segment import (  # noqa: F401
     SEG_AMP,
     SEG_LS,
     diagnostics,
-    gp_spec,
     segment_index,
     segment_names,
     segment_paths,
@@ -72,6 +71,18 @@ from .drift_building_phase_unitkn_unified import (  # noqa: F401
 NAME = "drift-building-phase-unitkn-unified-seg"
 REF_SEGMENT = "manhattan:1br"
 REF_QUARTER = "2024q1"
+SEG_KERNEL = "matern32"
+SEG_NUGGET = 1e-4
+
+
+def gp_spec(names) -> list[dict]:
+    """Floor-curve GPs (RBF) plus segment-path GPs using a Matérn-3/2 kernel with
+    `SEG_NUGGET = 1e-4` so quarterly regime shifts never induce an RBF-nugget double well."""
+    segs = [
+        spec | {"kernel": SEG_KERNEL, "nugget": SEG_NUGGET}
+        for spec in segment_spec(names)
+    ]
+    return drift_building_phase_unitkn_unified.gp_spec(names) + segs
 
 
 def identifiable_segment_paths(d: Design) -> Design:
@@ -124,6 +135,8 @@ def run_record(d: Design) -> dict:
     rec["segments"] = drift_building_phase_segment.run_record(d)["segments"] | {
         "reference_segment": REF_SEGMENT,
         "reference_quarter_dropped": REF_QUARTER,
+        "kernel": SEG_KERNEL,
+        "nugget": SEG_NUGGET,
     }
     return rec
 

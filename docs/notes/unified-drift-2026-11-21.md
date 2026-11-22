@@ -111,3 +111,33 @@ Launching two 2-chain screening pilots (`2 400 1000 10 --seed 21`, ~$3.50 each):
    - Retains **`+4,400 to +5,200` all years** and **`+2,800 to +3,400` on `2022+`** (positive on both Half A and Half B, proving the `+2,153` segment gain over `unified` was real, NOT an artifact of the unidentifiable nullspace).
 3. **`u2s-mkt-p` held-out Δelpd vs `range-j` (`asof-20251110`, `n=9,346`):**
    - **`+200 to +420` elpd** over `range-j` (beating `u1-mkt-p3`'s `+176.8` by `+30 to +220` elpd from segment trajectories into late 2025, positive on both Half A and Half B).
+
+### Stage 2 Pilot Results (`u2s-lat-p`, Commit `3e971ad3`, `$3.45` settled; `$14.11` cumulative)
+- **`u2s-lat-p` (`latest`, 2 chains × 350w + 900d, `1.188 s/sweep`, `$3.45`):**
+  - Held-out Δelpd vs `l2bt` ALL YEARS (`n=189,647`): **`+4,889.0` (SE `181.4`, z=`+26.9`; A `+2,379.3`, B `+2,509.7`)**.
+  - Held-out Δelpd vs `l2bt` `2022+` (`n=130,041`): **`+3,096.7` (SE `140.5`, z=`+22.0`; A `+1,472.8`, B `+1,623.9`)**.
+  - **100% of the `+2,126` elpd segment gain over `unified` held** under full-rank identifiable segment paths!
+  - **Convergence breakthrough:**
+    - 6 of 7 segment GPs passed cleanly in just 2 chains × 900 draws (`R-hat = 1.0003–1.0050`, `ESS = 613–1,331`); `level:outer:1br/3br+` dropped from `R-hat = 2.8` to `0.9998–1.0004` (`ESS = 461–506`); zero-`exp` binary `phase_collapsed` sped up sweeps from `1.357` to **`1.188 s/sweep`** while nearly doubling `phase_scale` min ESS (`71 -> 135`, `max_rhat = 1.027`).
+    - **Sole remaining failure:** `gp_amp/gp_ls[seg:manhattan:2br]` (`R-hat = 4.68`, `ESS = 1`) — chain 0 at `(amp=0.030, ls=0.41 yr)` vs chain 1 at `(amp=0.091, ls=2.28 yr)` (exact same squared-exponential RBF + `0.01`-nugget double well observed in `docs/notes/unitkn-segment-k10-2026-11-14.md` on `manhattan:3br+`).
+  - **Zero-spend proof of fix:** Evaluating the exact marginalized 1D `logp(ls)` profile across `ls ∈ [0.1, 20.0]` yr on all 14 segment-chain posterior means from `u2s-lat-p` showed RBF (`nugget=0.01`) is bimodal on `manhattan:2br` and `manhattan:3br+`, whereas **Matérn-3/2 with `nugget = 1e-4`** is **strictly unimodal on 14/14 profiles** (all peaks in `0.44–1.13 yr`, right in the center of `SEG_LS=(0.0, 0.5)`) AND achieves **`+13.9` higher total marginal log-evidence** than RBF.
+- (`u2s-mkt-p` exited locally at `$0.00` due to concurrent code-dir extraction race; stagger same-SHA launches by ≥10 s.)
+
+---
+
+## Stage 3 Full 6-Chain Gate Fits (Matérn-3/2 Segment Paths + Identifiability + `phase_collapsed`)
+
+Launching TWO full 6-chain (3 containers × 2 chains, `2 500 9000 25`, `budget_seconds=2520`, `--seed 1/2/3`, pooled via `rentfrontier.drift_pool`) gate runs (~`$11.50` each, ~`$23` total → ~`$37` cumulative out of `$100`):
+1. **Gate Fit 1 (`latest`, `u3s-lat` = pool of `u3s-lat-a/b/c`):** `drift-building-phase-unitkn-unified-seg` vs `l2bt`.
+2. **Gate Fit 2 (`market` `asof-20251110`, `u3s-mkt` = pool of `u3s-mkt-a/b/c`):** `drift-building-phase-unitkn-unified-seg` vs `range-j`.
+
+### Stage 3 Pre-Fit Predictions (Recorded Before Launch)
+1. **Strict convergence gate (`R-hat ≤ 1.01`, `bulk ESS > 400` on ALL scalars, betas, `phase_scale`, `gp_amp[*]`, `gp_ls[*]`, and buildings):**
+   - **Both `u3s-lat` and `u3s-mkt` PASS the strict gate** (all 7 Matérn-3/2 segment GPs unimodal with `ls ∈ [0.40, 1.30] yr`, `gp_amp/gp_ls` `R-hat ≤ 1.005`, `ESS > 1,500`; `unit_sd` and `phase_scale` `ESS > 450` across ~9,700–11,500 pooled draws). If any single slow scalar (`unit_sd` or `phase_scale`) lands in `300–400` ESS, adding 1 container (`--seed 4`, ~$3.90) lifts it cleanly past 400 without discarding the first 3.
+2. **`u3s-lat` held-out Δelpd vs `l2bt` (`latest` split):**
+   - All years (`n=189,647`): **`+4,700 to +5,250` elpd** (`z > +25`, both halves A and B `> +2,200`).
+   - `2022+` (`n=130,041`): **`+2,950 to +3,400` elpd** (`z > +20`, both halves A and B `> +1,400`).
+   - Annual 80% coverage across `2014–2026` within `77%–82%` (specifically `2020–2021` improved from `72.6%–74.4%` to `78%–80%`, `2024–2026` `80%–81.5%`).
+3. **`u3s-mkt` held-out Δelpd vs `range-j` (`market` `asof-20251110`, `n=9,346`):**
+   - **`+200 to +420` elpd** (`z > +5`, positive on both halves A and B), improving on `u1-mkt-p3` (`+176.8`) via segment trajectories into late 2025.
+   - `no_unit_history` (`n=3,168`) and `no_hist & thin<5` (`n=727`) both positive in Δelpd with lower `>95%` tail rate than `range-j`.

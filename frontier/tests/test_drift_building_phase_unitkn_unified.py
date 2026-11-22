@@ -131,6 +131,13 @@ def test_unified_scales_logp_matches_dense_and_runs_smoke():
     assert not any(n.endswith(f":{US.REF_QUARTER}") for n in seg_cols)
     seg_names_present = {n.rsplit(":", 1)[0].split("seg:", 1)[1] for n in seg_cols}
     assert len(seg_names_present) < len(drift_building_phase_segment.segment_names(d))
+    gps_seg = US.gp_spec(d_seg.names)
+    assert all(
+        g.get("kernel") == "matern32" and g.get("nugget") == 1e-4
+        for g in gps_seg
+        if g["name"].startswith("seg:")
+    )
+    assert all("kernel" not in g for g in gps_seg if not g["name"].startswith("seg:"))
     train_seg, _, _ = td._split(d_seg)
     settings = U.Settings(
         chains=2, warmup=4, draws=4, keep_every=2, chunks=1, budget_seconds=None
