@@ -94,3 +94,39 @@ def test_sizefill_set_is_registered_on_the_nb6_base():
     assert f.func is features.sizefill_v1
     assert f.keywords == {"id": "nb6-nostuy-sizefill-v1", "base": "nb6-nostuy-v1"}
     assert features.NB6_SETS["nb6-nostuy-sizefill-v1"] == "nb5-plutoasof-v3"
+
+
+def test_asof_size_same_bed_first_prefers_line_over_other_bed_unit():
+    f = pd.DataFrame(
+        {
+            "unit_id": ["u1", "u2", "u1", "u3", "u3"],
+            "building": ["b"] * 5,
+            "canonical_unit_url": [
+                "x/building/b/2a",
+                "x/building/b/3a",
+                "x/building/b/2a",
+                "x/building/b/4b",
+                "x/building/b/4b",
+            ],
+            "bedrooms": [2, 1, 1, 2, 1],
+            "full_baths": [1, 1, 1, 1, 1],
+            "square_feet": [1100.0, 700.0, np.nan, 1050.0, np.nan],
+            "price_at": pd.to_datetime(
+                [
+                    "2020-01-01",
+                    "2020-02-01",
+                    "2020-03-01",
+                    "2020-01-10",
+                    "2020-04-01",
+                ],
+                utc=True,
+            ),
+        }
+    )
+    old = sizefill.asof_size(f, same_bed_first=False)
+    new = sizefill.asof_size(f, same_bed_first=True)
+    # Row 2 (u1 relisted as 1BR): old takes u1's 2BR size (1100), new takes line A 1BR (u2, 700).
+    assert old.source[2] == "unit" and old.sqft[2] == pytest.approx(1100.0)
+    assert new.source[2] == "line" and new.sqft[2] == pytest.approx(700.0)
+    # Row 4 (u3 relisted as 1BR, no line B 1BR peer): still falls back to u3's 2BR size (1050) over building.
+    assert new.source[4] == "unit" and new.sqft[4] == pytest.approx(1050.0)

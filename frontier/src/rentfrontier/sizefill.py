@@ -72,16 +72,24 @@ def _other_units(frame, key, day, lsq, known):
     return np.where(n > 0, s / np.maximum(n, 1), np.nan)
 
 
-def asof_size(frame: pd.DataFrame) -> pd.DataFrame:
-    """Per row: `sqft` (NaN where no fill) and its `source` (`SOURCES`)."""
+def asof_size(frame: pd.DataFrame, same_bed_first: bool = False) -> pd.DataFrame:
+    """Per row: `sqft` (NaN where no fill) and its `source` (`SOURCES`).
+
+    With `same_bed_first=True` (docs/notes/size-fills-read-2026-11-20.md), the fill order
+    puts the unit's earlier rows of the same bedroom count ahead of the line layer, and
+    only falls back to the unit's earlier rows of another bedroom count after the line:
+    own -> unit (same bed) -> line -> unit (other bed) -> building. Both unit tiers keep
+    source `'unit'` so downstream layer filters (`FILLS = ("unit", "line")`) stay intact.
+    """
     sqft = frame.square_feet.astype(float)
     known = sqft.between(MIN_SQFT, MAX_SQFT)
     lsq = np.log(sqft.where(known))
     day = pd.to_datetime(frame.price_at, utc=True).dt.floor("D")
+    uid = frame.unit_id.astype(str)
     unit_s, unit_n = earlier_sum(
-        frame.unit_id.astype(str),
+        uid,
         day,
-        frame.unit_id.astype(str)[known],
+        uid[known],
         day[known],
         lsq[known],
     )
@@ -93,12 +101,32 @@ def asof_size(frame: pd.DataFrame) -> pd.DataFrame:
     )
     line = data.unit_line_key(frame) + rooms
     building = frame.building + rooms
-    fills = [
-        ("own", lsq.to_numpy()),
-        ("unit", unit),
-        ("line", _other_units(frame, line, day, lsq, known)),
-        ("building", _other_units(frame, building, day, lsq, known)),
-    ]
+    line_fill = _other_units(frame, line, day, lsq, known)
+    bld_fill = _other_units(frame, building, day, lsq, known)
+    if same_bed_first:
+        ubed = (uid + "|" + beds.astype(str)).where(beds.notna())
+        ubed_s, ubed_n = earlier_sum(
+            ubed,
+            day,
+            ubed[known],
+            day[known],
+            lsq[known],
+        )
+        unit_same = np.where(ubed_n > 0, ubed_s / np.maximum(ubed_n, 1), np.nan)
+        fills = [
+            ("own", lsq.to_numpy()),
+            ("unit", unit_same),
+            ("line", line_fill),
+            ("unit", unit),
+            ("building", bld_fill),
+        ]
+    else:
+        fills = [
+            ("own", lsq.to_numpy()),
+            ("unit", unit),
+            ("line", line_fill),
+            ("building", bld_fill),
+        ]
     out = np.full(len(frame), np.nan)
     source = np.full(len(frame), "none", dtype=object)
     for name, value in fills:
