@@ -1,0 +1,279 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1230 790" width="1230" height="790" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 0 1.2 L 9 5 L 0 8.8 z" fill="#334155"/>
+    </marker>
+    <marker id="arr-muted" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.2 L 9 5 L 0 8.8 z" fill="#64748b"/>
+    </marker>
+    <marker id="arr-res" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 0 1.2 L 9 5 L 0 8.8 z" fill="#7c3aed"/>
+    </marker>
+    <style>
+      .bg { fill: #ffffff; }
+      .title { font-size: 18px; font-weight: 700; fill: #0f172a; letter-spacing: -0.01em; }
+      .subtitle { font-size: 12px; fill: #475569; }
+      .tier { font-size: 9.5px; font-weight: 700; fill: #94a3b8; letter-spacing: 0.08em; text-transform: uppercase; }
+      .plate { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1.35; rx: 9; ry: 9; }
+      .plate-inner { fill: #f1f5f9; stroke: #64748b; stroke-width: 1.25; rx: 8; ry: 8; }
+      .plate-res { fill: #faf5ff; stroke: #a78bfa; stroke-width: 1.3; stroke-dasharray: 5 3; rx: 8; ry: 8; }
+      .plate-ads { fill: #eff6ff; stroke: #3b82f6; stroke-width: 1.5; rx: 10; ry: 10; }
+      .plate-idx-r { font-size: 10.5px; font-weight: 600; fill: #475569; text-anchor: end; }
+      .plate-idx-l { font-size: 10.5px; font-weight: 600; fill: #475569; text-anchor: start; }
+      .plate-idx-blue { font-size: 11px; font-weight: 600; fill: #1e40af; text-anchor: start; }
+      .plate-idx-res { font-size: 10px; font-weight: 600; fill: #6d28d9; text-anchor: end; }
+      .node-latent { fill: #ffffff; stroke: #1e293b; stroke-width: 1.65; }
+      .node-obs { fill: #dbeafe; stroke: #1d4ed8; stroke-width: 1.8; }
+      .node-det { fill: #ffffff; stroke: #1e293b; stroke-width: 1.65; }
+      .node-det-in { fill: none; stroke: #1e293b; stroke-width: 1.1; }
+      .node-hyper { fill: #ffffff; stroke: #64748b; stroke-width: 1.35; }
+      .node-fixed { fill: #334155; }
+      .node-res { fill: #f5f3ff; stroke: #7c3aed; stroke-width: 1.65; stroke-dasharray: 5 3; }
+      .math { font-family: Georgia, 'Times New Roman', serif; font-size: 15px; font-style: italic; font-weight: 600; fill: #0f172a; text-anchor: middle; }
+      .math-up { font-family: Georgia, 'Times New Roman', serif; font-size: 14px; font-style: normal; font-weight: 600; fill: #0f172a; text-anchor: middle; }
+      .math-res { font-family: Georgia, 'Times New Roman', serif; font-size: 15px; font-style: italic; font-weight: 600; fill: #5b21b6; text-anchor: middle; }
+      .sub { font-size: 10px; font-style: italic; }
+      .sub-up { font-size: 10px; font-style: normal; }
+      .cap { font-size: 10px; fill: #475569; text-anchor: middle; }
+      .cap-r { font-size: 10px; fill: #475569; text-anchor: end; }
+      .cap-res { font-size: 10px; fill: #6d28d9; text-anchor: middle; }
+      .halo-p { paint-order: stroke; stroke: #f8fafc; stroke-width: 6px; stroke-linejoin: round; }
+      .halo-pi { paint-order: stroke; stroke: #f1f5f9; stroke-width: 6px; stroke-linejoin: round; }
+      .halo-pr { paint-order: stroke; stroke: #faf5ff; stroke-width: 6px; stroke-linejoin: round; }
+      .edge { fill: none; stroke: #334155; stroke-width: 1.45; marker-end: url(#arr); }
+      .edge-muted { fill: none; stroke: #64748b; stroke-width: 1.25; marker-end: url(#arr-muted); }
+      .edge-res { fill: none; stroke: #7c3aed; stroke-width: 1.45; stroke-dasharray: 5 3; marker-end: url(#arr-res); }
+      .legend-box { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1.1; rx: 8; ry: 8; }
+      .legend-txt { font-size: 11px; fill: #334155; }
+      .key-math { font-family: Georgia, 'Times New Roman', serif; font-size: 11.5px; fill: #334155; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1230" height="790"/>
+
+  <!-- Header -->
+  <text x="36" y="34" class="title">Hierarchical Generative Model of NYC Asking Rents (Drift Family)</text>
+  <text x="36" y="54" class="subtitle">Solid nodes: served Deals model (drift-building-bedtext-layout-range; 13 tight scales held at base-n9). Dashed purple: latest-split research frontier (l2bt).</text>
+
+  <!-- Subtle tier labels on left margin -->
+  <text x="36" y="114" class="tier">Hyperpriors</text>
+  <text x="36" y="218" class="tier">Global</text>
+  <text x="36" y="231" class="tier">&amp; Zone</text>
+  <text x="36" y="388" class="tier">Building &amp; Unit</text>
+  <text x="36" y="514" class="tier" style="fill:#3b82f6;">Listings</text>
+
+  <!-- ==================== LAYER 1: PLATES ==================== -->
+  <g id="plates">
+    <!-- Citywide Time Plate -->
+    <rect x="252" y="174" width="114" height="106" class="plate"/>
+    <text x="260" y="189" class="plate-idx-l">w = 1…W</text>
+
+    <!-- Spatial Zone Plate -->
+    <rect x="378" y="174" width="166" height="106" class="plate"/>
+    <text x="536" y="189" class="plate-idx-r">z ∈ {Man, Out}</text>
+
+    <!-- Building Plate -->
+    <rect x="342" y="308" width="598" height="168" class="plate"/>
+    <text x="354" y="466" class="plate-idx-l">b = 1…B  (~68,000 NYC buildings)</text>
+
+    <!-- Quarter Plate -->
+    <rect x="534" y="324" width="144" height="120" class="plate-inner"/>
+    <text x="670" y="339" class="plate-idx-r">q = 1…Q<tspan dy="2" font-size="8.5">b</tspan></text>
+
+    <!-- Unit Plate -->
+    <rect x="690" y="324" width="238" height="120" class="plate-inner"/>
+    <text x="698" y="339" class="plate-idx-l">u = 1…U<tspan dy="2" font-size="8.5">b</tspan></text>
+    <text x="698" y="352" class="plate-idx-l" style="font-size:9px;font-weight:500;fill:#64748b;">(~935k units)</text>
+
+    <!-- Bedroom group noise scale plate -->
+    <rect x="952" y="324" width="84" height="120" class="plate"/>
+    <text x="1028" y="339" class="plate-idx-r">g = 0…3+</text>
+
+    <!-- Lease-phase noise scale plate (dashed research frontier) -->
+    <rect x="1046" y="324" width="82" height="120" class="plate-res"/>
+    <text x="1120" y="339" class="plate-idx-res">p = 1…6</text>
+
+    <!-- Ad Observation Plate -->
+    <rect x="36" y="524" width="1166" height="154" class="plate-ads"/>
+    <text x="50" y="667" class="plate-idx-blue">i = 1…N  (~1.89M training ads; held-out &amp; open market ads predicted from kept posterior draws)</text>
+  </g>
+
+  <!-- ==================== LAYER 2: PLANAR EDGES (DRAWN UNDER NODES & CAPTIONS) ==================== -->
+  <g id="edges">
+    <!-- Row 1 -> Row 2 -->
+    <path d="M 202 128 L 202 196" class="edge-muted"/>
+    <path d="M 312 130 L 312 196" class="edge-muted"/>
+    <path d="M 420 130 L 420 197" class="edge-muted"/>
+
+    <!-- Row 2 -> Row 3 (Building Plate) -->
+    <path d="M 420 245 C 420 292, 436 318, 442 356" class="edge"/>
+    <path d="M 498 243 C 498 294, 468 320, 458 357" class="edge-muted"/>
+    <path d="M 375 382 L 422 382" class="edge-muted"/>
+    <path d="M 606 240 L 606 356" class="edge-muted"/>
+    <path d="M 780 243 L 780 358" class="edge-muted"/>
+    <path d="M 739 382 L 756 382" class="edge-res"/>
+    <path d="M 882 240 L 882 356" class="edge-muted"/>
+
+    <!-- Six strictly left-to-right monotonic edges into top of μ_i -->
+    <path d="M 202 246 L 202 478 C 202 538, 452 540, 553 580" class="edge"/>
+    <path d="M 312 246 L 312 484 C 312 528, 488 538, 560 573" class="edge"/>
+    <path d="M 448 406 C 448 496, 528 524, 570 566" class="edge"/>
+    <path d="M 606 406 C 606 482, 594 524, 587 563" class="edge"/>
+    <path d="M 780 404 C 780 496, 672 524, 599 569" class="edge"/>
+    <path d="M 882 406 C 882 512, 720 534, 607 577" class="edge"/>
+
+    <!-- Ad Plate internal horizontal flow: x_i -> μ_i -> y_i <- λ_i -->
+    <path d="M 142 594 L 551 594" class="edge"/>
+    <path d="M 611 594 L 963 594" class="edge"/>
+    <path d="M 1144 594 L 1025 594" class="edge"/>
+
+    <!-- Noise plates -> y_i & λ_i -->
+    <path d="M 994 403 L 994 563" class="edge"/>
+    <path d="M 1087 403 C 1087 484, 1036 524, 1010 568" class="edge-res"/>
+    <path d="M 1168 403 L 1168 568" class="edge-muted"/>
+  </g>
+
+  <!-- ==================== LAYER 3: NODES ==================== -->
+  <g id="nodes">
+    <!-- Row 1 -->
+    <rect x="143" y="92" width="118" height="36" rx="18" class="node-hyper"/>
+    <text x="202" y="114" class="math-up" style="font-size:12.5px;">GP (a<tspan class="sub" dy="3">f</tspan><tspan dy="-3">, ℓ</tspan><tspan class="sub" dy="3">f</tspan><tspan dy="-3">)</tspan></text>
+
+    <circle cx="312" cy="110" r="20" class="node-hyper"/>
+    <text x="312" y="114" class="math">τ<tspan class="sub-up" dy="3">L</tspan></text>
+
+    <circle cx="420" cy="110" r="20" class="node-hyper"/>
+    <text x="420" y="114" class="math">a<tspan class="sub" dy="3">z</tspan></text>
+
+    <!-- Row 2 -->
+    <circle cx="202" cy="222" r="24" class="node-latent"/>
+    <text x="202" y="227" class="math-up" style="font-size:16px;">β</text>
+
+    <circle cx="312" cy="222" r="24" class="node-latent"/>
+    <text x="312" y="227" class="math">L<tspan style="font-style:normal;">(</tspan>w<tspan style="font-style:normal;">)</tspan></text>
+
+    <circle cx="420" cy="222" r="23" class="node-latent"/>
+    <text x="420" y="227" class="math">F<tspan class="sub" dy="3">z</tspan><tspan style="font-style:normal;" dy="-3">(s)</tspan></text>
+
+    <circle cx="498" cy="222" r="21" class="node-hyper"/>
+    <text x="498" y="226" class="math">b<tspan class="sub" dy="3">z</tspan></text>
+
+    <rect x="561" y="204" width="90" height="36" rx="18" class="node-hyper"/>
+    <text x="606" y="226" class="math">s<tspan class="sub" dy="3">b</tspan><tspan style="font-style:normal;" dy="-3">, ρ</tspan><tspan class="sub" dy="3">b</tspan></text>
+
+    <circle cx="780" cy="222" r="21" class="node-hyper"/>
+    <text x="780" y="226" class="math">σ<tspan class="sub" dy="3">s</tspan></text>
+
+    <rect x="837" y="204" width="90" height="36" rx="18" class="node-hyper"/>
+    <text x="882" y="226" class="math">σ<tspan class="sub" dy="3">d</tspan><tspan style="font-style:normal;" dy="-3">, τ</tspan><tspan class="sub" dy="3">u</tspan></text>
+
+    <!-- Row 3 -->
+    <circle cx="370" cy="382" r="4.5" class="node-fixed"/>
+
+    <circle cx="448" cy="382" r="24" class="node-latent"/>
+    <text x="448" y="387" class="math">η<tspan class="sub" dy="3">b</tspan></text>
+
+    <circle cx="606" cy="382" r="24" class="node-latent"/>
+    <text x="606" y="387" class="math">a<tspan class="sub" dy="3">b</tspan><tspan style="font-style:normal;" dy="-3">(q)</tspan></text>
+
+    <circle cx="720" cy="382" r="19" class="node-res"/>
+    <text x="720" y="386" class="math-res">κ<tspan class="sub" dy="3">u</tspan></text>
+
+    <circle cx="780" cy="382" r="22" class="node-latent"/>
+    <text x="780" y="387" class="math">s<tspan class="sub" dy="3">u</tspan></text>
+
+    <circle cx="882" cy="382" r="24" class="node-latent"/>
+    <text x="882" y="387" class="math">d<tspan class="sub" dy="3">u</tspan><tspan style="font-style:normal;" dy="-3">(t)</tspan></text>
+
+    <circle cx="994" cy="382" r="21" class="node-hyper"/>
+    <text x="994" y="386" class="math">σ<tspan class="sub" dy="3">g</tspan></text>
+
+    <circle cx="1087" cy="382" r="21" class="node-res"/>
+    <text x="1087" y="386" class="math-res">φ<tspan class="sub" dy="3">p</tspan></text>
+
+    <circle cx="1168" cy="382" r="21" class="node-hyper"/>
+    <text x="1168" y="386" class="math">ν</text>
+
+    <!-- Row 4 -->
+    <circle cx="116" cy="594" r="26" class="node-obs"/>
+    <text x="116" y="599" class="math" style="font-style:normal;font-weight:700;">x<tspan class="sub" dy="3">i</tspan></text>
+
+    <circle cx="582" cy="594" r="29" class="node-det"/>
+    <circle cx="582" cy="594" r="24" class="node-det-in"/>
+    <text x="582" y="599" class="math">μ<tspan class="sub" dy="3">i</tspan></text>
+
+    <circle cx="994" cy="594" r="29" class="node-obs"/>
+    <text x="994" y="599" class="math">y<tspan class="sub" dy="3">i</tspan></text>
+
+    <circle cx="1168" cy="594" r="24" class="node-latent"/>
+    <text x="1168" y="599" class="math">λ<tspan class="sub" dy="3">i</tspan></text>
+  </g>
+
+  <!-- ==================== LAYER 4: CAPTIONS (DRAWN ON TOP WITH CLEAN HALOS) ==================== -->
+  <g id="captions">
+    <!-- Row 1 captions (above) -->
+    <text x="202" y="83" class="cap">floor curve GP priors</text>
+    <text x="312" y="83" class="cap">walk step sd</text>
+    <text x="420" y="83" class="cap">HSGP wave amp</text>
+
+    <!-- Row 2 captions -->
+    <text x="169" y="218" class="cap-r">~260 cols</text>
+    <text x="169" y="231" class="cap-r">+ floor GP</text>
+    <text x="312" y="264" class="cap halo-p">RW + season</text>
+    <text x="420" y="264" class="cap halo-p">1 km map</text>
+    <text x="498" y="264" class="cap halo-p">bld scale</text>
+    <text x="606" y="195" class="cap">AR(1) sd, corr</text>
+    <text x="780" y="191" class="cap">unit lasting sd</text>
+    <text x="882" y="195" class="cap">OU sd, τ (yr)</text>
+
+    <!-- Row 3 captions -->
+    <text x="370" y="403" class="cap" style="font-weight:600;">ν<tspan dy="2" font-size="8">b</tspan><tspan dy="-2"> = 4</tspan></text>
+    <text x="448" y="424" class="cap halo-p">Student-t level</text>
+    <text x="606" y="424" class="cap halo-pi">quarterly AR(1)</text>
+    <text x="720" y="416" class="cap-res">t(3) mix</text>
+    <text x="780" y="423" class="cap halo-pi">lasting</text>
+    <text x="882" y="424" class="cap halo-pi">OU drift</text>
+    <text x="994" y="424" class="cap halo-p">group sd</text>
+    <text x="1087" y="424" class="cap-res halo-pr">phase sd</text>
+    <text x="1168" y="340" class="cap">t df (~1.7;</text>
+    <text x="1168" y="352" class="cap">2 in l2bt)</text>
+
+    <!-- Row 4 captions -->
+    <text x="116" y="635" class="cap">as-of ad, unit &amp;</text>
+    <text x="116" y="647" class="cap">building covariates</text>
+    <text x="582" y="638" class="cap">x<tspan dy="2" font-size="8">i</tspan><tspan dy="-2">ᵀβ + L(w</tspan><tspan dy="2" font-size="8">i</tspan><tspan dy="-2">) + η</tspan><tspan dy="2" font-size="8">b(i)</tspan><tspan dy="-2"> + a</tspan><tspan dy="2" font-size="8">b(i)</tspan><tspan dy="-2">(q</tspan><tspan dy="2" font-size="8">i</tspan><tspan dy="-2">) + s</tspan><tspan dy="2" font-size="8">u(i)</tspan><tspan dy="-2"> + d</tspan><tspan dy="2" font-size="8">u(i)</tspan><tspan dy="-2">(t</tspan><tspan dy="2" font-size="8">i</tspan><tspan dy="-2">)</tspan></text>
+    <text x="994" y="638" class="cap">log(net final ask)</text>
+    <text x="994" y="651" class="cap">Normal(μ<tspan dy="2" font-size="8">i</tspan><tspan dy="-2">, (σ</tspan><tspan dy="2" font-size="8">g</tspan><tspan dy="-2">·φ</tspan><tspan dy="2" font-size="8">p</tspan><tspan dy="-2">)² / λ</tspan><tspan dy="2" font-size="8">i</tspan><tspan dy="-2">)</tspan></text>
+    <text x="1168" y="635" class="cap">Gamma(ν/2, ν/2)</text>
+  </g>
+
+  <!-- ==================== LEGEND & EQUATION KEY ==================== -->
+  <rect x="36" y="698" width="1166" height="72" class="legend-box"/>
+
+  <circle cx="62" cy="722" r="10" class="node-obs"/>
+  <text x="80" y="726" class="legend-txt">Observed</text>
+
+  <circle cx="176" cy="722" r="10" class="node-latent"/>
+  <text x="194" y="726" class="legend-txt">Latent variable</text>
+
+  <circle cx="322" cy="722" r="10" class="node-det"/>
+  <circle cx="322" cy="722" r="7" class="node-det-in"/>
+  <text x="340" y="726" class="legend-txt">Deterministic sum</text>
+
+  <circle cx="486" cy="722" r="10" class="node-hyper"/>
+  <text x="504" y="726" class="legend-txt">Hyperparameter (fixed in --scales-fixed)</text>
+
+  <circle cx="764" cy="722" r="4.5" class="node-fixed"/>
+  <text x="778" y="726" class="legend-txt">Fixed constant</text>
+
+  <circle cx="894" cy="722" r="10" class="node-res"/>
+  <text x="912" y="726" class="legend-txt">Research frontier (l2bt, not yet served)</text>
+
+  <text x="52" y="756" class="key-math">
+    <tspan font-weight="600" font-family="-apple-system,sans-serif" font-size="10.5">Priors:</tspan>
+    <tspan dx="6" font-style="italic">η</tspan><tspan dy="3" font-size="8.5" font-style="italic">b</tspan><tspan dy="-3"> ~ StudentT(4, </tspan><tspan font-style="italic">F</tspan><tspan dy="3" font-size="8.5" font-style="italic">z</tspan><tspan dy="-3">(</tspan><tspan font-style="italic">s</tspan><tspan dy="3" font-size="8.5" font-style="italic">b</tspan><tspan dy="-3">), </tspan><tspan font-style="italic">b</tspan><tspan dy="3" font-size="8.5" font-style="italic">z</tspan><tspan dy="-3">);</tspan>
+    <tspan dx="10" font-style="italic">s</tspan><tspan dy="3" font-size="8.5" font-style="italic">u</tspan><tspan dy="-3"> ~ Normal(0, </tspan><tspan font-style="italic">σ</tspan><tspan dy="3" font-size="8.5" font-style="italic">s</tspan><tspan dy="-3">² / </tspan><tspan font-style="italic">κ</tspan><tspan dy="3" font-size="8.5" font-style="italic">u</tspan><tspan dy="-3">) with </tspan><tspan font-style="italic">κ</tspan><tspan dy="3" font-size="8.5" font-style="italic">u</tspan><tspan dy="-3"> ≡ 1 (served) or Gamma(3/2, 3/2) (l2bt);</tspan>
+    <tspan dx="10">Cov(</tspan><tspan font-style="italic">d</tspan><tspan dy="3" font-size="8.5" font-style="italic">u</tspan><tspan dy="-3">(</tspan><tspan font-style="italic">t</tspan><tspan>), </tspan><tspan font-style="italic">d</tspan><tspan dy="3" font-size="8.5" font-style="italic">u</tspan><tspan dy="-3">(</tspan><tspan font-style="italic">t</tspan><tspan>′)) = </tspan><tspan font-style="italic">σ</tspan><tspan dy="3" font-size="8.5" font-style="italic">d</tspan><tspan dy="-3">² exp(−|</tspan><tspan font-style="italic">t</tspan><tspan> − </tspan><tspan font-style="italic">t</tspan><tspan>′| / </tspan><tspan font-style="italic">τ</tspan><tspan dy="3" font-size="8.5" font-style="italic">u</tspan><tspan dy="-3">);</tspan>
+    <tspan dx="10" font-style="italic">φ</tspan><tspan dy="3" font-size="8.5" font-style="italic">p</tspan><tspan dy="-3"> ≡ 1 (served).</tspan>
+  </text>
+</svg>
