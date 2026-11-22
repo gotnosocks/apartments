@@ -269,17 +269,27 @@ def stage_code(sha):
     """A shallow git checkout of sha (rentfrontier.run and loo read git status and HEAD).
 
     It is on a branch so .git/refs holds a file: Volume uploads skip empty directories, and
-    git refuses a .git without refs/.
+    git refuses a .git without refs/. A per-sha lock serialises concurrent first launches
+    of the same commit so parallel screens do not race on git init/fetch/checkout.
     """
-    stage = STATE / "code" / sha
-    if not (stage / ".git").exists():
-        stage.mkdir(parents=True, exist_ok=True)
-        for cmd in (
-            ["init", "-q"],
-            ["fetch", "-q", "--depth", "1", f"file://{REPO}", sha],
-            ["checkout", "-q", "-B", "modal-fit", "FETCH_HEAD"],
-        ):
-            subprocess.run(["git", "-C", str(stage), *cmd], check=True)
+    code_dir = STATE / "code"
+    code_dir.mkdir(parents=True, exist_ok=True)
+    stage = code_dir / sha
+    ready = stage / "frontier" / "pyproject.toml"
+    if ready.exists():
+        return stage
+    with open(code_dir / f"{sha}.lock", "a") as lk:
+        fcntl.flock(lk, fcntl.LOCK_EX)
+        if not ready.exists():
+            if stage.exists():
+                shutil.rmtree(stage)
+            stage.mkdir(parents=True, exist_ok=True)
+            for cmd in (
+                ["init", "-q"],
+                ["fetch", "-q", "--depth", "1", f"file://{REPO}", sha],
+                ["checkout", "-q", "-B", "modal-fit", "FETCH_HEAD"],
+            ):
+                subprocess.run(["git", "-C", str(stage), *cmd], check=True)
     return stage
 
 

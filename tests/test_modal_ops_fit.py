@@ -1583,3 +1583,47 @@ def test_a_price_now_download_cut_short_keeps_the_old_pair(tmp_path):
         today.download(Cut(files), "r-today", site, tmp_path / "logs")
     assert (site / "today.parquet").read_bytes() == b"old"
     assert sorted(p.name for p in site.iterdir()) == ["meta.json", "today.parquet"]
+
+
+def test_fit_enables_persistent_jax_cache_and_treats_unified_models_as_baselines(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
+    app = load("app")
+    for model_name in (
+        "drift-building-phase-unitkn-unified",
+        "drift-building-phase-unitkn-unified-seg",
+    ):
+        assert app.post_steps({"name": "r", "run_args": ["--model", model_name]}) == []
+
+    monkeypatch.setattr(app, "OUTPUT", tmp_path / "frontier")
+    monkeypatch.setattr(app, "RUNS", tmp_path / "frontier" / "runs")
+    monkeypatch.setattr(app, "LOO", tmp_path / "frontier" / "loo")
+    monkeypatch.setattr(app, "_stage", lambda spec: None)
+    monkeypatch.setattr(app.subprocess, "run", lambda *a, **k: mock.Mock(stdout=""))
+    vol = tmp_path / "vol"
+    real_path = app.Path
+    monkeypatch.setattr(
+        app, "Path", lambda p, *a: real_path(str(p).replace("/vol", str(vol), 1), *a)
+    )
+    seen_env = {}
+
+    def fake_run(cmd, env, log, timeout=None):
+        seen_env.update(env)
+        cache_dir = Path(env["JAX_COMPILATION_CACHE_DIR"])
+        (cache_dir / "entry-001").write_bytes(b"xla")
+        return 0
+
+    monkeypatch.setattr(app, "_run", fake_run)
+    spec = {
+        "name": "r-jax",
+        "tier": "exploration",
+        "run_args": ["--model", "drift-building-phase-unitkn-unified"],
+        "dataset": "d",
+        "score": False,
+    }
+    meta = app._fit(spec)
+    assert seen_env["JAX_COMPILATION_CACHE_DIR"] == str(vol / "jax-cache")
+    assert seen_env["JAX_PERSISTENT_CACHE_MIN_COMPILE_TIME_SECS"] == "2"
+    assert meta["jax_cache"] == {"before": 0, "after": 1}
+    assert meta["post"] == {}
