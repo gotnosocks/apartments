@@ -12,14 +12,20 @@ the frontier line's items, is in [archive/TODO-2026-10.md](archive/TODO-2026-10.
   (59 -> 8) and 849 stale local branches (853 -> 4), snapshotting all dirty/unmerged state
   into `archive/wt-dirty/*`, `archive/wt/*`, and `archive/branch/*` tags; updated main
   checkout `/home/ben/code/apartments` onto `master`.
-- [x] **Repo as a research artifact — phase 1** (2026-11-21): added
-  [docs/model/lineage.md](model/lineage.md) (4-generation evolution tree, score board,
-  production stack matrix), [docs/model/img/drift-plate-diagram.svg](model/img/drift-plate-diagram.svg)
-  (Bayesian plate diagram), and [frontier/README.md](../frontier/README.md) (195-module map);
-  synced `README.md`, `docs/README.md`, `docs/research-record.md`, and `docs/handoff/project-owner.md`.
+- [x] **Repo as a research artifact — phase 1** (2026-11-21–22, #1532): added
+  [docs/model/lineage.html](model/lineage.html) and [docs/model/lineage.md](model/lineage.md)
+  (4-generation evolution tree, plain-English exposition, 23 reworked plate diagrams in
+  `docs/model/img/*.svg` embedded as self-contained data URIs, mobile sideways-scroll layout),
+  [frontier/README.md](../frontier/README.md) (195-module map), and the HTML-docs preference in
+  `CLAUDE.md`; synced `README.md`, `docs/README.md`, `docs/research-record.md`, and
+  `docs/handoff/project-owner.md`.
 - [ ] **Move toward a single unified model** serving `/deals`, `/estimates`, `/price-now`, and
   `/diagnostics` (retiring the split between `range-m3`, Nov 10 `n9`/`b9`, and Oct 17 `m7`).
-  Requires `drift_today` support for Student-t unit levels (`unitkn`) and a unified base refit.
+  *Progress (2026-11-22, #1531):* `unified` (`u3-mkt` PASS on `market` `+173.8`) and `unified-seg`
+  (`u4s-lat` PASS on `latest` `+5,097.3`) landed on `master`. Remaining: reconcile coverage
+  regressions (`-2.5 pp` 80% coverage on `market`, 2014–2019 dip on `latest`), run worst-miss
+  expert readings (`docs/expert-reads.md`), get one model passing both `latest` and `market`,
+  and add `drift_today` support for Student-t unit levels (`unitkn`).
 - [ ] **Fold data-investigation findings directly into the model and data rules** rather than
   accumulating publish-time cautions (`cautions.py`). The Nov 21 joint sizing on stored
   predictions gives the concrete manifest for the next base refit:
@@ -34,14 +40,35 @@ the frontier line's items, is in [archive/TODO-2026-10.md](archive/TODO-2026-10.
   - New-unit uncertainty: `LN1` (building × bedroom level, after fixing `unit_sd` ridge) and
     `U4` (per-bedroom unit scale, lifting new 3+BR coverage 0.711 -> 0.810) / `U1` (size scale)
   - Bundled data rules: import ~410 unique audited ledger rows (291 commercial/placeholder/unmixed
-    excludes + 119 zero-bed bedroom sets), switch `sizefill.asof_size` layer order (same-bed
-    unit -> line -> other-bed unit), and wire `b0textflags` / `b0freetext` / `b0ending` where supported
-- [ ] **Faster real fits for higher iteration speed**: profile and implement sampler speedups
-  (`slow_within=0.001`, double-pass unit/scale sweep, GPU compilation/batching, or faster
-  validated approximations) so real full-data fits iterate faster than 1-hour / $11–$33 pools.
+    excludes + 119 zero-bed bedroom sets; 123 imported in #1529), switch `sizefill.asof_size`
+    layer order (`same_bed_first` added in #1529), and wire `b0textflags` / `b0freetext` /
+    `b0ending` where supported
+- [ ] **Smaller, cheaper experiments & faster real fits (information gain per unit time)**:
+  maximize **information gain per unit time** by pairing (a) **smaller, faster screening
+  experiments**—picking the smallest model, data subset, and experiment design that still
+  yields a noisy but directionally correct, statistically trustable Bayesian update—with
+  (b) **sampler speedups** (`slow_within=0.001`, double-pass unit/scale sweep, tracing 24
+  phase factors instead of 1,905 cells, GPU compilation/batching) so real fits iterate far
+  faster than 1-hour / $11–$33 full-data pools.
+  - [x] **Modal Cloud GPU Fast Screening Harness** (2026-11-22, #1533;
+    [docs/notes/fast-screening-harness-2026-11-22.html](notes/fast-screening-harness-2026-11-22.html)):
+    built `rentfrontier.screen` + `ops/modal-screen` + `/vol/jax-cache` persistent XLA cache
+    (`-76%` compile, `6.5 min / $0.27` warm `k5` on `A100-40GB`, `18/18` 3-way routing across
+    `k20`/`k10`/`k5`, `$19.11` total spend).
+  - [ ] **Sampler speedups** (deferred behind screening harness): trace 24 factors instead of
+    1,905 `phase_scale` cells (~600 s saved/fit on `unified`/`unified-seg`), double-pass
+    unit/scale sweep, and `slow_within=0.001`.
+  > *"The person who won did the most experiments. And that person was the person who figured
+  > out how to pick the smallest model, data size, experiment which gave them a noisy but still
+  > directionally correct and statistically trustable Bayesian update. The best research lesson
+  > I ever learned was that information gain per unit time is the name of the game."*
+  > — Charlie O'Neill (`@oneill_c`), quoting Will Brown (`@willcb`, *"for whatever amount of
+  > compute you have, you will get much more research done if you can just make your
+  > experiments smaller"*, Nov 2026).
 - [ ] **Whole-dataset outlier & data-issue investigation**: systematically audit worst misses
   and data anomalies across the entire ~1.9M-row dataset (not only active listings or one
   backtest year), following the Bayesian Workflow and Murphy's Model Discovery Agent loop.
+  *(First 123-entry audit ledger batch merged in #1529.)*
 - [ ] **Explanatory Covid-19 macro covariates**: test NYC Covid-19 infection and hospitalization
   time series as explanatory covariates for the 2020–2022 rent dip and volatility regime
   alongside (rather than purely absorbed by) the observational weekly random walk and year
