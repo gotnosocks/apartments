@@ -8,7 +8,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from rentfrontier import building_attrs, drift_building_phase_unitkn_ablate as ablate
+from rentfrontier import building_attrs
+from rentfrontier import drift_building_phase_unitkn_ablate as ablate
 
 
 def test_parse_and_extract_variant():
