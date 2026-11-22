@@ -2393,8 +2393,10 @@ def make_sampler(
         ss, sd, tu = scales(hyp)
         out = outputs(theta, lev, F) | dict(unit_sd=ss, drift_sd=sd, drift_tau=tu)
         if phased:
-            # Every phase's factor, the reference's 1 first, in the order of `d.phases`.
-            out["phase_scale"] = phase_factors(factor)
+            if pmap_j is None:
+                out["phase_scale"] = phase_factors(factor)
+            else:
+                out["phase_factor"] = factor
         if dof_free:
             out["unit_dof"] = unit_dof
         if unit_slow:
@@ -2548,6 +2550,7 @@ def make_sampler(
             scales_x=scales_x,
             row_sd=row_sd,
             phased=phased,
+            phase_factors=phase_factors,
             scales_logp=scales_logp,
             scales_curvature=scales_curvature,
             curvature=lambda st: curved(data, st),
@@ -2647,8 +2650,10 @@ def run(
     process priors. The kept arrays hold `building_zones_gibbs`'s, the unit scales `unit_sd`
     (ss), `drift_sd` and `drift_tau`. For the design's rows to predict they also hold
     `pred_loc` and `pred_unit_sd`, (chains, kept draws, rows), and the rows' `pred_y` and
-    `pred_group`. A design with noise phases adds `phase_scale`, every phase's factor, to
-    the traced and kept arrays, and each predicted row's `pred_phase`. `unit_t`
+    `pred_group`. A design with noise phases keeps `phase_scale`, every phase's factor,
+    and each predicted row's `pred_phase`. With a phase map, only the free `phase_factor`
+    values are traced and the cells are expanded on kept draws. Otherwise `phase_scale`
+    is also traced. `unit_t`
     (`make_sampler`) adds the units' degrees of freedom `unit_dof` to both, unless
     `unit_dof_fixed` holds them at a value. `unit_kap_collapsed` is `make_sampler`'s. With `row_dof_fixed`
     (`make_sampler`) nu is traced and kept at its value, and the gate's diagnostics skip it
@@ -2687,7 +2692,9 @@ def run(
     scale_names = ("nu", "sigma", "tau", "amp", "bld_sd") + (
         ("gp_amp", "gp_ls") if gp else ()
     )
-    phase = ("phase_scale",) if parts["phased"] else ()
+    mapped = parts["phased"] and d.phase_map is not None
+    phase = ("phase_factor" if mapped else "phase_scale",) if parts["phased"] else ()
+    expand_phase = jax.jit(jax.vmap(parts["phase_factors"])) if mapped else None
     more = (
         phase
         + (("unit_dof",) if parts["dof_free"] else ())
@@ -2703,6 +2710,8 @@ def run(
 
     trace = {k: [] for k in traced}
     kept = {k: [] for k in kept_names}
+    if expand_phase is not None:
+        kept["phase_scale"] = []
     preds = {"pred_loc": [], "pred_unit_sd": []}
     has_pred = d.pred is not None and len(d.pred["unit"]) > 0
     if not has_pred:
@@ -2879,6 +2888,10 @@ def run(
             if (j + 1) % settings.keep_every == 0:
                 for k in kept_names:
                     kept[k].append(np.asarray(full[k]))
+                if expand_phase is not None:
+                    kept["phase_scale"].append(
+                        np.asarray(expand_phase(full["phase_factor"]))
+                    )
                 if has_pred:
                     loc, s, _ = predict(st)
                     preds["pred_loc"].append(np.asarray(loc))
@@ -2940,10 +2953,11 @@ def diagnostics(trace: dict, names) -> dict:
     for k in ("unit_dof", "unit_tau"):
         if k in trace:
             quantities[k] = trace[k]
-    if "phase_scale" in trace:
-        # The reference phase's factor is constant, so the check below leaves it out.
-        f = np.asarray(trace["phase_scale"])
-        quantities |= {f"phase_scale[{j}]": f[..., j] for j in range(f.shape[-1])}
+    # The constant reference in an unmapped phase_scale is skipped below.
+    phase_key = "phase_factor" if "phase_factor" in trace else "phase_scale"
+    if phase_key in trace:
+        f = np.asarray(trace[phase_key])
+        quantities |= {f"{phase_key}[{j}]": f[..., j] for j in range(f.shape[-1])}
     for k, x in quantities.items():
         x = np.asarray(x)
         if np.ptp(x) > 0:
@@ -2968,9 +2982,10 @@ def summarize(kept: dict, names) -> dict:
         for k in kept
         if k.endswith(("_ar_sd", "_ar_rho"))
     }
-    if "phase_scale" in kept:
-        f = np.asarray(kept["phase_scale"])
-        out["phase_scale"] = [two_zone._q(f[..., j]) for j in range(f.shape[-1])]
+    phase_key = "phase_factor" if "phase_factor" in kept else "phase_scale"
+    if phase_key in kept:
+        f = np.asarray(kept[phase_key])
+        out[phase_key] = [two_zone._q(f[..., j]) for j in range(f.shape[-1])]
     for k in ("unit_dof", "unit_tau"):
         if k in kept:
             out["unit"][k] = two_zone._q(np.asarray(kept[k]))

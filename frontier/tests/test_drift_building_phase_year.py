@@ -154,23 +154,21 @@ def crossed_run():
 def test_a_run_keeps_every_cells_factor_as_a_product(crossed_run):
     full, held, out = crossed_run
     trace, kept = out["trace"], out["kept"]
-    assert trace["phase_scale"].shape == (2, 8, P * Y)
+    assert trace["phase_factor"].shape == (2, 8, FREE)
     assert kept["phase_scale"].shape == (2, 4, P * Y)
-    phase, year = M.factors(trace["phase_scale"])
+    phase, year = M.factors(kept["phase_scale"])
     np.testing.assert_allclose(
-        trace["phase_scale"],
-        (phase[..., :, None] * year[..., None, :]).reshape(2, 8, -1),
+        kept["phase_scale"],
+        (phase[..., :, None] * year[..., None, :]).reshape(2, 4, -1),
         rtol=1e-6,
     )
     assert (phase[..., 0] == 1).all() and (year[..., 0] == 1).all()
     np.testing.assert_array_equal(kept["pred_phase"], full.phase[held])
     assert len(out["result"]["gibbs"]["hyp_dirs"]) == 8 + FREE
     rows = drift.diagnostics(trace, full.names)["per_quantity"]
-    # Every free factor is a cell's own: phase p in the reference year, year y in the
-    # reference phase.
-    assert {f"phase_scale[{p * Y}]" for p in range(1, P)} <= set(rows)
-    assert {f"phase_scale[{y}]" for y in range(1, Y)} <= set(rows)
-    assert "phase_scale[0]" not in rows
+    assert {k for k in rows if k.startswith("phase_")} == {
+        f"phase_factor[{j}]" for j in range(FREE)
+    }
 
 
 def test_scores_scale_each_rows_sigma_by_its_cells_factor(crossed_run, tmp_path):

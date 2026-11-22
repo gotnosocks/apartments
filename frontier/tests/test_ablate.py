@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
+import test_drift as td
 
-from rentfrontier import building_attrs
+from rentfrontier import building_attrs, drift
 from rentfrontier import drift_building_phase_unitkn_ablate as ablate
+from rentfrontier import drift_building_phase_unitkn_unified_seg as unified_seg
 
 
 def test_parse_and_extract_variant():
@@ -165,3 +168,146 @@ def test_covid_features_are_causal_and_zero_pre_pandemic(tmp_path: Path, monkeyp
     assert vol_mat[2, 0] == 1.0
     assert vol_mat[2, 1] == 0.0
     assert mean_mat[2, 3] > 0.0  # hosp_x_2pbr active
+
+
+@pytest.fixture
+def screen_rows(monkeypatch):
+    d = td._design(n=400, weeks=30)
+    n = len(d.y)
+    frame = pd.DataFrame(
+        {
+            "building": ["shared"] * 8 + [f"b{i}" for i in range(8, n)],
+            "unit_id": ["u"] * 4 + [f"u{i}" for i in range(4, n)],
+            "price_at": pd.date_range("2023-10-02", periods=n, freq="D", tz="UTC"),
+            "bedrooms": 1,
+            "full_baths": 1,
+            "half_baths": 0,
+            "bed_flex_at": False,
+            "bed_text_fewer": False,
+        }
+    )
+    frame.loc[1, ["bedrooms", "full_baths"]] = 3  # Held out and ignored by later rows.
+    frame.loc[3, "full_baths"] = 2
+    frame.loc[4, "full_baths"] = 3
+    held = np.zeros(n, dtype=bool)
+    held[1] = True
+    phase = np.full(n, ablate.PHASES.index("none"))
+    phase[[2, 3]] = 0
+    above_floor_one = np.ones(n)
+    above_floor_one[:2] = 0
+    size = np.zeros(n)
+    size[[0, 4]] = 0.5
+    d = dataclasses.replace(
+        d,
+        start=pd.Timestamp("2023-10-02"),
+        phase=phase,
+        phases=ablate.PHASES,
+        names=[*d.names, "unit:elev_f2", "unit:log_size_rel"],
+        x=np.column_stack([d.x, above_floor_one, size]),
+    )
+    monkeypatch.setattr(
+        ablate.drift_building_phase_unitkn_level, "design", lambda *a, **k: d
+    )
+    return frame, held
+
+
+def _row_tokens(d, row):
+    return set(d.phases[d.phase[row]].split("|"))
+
+
+@pytest.mark.parametrize(
+    ("token", "expected"),
+    [
+        ("mark_changed", {"mark:changed_counts": [1, 3]}),
+        ("mark_baths", {"mark:baths_2": [3], "mark:baths_3p": [1, 4]}),
+        ("mark_floor1", {"mark:floor_1": [0, 1]}),
+        ("mark_large01br", {"mark:large_01br": [0, 4]}),
+        ("mark_thin", {"mark:thin_first_ad": [0, 1, 4, 5]}),
+    ],
+)
+def test_individual_scale_marks_add_only_the_requested_factors(
+    screen_rows, token, expected
+):
+    frame, held = screen_rows
+    base = ablate.design(frame, held=held)
+    d = ablate.design(frame, held=held, variant=token)
+    assert d.names == base.names
+    all_marks = {
+        mark
+        for cell in d.phases
+        for mark in cell.split("|")
+        if mark.startswith("mark:")
+    }
+    assert all_marks == expected.keys()
+    for mark, want in expected.items():
+        assert [row for row in range(8) if mark in _row_tokens(d, row)] == want
+
+
+def test_scale_mark_bundles_can_be_combined_without_duplicates(screen_rows):
+    frame, held = screen_rows
+    full = ablate.design(frame, held=held, variant="marks")
+    without_thin = ablate.design(frame, held=held, variant="marks_no_thin")
+    combined = ablate.design(
+        frame, held=held, variant="marks_no_thin,mark_thin,mark_baths"
+    )
+    assert all("mark:thin_first_ad" not in cell for cell in without_thin.phases)
+    assert combined.phases == full.phases
+    np.testing.assert_array_equal(combined.phase_map, full.phase_map)
+    np.testing.assert_array_equal(combined.phase, full.phase)
+
+
+def test_pre2024_year_factors_keep_recent_years_at_reference(screen_rows):
+    frame, held = screen_rows
+    year = 2013 + np.arange(len(frame)) % 14
+    frame["price_at"] = pd.to_datetime(pd.Series(year).astype(str) + "-07-01", utc=True)
+    held |= year == 2019
+    d = ablate.design(frame, held=held, variant="y1_pre2024")
+    legacy = ablate.design(frame, held=held, variant="y1")
+
+    for row, y in enumerate(year):
+        tokens = {t for t in _row_tokens(d, row) if t.startswith("yr:")}
+        assert tokens == ({f"yr:{max(2014, y)}"} if y < 2024 and y != 2019 else set())
+    assert "yr:2025" in _row_tokens(legacy, 12)
+    assert "yr:2026" in _row_tokens(legacy, 13)
+
+
+def test_segment_variant_reuses_unified_identifiable_paths_and_gp_priors(
+    screen_rows, monkeypatch
+):
+    frame, held = screen_rows
+    base = ablate.design(frame, held=held, variant="mark_baths")
+    assert ablate.gp_spec(base.names) is None
+    monkeypatch.setattr(ablate, "ACTIVE_VARIANT", ("mark_baths", "seg"))
+    d = ablate.design(frame, held=held)
+    want = unified_seg.identifiable_segment_paths(base)
+    assert d.names == want.names
+    np.testing.assert_array_equal(d.x, want.x)
+    np.testing.assert_array_equal(d.phase_map, base.phase_map)
+    path_names = [n for n in d.names if n.startswith("seg:")]
+    assert path_names
+    assert not any(
+        n.startswith("seg:manhattan:1br:") or n.endswith(":2024q1") for n in path_names
+    )
+
+    gps = ablate.gp_spec(d.names)
+    specs = [g for g in gps if g["name"].startswith("seg:")]
+    assert specs and all(
+        g["kernel"] == "matern32" and g["nugget"] == 1e-4 for g in specs
+    )
+    settings = ablate.Settings(
+        chains=2, warmup=2, draws=4, keep_every=2, budget_seconds=None
+    )
+    train = ablate.subset(d, ~held)
+    out = ablate.run(train, ablate.Priors(), settings, log=lambda _: None)
+    assert out["trace"]["gp_amp"].shape == (2, 4, len(gps))
+    assert out["kept"]["phase_scale"].shape == (2, 2, len(d.phases))
+    rows = ablate.diagnostics(out["trace"], d.names)["per_quantity"]
+    scales = {f"gp_ls[{g['name']}]" for g in specs}
+    assert scales <= rows.keys()
+    assert scales <= ablate.summarize(out["kept"], d.names)["segment_gp"].keys()
+
+    # The design's columns also carry the variant for direct callers of design(variant=...).
+    monkeypatch.setattr(ablate, "ACTIVE_VARIANT", ())
+    assert [g["name"] for g in ablate.gp_spec(d.names)] == [g["name"] for g in gps]
+    monkeypatch.setattr(drift, "run", lambda *args, **kw: kw["gp"])
+    assert ablate.run(base, ablate.Priors(), settings) == "spec"

@@ -455,6 +455,68 @@ def test_run_stops_at_a_kept_draw_when_its_time_is_up():
     assert any(m.startswith("stopping at draw 3 of 40") for m in lines)
 
 
+@pytest.mark.parametrize("mapped", [False, True])
+def test_run_traces_free_factors_and_keeps_each_phases_scale(mapped):
+    full = _design(n=400)
+    full = dataclasses.replace(
+        full,
+        phase=np.arange(len(full.y)) % 4,
+        phases=("ref", "a", "b", "a|b" if mapped else "c"),
+        phase_map=np.array([[0, 0], [1, 0], [0, 1], [1, 1]]) if mapped else None,
+    )
+    train, _, held = _split(full)
+    priors = building_zones.Priors()
+    settings = drift.Settings(chains=2, warmup=4, draws=8, keep_every=2)
+    out = drift.run(train, priors, settings, log=lambda _: None, gp=None)
+    trace, kept = out["trace"], out["kept"]
+    rows = drift.diagnostics(trace, train.names)["per_quantity"]
+    summary = drift.summarize(kept, train.names)
+    np.testing.assert_array_equal(kept["pred_phase"], full.phase[held])
+    assert kept["phase_scale"].shape == (2, 4, 4)
+
+    if mapped:
+        assert "phase_scale" not in trace and "phase_scale" not in summary
+        assert trace["phase_factor"].shape == (2, 8, 2)
+        factors = trace["phase_factor"][:, 1::2]
+        np.testing.assert_array_equal(kept["phase_factor"], factors)
+        _, _, _, parts = drift.make_sampler(train, priors, settings, gp=None)
+        jax, _ = b0._jax()
+        expand = jax.jit(jax.vmap(parts["phase_factors"]))
+        expected = np.stack([expand(factors[:, i]) for i in range(4)], axis=1)
+        np.testing.assert_array_equal(kept["phase_scale"], expected)
+        assert {k for k in rows if k.startswith("phase_")} == {
+            "phase_factor[0]",
+            "phase_factor[1]",
+        }
+        assert len(summary["phase_factor"]) == 2
+    else:
+        assert "phase_factor" not in trace and "phase_factor" not in summary
+        assert trace["phase_scale"].shape == (2, 8, 4)
+        np.testing.assert_array_equal(trace["phase_scale"][..., 0], 1.0)
+        np.testing.assert_array_equal(
+            kept["phase_scale"], trace["phase_scale"][:, 1::2]
+        )
+        assert {k for k in rows if k.startswith("phase_")} == {
+            "phase_scale[1]",
+            "phase_scale[2]",
+            "phase_scale[3]",
+        }
+        assert len(summary["phase_scale"]) == 4
+
+
+def _legacy_phase_arrays(out, phase_map):
+    """Rebuild the old array layout to check the pinned draws are still identical."""
+    jax, jnp = b0._jax()
+    pmap = jnp.asarray(phase_map)
+    expand = jax.jit(jax.vmap(lambda f: jnp.exp(pmap @ jnp.log(f))))
+    trace = out["trace"].copy()
+    factors = trace.pop("phase_factor")
+    trace["phase_scale"] = np.stack([expand(f) for f in factors.swapaxes(0, 1)], axis=1)
+    return {f"trace/{k}": v for k, v in trace.items()} | {
+        f"kept/{k}": v for k, v in out["kept"].items() if k != "phase_factor"
+    }
+
+
 def test_draw_u_has_the_conditional_mean_and_covariance():
     full = _design(n=400, per_unit=9)
     train, _, _ = _split(full)
