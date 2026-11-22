@@ -1,0 +1,166 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 744" width="760" height="744" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.2 L 9 5 L 0 8.8 z" fill="#64748b"/>
+    </marker>
+    <marker id="arr-main" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.2 L 9 5 L 0 8.8 z" fill="#0f172a"/>
+    </marker>
+    <marker id="arr-new" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.2 L 9 5 L 0 8.8 z" fill="#e11d48"/>
+    </marker>
+    <style>
+      .card-bg { fill: #ffffff; stroke: #e2e8f0; stroke-width: 1.2; rx: 10; ry: 10; }
+      .title { font-size: 14.5px; font-weight: 700; fill: #0f172a; letter-spacing: -0.01em; }
+      .sub { font-size: 11px; fill: #475569; }
+      .pill-txt { font-size: 10px; font-weight: 700; fill: #ffffff; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .tier-lbl { font-size: 9.2px; font-weight: 700; fill: #64748b; letter-spacing: 0.07em; text-transform: uppercase; paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
+      .tier-blue { font-size: 9.2px; font-weight: 700; fill: #2563eb; letter-spacing: 0.07em; text-transform: uppercase; paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
+
+      .plate { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1.25; rx: 8; ry: 8; }
+      .plate-inner { fill: #ffffff; stroke: #94a3b8; stroke-width: 1.1; rx: 7; ry: 7; }
+      .plate-new { fill: #fff1f2; stroke: #e11d48; stroke-width: 1.45; stroke-dasharray: 5 3; rx: 8; ry: 8; }
+      .plate-obs { fill: #ffffff; stroke: #2563eb; stroke-width: 1.6; rx: 9; ry: 9; }
+
+      .pidx { font-size: 9.5px; font-weight: 600; fill: #64748b; paint-order: stroke; stroke: #f8fafc; stroke-width: 4px; stroke-linejoin: round; }
+      .pidx-w { font-size: 9.5px; font-weight: 600; fill: #64748b; paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
+      .pidx-r { font-size: 9.5px; font-weight: 600; fill: #64748b; text-anchor: end; paint-order: stroke; stroke: #f8fafc; stroke-width: 4px; stroke-linejoin: round; }
+      .pidx-new { font-size: 9.5px; font-weight: 700; fill: #be123c; paint-order: stroke; stroke: #fff1f2; stroke-width: 4px; stroke-linejoin: round; }
+      .pidx-new-r { font-size: 9.5px; font-weight: 700; fill: #be123c; text-anchor: end; paint-order: stroke; stroke: #fff1f2; stroke-width: 4px; stroke-linejoin: round; }
+      .pidx-obs { font-size: 10px; font-weight: 700; fill: #2563eb; paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
+
+      .node { fill: #ffffff; stroke: #0f172a; stroke-width: 1.5; }
+      .node-new { fill: #ffffff; stroke: #e11d48; stroke-width: 1.75; stroke-dasharray: 4 2.5; }
+      .node-obs { fill: #dbeafe; stroke: #2563eb; stroke-width: 1.75; }
+      .node-det { fill: #ffffff; stroke: #0f172a; stroke-width: 1.6; }
+      .node-det-in { fill: none; stroke: #0f172a; stroke-width: 1.05; }
+
+      .sym { font-family: Georgia, 'Times New Roman', serif; font-size: 13.5px; font-weight: 700; font-style: italic; fill: #0f172a; text-anchor: middle; }
+      .sym-up { font-family: Georgia, 'Times New Roman', serif; font-size: 13px; font-weight: 700; fill: #0f172a; text-anchor: middle; }
+      .sym-new { font-family: Georgia, 'Times New Roman', serif; font-size: 13.5px; font-weight: 700; font-style: italic; fill: #e11d48; text-anchor: middle; }
+      .sym-up-new { font-family: Georgia, 'Times New Roman', serif; font-size: 13px; font-weight: 700; fill: #e11d48; text-anchor: middle; }
+      .sym-obs { font-family: Georgia, 'Times New Roman', serif; font-size: 14px; font-weight: 700; font-style: italic; fill: #1d4ed8; text-anchor: middle; }
+
+      .cap-b { font-size: 9.6px; font-weight: 700; fill: #0f172a; text-anchor: middle; paint-order: stroke; stroke-width: 3.8px; stroke-linejoin: round; }
+      .cap-new { font-size: 9.6px; font-weight: 700; fill: #be123c; text-anchor: middle; paint-order: stroke; stroke-width: 3.8px; stroke-linejoin: round; }
+      .cap-s { font-size: 8.8px; fill: #64748b; text-anchor: middle; paint-order: stroke; stroke-width: 3.8px; stroke-linejoin: round; }
+
+      .hw { stroke: #ffffff; }
+      .hp { stroke: #f8fafc; }
+      .hn { stroke: #fff1f2; }
+
+      .edge { fill: none; stroke: #64748b; stroke-width: 1.3; marker-end: url(#arr); }
+      .edge-main { fill: none; stroke: #0f172a; stroke-width: 1.45; marker-end: url(#arr-main); }
+      .edge-new { fill: none; stroke: #e11d48; stroke-width: 1.6; stroke-dasharray: 4 2.5; marker-end: url(#arr-new); }
+
+      .eq-box { fill: #f1f5f9; stroke: #e2e8f0; stroke-width: 1; rx: 6; ry: 6; }
+      .eq-hdr { font-size: 10.5px; font-weight: 700; fill: #0f172a; }
+      .eq-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10.3px; font-weight: 700; fill: #0f172a; }
+      .eq-note { font-size: 10.2px; fill: #475569; }
+      .leg-txt { font-size: 10.2px; fill: #475569; }
+    </style>
+  </defs>
+  <rect x="1" y="1" width="758" height="742" class="card-bg"/>
+  <text x="18" y="30" class="title">Gen 1a — Pooled Chelsea Hierarchical Model (All-Chelsea / Bathrooms / Floor Spline)</text>
+  <rect x="18" y="38" width="402" height="18" rx="9" fill="#2563eb"/>
+  <text x="219.0" y="50" text-anchor="middle" class="pill-txt">Sep 8–19, 2026 · PyMC / NUTS · 52.7k Chelsea rows · Gate PASS</text>
+  <text x="18" y="72" class="sub">First pooled multi-building Bayesian model. Boxes (&quot;plates&quot;) repeat parameters across months, buildings, apartments, or ads.</text>
+  <text x="18" y="86" class="sub">Shared across canonical bathrooms and floor-spline updates (those only changed feature columns in x_i, not the graph).</text>
+  <g id="plates">
+    <rect x="176" y="118" width="160" height="104" class="plate"/>
+    <rect x="356" y="118" width="160" height="104" class="plate"/>
+    <rect x="40" y="264" width="412" height="166" class="plate"/>
+    <rect x="246" y="278" width="192" height="128" class="plate-inner"/>
+    <rect x="18" y="472" width="724" height="152" class="plate-obs"/>
+  </g>
+  <g id="edges">
+    <path d="M 64 162 L 26 162 L 26 442 C 26 456, 256 448, 308 511" class="edge"/>
+    <path d="M 256 222 L 256 232 C 256 240, 230 240, 230 264 L 230 438 C 230 474, 304 486, 320 508" class="edge"/>
+    <path d="M 436 222 L 436 232 C 436 240, 468 240, 468 264 L 468 440 C 468 476, 378 488, 352 512" class="edge"/>
+    <path d="M 140 388 C 140 442, 256 476, 314 514" class="edge-main"/>
+    <path d="M 342 388 L 336 506" class="edge-main"/>
+    <path d="M 564 388 L 564 506" class="edge-main"/>
+    <path d="M 118 532 L 308 532" class="edge-main"/>
+    <path d="M 360 532 L 538 532" class="edge-main"/>
+    <path d="M 658 532 L 590 532" class="edge"/>
+  </g>
+  <g id="tiers">
+    <text x="18" y="108" class="tier-lbl">1. Chelsea features, monthly market trend &amp; seasonal calendar effect</text>
+    <text x="40" y="254" class="tier-lbl">2. Building &amp; apartment memory (left) + shared noise (right)</text>
+    <text x="18" y="462" class="tier-blue">3. Each observed Chelsea rental listing</text>
+  </g>
+  <g id="plate-labels">
+    <text x="184" y="132" class="pidx">t = 1…T months</text>
+    <text x="364" y="132" class="pidx">m = 1…12 cal. months</text>
+    <text x="50" y="421" class="pidx">b = 1…~1,130 Chelsea buildings</text>
+    <text x="254" y="292" class="pidx-w">u = 1…~22,000 Chelsea units</text>
+    <text x="30" y="614" class="pidx-obs">i = 1…52,653 Chelsea unit-months (Sep 2026 dataset)</text>
+  </g>
+  <g id="nodes">
+    <circle cx="84" cy="162" r="20" class="node"/>
+    <text x="84" y="167" class="sym-up">α, β</text>
+    <circle cx="256" cy="162" r="20" class="node"/>
+    <text x="256" y="167" class="sym">g<tspan dy="3" font-size="9">t</tspan></text>
+    <circle cx="436" cy="162" r="20" class="node"/>
+    <text x="436" y="167" class="sym">s<tspan dy="3" font-size="9">m</tspan></text>
+    <circle cx="140" cy="324" r="20" class="node"/>
+    <text x="140" y="329" class="sym">b<tspan dy="3" font-size="9">j</tspan></text>
+    <circle cx="342" cy="324" r="20" class="node"/>
+    <text x="342" y="329" class="sym">u<tspan dy="3" font-size="9">u</tspan></text>
+    <circle cx="564" cy="324" r="20" class="node"/>
+    <text x="564" y="329" class="sym">σ</text>
+    <circle cx="94" cy="532" r="22" class="node-obs"/>
+    <text x="94" y="537" class="sym-obs">x<tspan dy="3" font-size="9">i</tspan></text>
+    <circle cx="334" cy="532" r="24" class="node-det"/>
+    <circle cx="334" cy="532" r="19" class="node-det-in"/>
+    <text x="334" y="537" class="sym">μ<tspan dy="3" font-size="9">i</tspan></text>
+    <circle cx="564" cy="532" r="24" class="node-obs"/>
+    <text x="564" y="537" class="sym-obs">y<tspan dy="3" font-size="9">i</tspan></text>
+    <circle cx="678" cy="532" r="20" class="node"/>
+    <text x="678" y="537" class="sym">λ<tspan dy="3" font-size="9">i</tspan></text>
+  </g>
+  <g id="captions">
+    <text x="84" y="195" class="cap-b hw">Feature effects</text>
+    <text x="84" y="206" class="cap-s hw">47 cols: baths,</text>
+    <text x="84" y="217" class="cap-s hw">floor spline</text>
+    <text x="256" y="195" class="cap-b hp">Monthly trend</text>
+    <text x="256" y="206" class="cap-s hp">citywide Chelsea</text>
+    <text x="256" y="217" class="cap-s hp">random walk</text>
+    <text x="436" y="195" class="cap-b hp">Seasonality</text>
+    <text x="436" y="206" class="cap-s hp">12 calendar-month</text>
+    <text x="436" y="217" class="cap-s hp">zero-sum offsets</text>
+    <text x="140" y="357" class="cap-b hp">Building level</text>
+    <text x="140" y="368" class="cap-s hp">ZeroSumNormal</text>
+    <text x="140" y="379" class="cap-s hp">permanent offset</text>
+    <text x="342" y="357" class="cap-b hw">Unit baseline</text>
+    <text x="342" y="368" class="cap-s hw">Gaussian offset</text>
+    <text x="342" y="379" class="cap-s hw">constant over time</text>
+    <text x="564" y="357" class="cap-b hw">Shared noise</text>
+    <text x="564" y="368" class="cap-s hw">single scale for</text>
+    <text x="564" y="379" class="cap-s hw">all Chelsea ads</text>
+    <text x="94" y="567" class="cap-b hw">Listing features</text>
+    <text x="94" y="578" class="cap-s hw">beds, full/half baths,</text>
+    <text x="94" y="589" class="cap-s hw">sqft, floor spline</text>
+    <text x="334" y="569" class="cap-b hw">Expected log rent</text>
+    <text x="334" y="580" class="cap-s hw">sum of all 5 mean pieces</text>
+    <text x="564" y="569" class="cap-b hw">Observed log rent</text>
+    <text x="564" y="580" class="cap-s hw">log(gross ask), Student-t(5)</text>
+    <text x="678" y="565" class="cap-b hw">Outlier weight</text>
+    <text x="678" y="576" class="cap-s hw">fixed ν = 5 tails</text>
+    <text x="678" y="587" class="cap-s hw">downweights wild asks</text>
+  </g>
+  <g id="footer">
+    <rect x="18" y="636" width="724" height="72" class="eq-box"/>
+    <text x="30" y="653" class="eq-hdr">Exact prediction equation for listing i:</text>
+    <text x="30" y="669" class="eq-code">log(gross_ask_i) = α + [x_i·β] + g_t(month_i) + s_m(cal_month_i) + b_j + u_u + noise_i</text>
+    <text x="30" y="685" class="eq-note">where noise_i ~ Student-t(df=5 fixed, scale=σ); b_j ~ ZeroSumNormal(0, σ_b); u_u ~ Normal(0, σ_u²).</text>
+    <text x="30" y="699" class="eq-note">Baseline: 6.51% holdout MAE vs 11.61% naive. Early single-building Sierra indexes omitted the building term b_j.</text>
+    <circle cx="26" cy="725" r="5.5" class="node-obs"/>
+    <text x="38" y="728" class="leg-txt">Observed data</text>
+    <circle cx="136" cy="725" r="5.5" class="node"/>
+    <text x="148" y="728" class="leg-txt">Learned latent parameter</text>
+    <circle cx="298" cy="725" r="5.5" class="node-det"/>
+    <circle cx="298" cy="725" r="3.2" class="node-det-in"/>
+    <text x="310" y="728" class="leg-txt">Deterministic sum</text>
+  </g>
+</svg>

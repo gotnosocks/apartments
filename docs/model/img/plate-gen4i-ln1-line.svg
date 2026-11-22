@@ -1,0 +1,201 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 752" width="760" height="752" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.2 L 9 5 L 0 8.8 z" fill="#64748b"/>
+    </marker>
+    <marker id="arr-main" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.2 L 9 5 L 0 8.8 z" fill="#0f172a"/>
+    </marker>
+    <marker id="arr-new" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.2 L 9 5 L 0 8.8 z" fill="#e11d48"/>
+    </marker>
+    <style>
+      .card-bg { fill: #ffffff; stroke: #e2e8f0; stroke-width: 1.2; rx: 10; ry: 10; }
+      .title { font-size: 14.5px; font-weight: 700; fill: #0f172a; letter-spacing: -0.01em; }
+      .sub { font-size: 11px; fill: #475569; }
+      .pill-txt { font-size: 10px; font-weight: 700; fill: #ffffff; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .tier-lbl { font-size: 9.2px; font-weight: 700; fill: #64748b; letter-spacing: 0.07em; text-transform: uppercase; paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
+      .tier-blue { font-size: 9.2px; font-weight: 700; fill: #2563eb; letter-spacing: 0.07em; text-transform: uppercase; paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
+
+      .plate { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1.25; rx: 8; ry: 8; }
+      .plate-inner { fill: #ffffff; stroke: #94a3b8; stroke-width: 1.1; rx: 7; ry: 7; }
+      .plate-new { fill: #fff1f2; stroke: #e11d48; stroke-width: 1.45; stroke-dasharray: 5 3; rx: 8; ry: 8; }
+      .plate-obs { fill: #ffffff; stroke: #2563eb; stroke-width: 1.6; rx: 9; ry: 9; }
+
+      .pidx { font-size: 9.5px; font-weight: 600; fill: #64748b; paint-order: stroke; stroke: #f8fafc; stroke-width: 4px; stroke-linejoin: round; }
+      .pidx-w { font-size: 9.5px; font-weight: 600; fill: #64748b; paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
+      .pidx-r { font-size: 9.5px; font-weight: 600; fill: #64748b; text-anchor: end; paint-order: stroke; stroke: #f8fafc; stroke-width: 4px; stroke-linejoin: round; }
+      .pidx-new { font-size: 9.5px; font-weight: 700; fill: #be123c; paint-order: stroke; stroke: #fff1f2; stroke-width: 4px; stroke-linejoin: round; }
+      .pidx-new-r { font-size: 9.5px; font-weight: 700; fill: #be123c; text-anchor: end; paint-order: stroke; stroke: #fff1f2; stroke-width: 4px; stroke-linejoin: round; }
+      .pidx-obs { font-size: 10px; font-weight: 700; fill: #2563eb; paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
+
+      .node { fill: #ffffff; stroke: #0f172a; stroke-width: 1.5; }
+      .node-new { fill: #ffffff; stroke: #e11d48; stroke-width: 1.75; stroke-dasharray: 4 2.5; }
+      .node-obs { fill: #dbeafe; stroke: #2563eb; stroke-width: 1.75; }
+      .node-det { fill: #ffffff; stroke: #0f172a; stroke-width: 1.6; }
+      .node-det-in { fill: none; stroke: #0f172a; stroke-width: 1.05; }
+
+      .sym { font-family: Georgia, 'Times New Roman', serif; font-size: 13.5px; font-weight: 700; font-style: italic; fill: #0f172a; text-anchor: middle; }
+      .sym-up { font-family: Georgia, 'Times New Roman', serif; font-size: 13px; font-weight: 700; fill: #0f172a; text-anchor: middle; }
+      .sym-new { font-family: Georgia, 'Times New Roman', serif; font-size: 13.5px; font-weight: 700; font-style: italic; fill: #e11d48; text-anchor: middle; }
+      .sym-up-new { font-family: Georgia, 'Times New Roman', serif; font-size: 13px; font-weight: 700; fill: #e11d48; text-anchor: middle; }
+      .sym-obs { font-family: Georgia, 'Times New Roman', serif; font-size: 14px; font-weight: 700; font-style: italic; fill: #1d4ed8; text-anchor: middle; }
+
+      .cap-b { font-size: 9.6px; font-weight: 700; fill: #0f172a; text-anchor: middle; paint-order: stroke; stroke-width: 3.8px; stroke-linejoin: round; }
+      .cap-new { font-size: 9.6px; font-weight: 700; fill: #be123c; text-anchor: middle; paint-order: stroke; stroke-width: 3.8px; stroke-linejoin: round; }
+      .cap-s { font-size: 8.8px; fill: #64748b; text-anchor: middle; paint-order: stroke; stroke-width: 3.8px; stroke-linejoin: round; }
+
+      .hw { stroke: #ffffff; }
+      .hp { stroke: #f8fafc; }
+      .hn { stroke: #fff1f2; }
+
+      .edge { fill: none; stroke: #64748b; stroke-width: 1.3; marker-end: url(#arr); }
+      .edge-main { fill: none; stroke: #0f172a; stroke-width: 1.45; marker-end: url(#arr-main); }
+      .edge-new { fill: none; stroke: #e11d48; stroke-width: 1.6; stroke-dasharray: 4 2.5; marker-end: url(#arr-new); }
+
+      .eq-box { fill: #f1f5f9; stroke: #e2e8f0; stroke-width: 1; rx: 6; ry: 6; }
+      .eq-hdr { font-size: 10.5px; font-weight: 700; fill: #0f172a; }
+      .eq-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10.3px; font-weight: 700; fill: #0f172a; }
+      .eq-note { font-size: 10.2px; fill: #475569; }
+      .leg-txt { font-size: 10.2px; fill: #475569; }
+    </style>
+  </defs>
+  <rect x="1" y="1" width="758" height="750" class="card-bg"/>
+  <text x="18" y="30" class="title">Gen 4i — LN1: drift-building-phase-line (Building × Bed-Bath Line Level)</text>
+  <rect x="18" y="38" width="333" height="18" rx="9" fill="#64748b"/>
+  <text x="184.5" y="50" text-anchor="middle" class="pill-txt">Written candidate (+750 ELPD screen; awaiting fit)</text>
+  <text x="18" y="72" class="sub">Adds an intermediate &#x27;line&#x27; plate m = (bedrooms, full baths) inside each building so units in the same stack share a baseline ℓ_m.</text>
+  <text x="18" y="86" class="sub">Dashed crimson items are new vs Gen 4e (L1): each apartment&#x27;s baseline s_u is centered on its building&#x27;s line level ℓ_m.</text>
+  <g id="plates">
+    <rect x="144" y="118" width="130" height="104" class="plate"/>
+    <rect x="284" y="118" width="138" height="104" class="plate"/>
+    <rect x="34" y="264" width="474" height="176" class="plate"/>
+    <rect x="126" y="278" width="88" height="134" class="plate-inner"/>
+    <rect x="228" y="278" width="270" height="142" class="plate-new"/>
+    <rect x="320" y="298" width="170" height="114" class="plate-inner"/>
+    <rect x="524" y="264" width="98" height="176" class="plate"/>
+    <rect x="630" y="264" width="112" height="176" class="plate"/>
+    <rect x="18" y="478" width="724" height="154" class="plate-obs"/>
+  </g>
+  <g id="edges">
+    <path d="M 353 222 L 353 233 C 353 240, 80 234, 80 314" class="edge"/>
+    <path d="M 56 162 L 22 162 L 22 448 C 22 464, 250 454, 286 518" class="edge"/>
+    <path d="M 209 222 L 209 232 C 209 240, 221 240, 221 266 L 221 444 C 221 476, 296 490, 298 515" class="edge"/>
+    <path d="M 80 402 C 80 452, 222 486, 284 530" class="edge-main"/>
+    <path d="M 170 402 C 170 448, 256 482, 292 520" class="edge-main"/>
+    <path d="M 292 336 L 342 336" class="edge-new"/>
+    <path d="M 362 402 C 362 448, 310 482, 308 514" class="edge-main"/>
+    <path d="M 446 402 C 446 450, 344 484, 322 520" class="edge-main"/>
+    <path d="M 112 540 L 282 540" class="edge-main"/>
+    <path d="M 334 540 L 547 540" class="edge-main"/>
+    <path d="M 656 540 L 599 540" class="edge"/>
+    <path d="M 573 402 C 573 450, 573 476, 573 514" class="edge-main"/>
+    <path d="M 686 402 C 686 458, 621 486, 589 521" class="edge"/>
+  </g>
+  <g id="tiers">
+    <text x="18" y="108" class="tier-lbl">1. Citywide features, market trend, neighborhood map</text>
+    <text x="34" y="254" class="tier-lbl">2. Building &amp; apartment memory (left) + listing noise scale (right)</text>
+    <text x="18" y="468" class="tier-blue">3. Each observed rental listing</text>
+  </g>
+  <g id="plate-labels">
+    <text x="152" y="132" class="pidx">w = 1…676 weeks</text>
+    <text x="292" y="132" class="pidx">z ∈ {Manh., Outer}</text>
+    <text x="44" y="431" class="pidx">b = 1…~68,000 NYC buildings</text>
+    <text x="134" y="292" class="pidx-w">q = quarters</text>
+    <text x="236" y="292" class="pidx-new">NEW · m = bed × bath line</text>
+    <text x="328" y="312" class="pidx-w">u = units in line</text>
+    <text x="532" y="278" class="pidx">g = 0…3+ BR</text>
+    <text x="638" y="278" class="pidx">p = 1…6 phases</text>
+    <text x="30" y="622" class="pidx-obs">i = 1…~1.9M NYC rental listings (1.71M training + 190k held-out; open market ads scored from posterior draws)</text>
+  </g>
+  <g id="nodes">
+    <circle cx="76" cy="162" r="20" class="node"/>
+    <text x="76" y="167" class="sym-up">β</text>
+    <circle cx="209" cy="162" r="20" class="node"/>
+    <text x="209" y="167" class="sym">L(w)</text>
+    <circle cx="353" cy="162" r="20" class="node"/>
+    <text x="353" y="167" class="sym">F<tspan dy="3" font-size="9">z</tspan></text>
+    <circle cx="80" cy="336" r="18" class="node"/>
+    <text x="80" y="341" class="sym">η<tspan dy="3" font-size="9">b</tspan></text>
+    <circle cx="170" cy="336" r="18" class="node"/>
+    <text x="170" y="341" class="sym">a<tspan dy="3" font-size="9">b</tspan><tspan dy="-3">(q)</tspan></text>
+    <circle cx="272" cy="336" r="18" class="node-new"/>
+    <text x="272" y="341" class="sym-new">ℓ<tspan dy="3" font-size="9">m</tspan></text>
+    <circle cx="362" cy="336" r="18" class="node"/>
+    <text x="362" y="341" class="sym">s<tspan dy="3" font-size="9">u</tspan></text>
+    <circle cx="446" cy="336" r="18" class="node"/>
+    <text x="446" y="341" class="sym">d<tspan dy="3" font-size="9">u</tspan><tspan dy="-3">(t)</tspan></text>
+    <circle cx="573" cy="336" r="20" class="node"/>
+    <text x="573" y="341" class="sym">σ<tspan dy="3" font-size="9">g</tspan></text>
+    <circle cx="686" cy="336" r="20" class="node"/>
+    <text x="686" y="341" class="sym">φ<tspan dy="3" font-size="9">p</tspan></text>
+    <circle cx="90" cy="540" r="22" class="node-obs"/>
+    <text x="90" y="545" class="sym-obs">x<tspan dy="3" font-size="9">i</tspan></text>
+    <circle cx="308" cy="540" r="24" class="node-det"/>
+    <circle cx="308" cy="540" r="19" class="node-det-in"/>
+    <text x="308" y="545" class="sym">μ<tspan dy="3" font-size="9">i</tspan></text>
+    <circle cx="573" cy="540" r="24" class="node-obs"/>
+    <text x="573" y="545" class="sym-obs">y<tspan dy="3" font-size="9">i</tspan></text>
+    <circle cx="678" cy="540" r="20" class="node"/>
+    <text x="678" y="545" class="sym">λ<tspan dy="3" font-size="9">i</tspan></text>
+  </g>
+  <g id="captions">
+    <text x="76" y="195" class="cap-b hw">Feature effects</text>
+    <text x="76" y="206" class="cap-s hw">~260 as-of cols</text>
+    <text x="76" y="217" class="cap-s hw">+ floor GP</text>
+    <text x="209" y="195" class="cap-b hp">Citywide trend</text>
+    <text x="209" y="206" class="cap-s hp">weekly walk</text>
+    <text x="209" y="217" class="cap-s hp">+ season</text>
+    <text x="353" y="195" class="cap-b hp">Location map</text>
+    <text x="353" y="206" class="cap-s hp">~1 km smooth</text>
+    <text x="353" y="217" class="cap-s hp">HSGP surface</text>
+    <text x="80" y="367" class="cap-b hp">Building level</text>
+    <text x="80" y="378" class="cap-s hp">Student-t(4)</text>
+    <text x="80" y="389" class="cap-s hp">vs neighborhood</text>
+    <text x="170" y="367" class="cap-b hw">Building drift</text>
+    <text x="170" y="378" class="cap-s hw">quarterly AR(1)</text>
+    <text x="170" y="389" class="cap-s hw">ρ ≈ 0.89 / yr</text>
+    <text x="272" y="367" class="cap-new hn">Line level</text>
+    <text x="272" y="378" class="cap-s hn">shared by</text>
+    <text x="272" y="389" class="cap-s hn">bed × bath</text>
+    <text x="272" y="400" class="cap-s hn">stack</text>
+    <text x="362" y="367" class="cap-b hw">Unit baseline</text>
+    <text x="362" y="378" class="cap-s hw">Gaussian offset</text>
+    <text x="362" y="389" class="cap-s hw">permanent level</text>
+    <text x="446" y="367" class="cap-b hw">Unit drift</text>
+    <text x="446" y="378" class="cap-s hw">fades in ~2.8 yr</text>
+    <text x="446" y="389" class="cap-s hw">(OU process)</text>
+    <text x="573" y="369" class="cap-b hp">Base noise</text>
+    <text x="573" y="380" class="cap-s hp">~1.3% per bed</text>
+    <text x="573" y="391" class="cap-s hp">group</text>
+    <text x="686" y="369" class="cap-b hp">Lease phase</text>
+    <text x="686" y="380" class="cap-s hp">6 gap bins vs</text>
+    <text x="686" y="391" class="cap-s hp">10–13 mo ref</text>
+    <text x="90" y="575" class="cap-b hw">Listing features</text>
+    <text x="90" y="586" class="cap-s hw">beds, baths, sqft,</text>
+    <text x="90" y="597" class="cap-s hw">amenities, floor, cues</text>
+    <text x="308" y="577" class="cap-b hw">Expected log rent</text>
+    <text x="308" y="588" class="cap-s hw">sum of all 6 mean pieces</text>
+    <text x="573" y="577" class="cap-b hw">Observed log rent</text>
+    <text x="573" y="588" class="cap-s hw">Student-t(ν) around μ_i</text>
+    <text x="678" y="573" class="cap-b hw">Outlier weight</text>
+    <text x="678" y="584" class="cap-s hw">learned ν tails</text>
+    <text x="678" y="595" class="cap-s hw">downweights wild asks</text>
+  </g>
+  <g id="footer">
+    <rect x="18" y="644" width="724" height="72" class="eq-box"/>
+    <text x="30" y="661" class="eq-hdr">Exact prediction equation for listing i:</text>
+    <text x="30" y="677" class="eq-code">log(net_ask_i) = [x_i·β] + L(week_i) + η_b + a_b(quarter_i) + s_u + d_u(time_i) + noise_i</text>
+    <text x="30" y="693" class="eq-note">where ℓ_m ~ Normal(0, σ_ℓ²) per (building, bed, full-bath) line and s_u ~ Normal(ℓ_{m(u)}, σ_s²) centers each unit on its line.</text>
+    <text x="30" y="707" class="eq-note">Improves predictions for new/unseen apartments in buildings with many similar units of the same bedroom-bath layout.</text>
+    <circle cx="26" cy="733" r="5.5" class="node-obs"/>
+    <text x="38" y="736" class="leg-txt">Observed data</text>
+    <circle cx="136" cy="733" r="5.5" class="node"/>
+    <text x="148" y="736" class="leg-txt">Learned latent parameter</text>
+    <circle cx="298" cy="733" r="5.5" class="node-det"/>
+    <circle cx="298" cy="733" r="3.2" class="node-det-in"/>
+    <text x="310" y="736" class="leg-txt">Deterministic sum</text>
+    <circle cx="428" cy="733" r="5.5" class="node-new"/>
+    <text x="440" y="736" class="leg-txt" style="fill:#be123c;font-weight:600;">New in LN1 vs Gen 4e (L1)</text>
+  </g>
+</svg>

@@ -1,0 +1,182 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 744" width="760" height="744" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.2 L 9 5 L 0 8.8 z" fill="#64748b"/>
+    </marker>
+    <marker id="arr-main" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.2 L 9 5 L 0 8.8 z" fill="#0f172a"/>
+    </marker>
+    <marker id="arr-new" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.2 L 9 5 L 0 8.8 z" fill="#e11d48"/>
+    </marker>
+    <style>
+      .card-bg { fill: #ffffff; stroke: #e2e8f0; stroke-width: 1.2; rx: 10; ry: 10; }
+      .title { font-size: 14.5px; font-weight: 700; fill: #0f172a; letter-spacing: -0.01em; }
+      .sub { font-size: 11px; fill: #475569; }
+      .pill-txt { font-size: 10px; font-weight: 700; fill: #ffffff; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .tier-lbl { font-size: 9.2px; font-weight: 700; fill: #64748b; letter-spacing: 0.07em; text-transform: uppercase; paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
+      .tier-blue { font-size: 9.2px; font-weight: 700; fill: #2563eb; letter-spacing: 0.07em; text-transform: uppercase; paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
+
+      .plate { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1.25; rx: 8; ry: 8; }
+      .plate-inner { fill: #ffffff; stroke: #94a3b8; stroke-width: 1.1; rx: 7; ry: 7; }
+      .plate-new { fill: #fff1f2; stroke: #e11d48; stroke-width: 1.45; stroke-dasharray: 5 3; rx: 8; ry: 8; }
+      .plate-obs { fill: #ffffff; stroke: #2563eb; stroke-width: 1.6; rx: 9; ry: 9; }
+
+      .pidx { font-size: 9.5px; font-weight: 600; fill: #64748b; paint-order: stroke; stroke: #f8fafc; stroke-width: 4px; stroke-linejoin: round; }
+      .pidx-w { font-size: 9.5px; font-weight: 600; fill: #64748b; paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
+      .pidx-r { font-size: 9.5px; font-weight: 600; fill: #64748b; text-anchor: end; paint-order: stroke; stroke: #f8fafc; stroke-width: 4px; stroke-linejoin: round; }
+      .pidx-new { font-size: 9.5px; font-weight: 700; fill: #be123c; paint-order: stroke; stroke: #fff1f2; stroke-width: 4px; stroke-linejoin: round; }
+      .pidx-new-r { font-size: 9.5px; font-weight: 700; fill: #be123c; text-anchor: end; paint-order: stroke; stroke: #fff1f2; stroke-width: 4px; stroke-linejoin: round; }
+      .pidx-obs { font-size: 10px; font-weight: 700; fill: #2563eb; paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
+
+      .node { fill: #ffffff; stroke: #0f172a; stroke-width: 1.5; }
+      .node-new { fill: #ffffff; stroke: #e11d48; stroke-width: 1.75; stroke-dasharray: 4 2.5; }
+      .node-obs { fill: #dbeafe; stroke: #2563eb; stroke-width: 1.75; }
+      .node-det { fill: #ffffff; stroke: #0f172a; stroke-width: 1.6; }
+      .node-det-in { fill: none; stroke: #0f172a; stroke-width: 1.05; }
+
+      .sym { font-family: Georgia, 'Times New Roman', serif; font-size: 13.5px; font-weight: 700; font-style: italic; fill: #0f172a; text-anchor: middle; }
+      .sym-up { font-family: Georgia, 'Times New Roman', serif; font-size: 13px; font-weight: 700; fill: #0f172a; text-anchor: middle; }
+      .sym-new { font-family: Georgia, 'Times New Roman', serif; font-size: 13.5px; font-weight: 700; font-style: italic; fill: #e11d48; text-anchor: middle; }
+      .sym-up-new { font-family: Georgia, 'Times New Roman', serif; font-size: 13px; font-weight: 700; fill: #e11d48; text-anchor: middle; }
+      .sym-obs { font-family: Georgia, 'Times New Roman', serif; font-size: 14px; font-weight: 700; font-style: italic; fill: #1d4ed8; text-anchor: middle; }
+
+      .cap-b { font-size: 9.6px; font-weight: 700; fill: #0f172a; text-anchor: middle; paint-order: stroke; stroke-width: 3.8px; stroke-linejoin: round; }
+      .cap-new { font-size: 9.6px; font-weight: 700; fill: #be123c; text-anchor: middle; paint-order: stroke; stroke-width: 3.8px; stroke-linejoin: round; }
+      .cap-s { font-size: 8.8px; fill: #64748b; text-anchor: middle; paint-order: stroke; stroke-width: 3.8px; stroke-linejoin: round; }
+
+      .hw { stroke: #ffffff; }
+      .hp { stroke: #f8fafc; }
+      .hn { stroke: #fff1f2; }
+
+      .edge { fill: none; stroke: #64748b; stroke-width: 1.3; marker-end: url(#arr); }
+      .edge-main { fill: none; stroke: #0f172a; stroke-width: 1.45; marker-end: url(#arr-main); }
+      .edge-new { fill: none; stroke: #e11d48; stroke-width: 1.6; stroke-dasharray: 4 2.5; marker-end: url(#arr-new); }
+
+      .eq-box { fill: #f1f5f9; stroke: #e2e8f0; stroke-width: 1; rx: 6; ry: 6; }
+      .eq-hdr { font-size: 10.5px; font-weight: 700; fill: #0f172a; }
+      .eq-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10.3px; font-weight: 700; fill: #0f172a; }
+      .eq-note { font-size: 10.2px; fill: #475569; }
+      .leg-txt { font-size: 10.2px; fill: #475569; }
+    </style>
+  </defs>
+  <rect x="1" y="1" width="758" height="742" class="card-bg"/>
+  <text x="18" y="30" class="title">Gen 2b — Frontier GPU Gibbs: m6-slopes</text>
+  <rect x="18" y="38" width="440" height="18" rx="9" fill="#d97706"/>
+  <text x="238.0" y="50" text-anchor="middle" class="pill-txt">Sep 2026 · Failed all-effects convergence gate (bimodal 110 W 26th)</text>
+  <text x="18" y="72" class="sub">Adds bedroom-group quarterly market curves plus per-building slopes on square footage and 2/3+ bathrooms.</text>
+  <text x="18" y="86" class="sub">Dashed crimson items are new vs Gen 2a (m5-nocurves). Failed gate (all-effects R-hat 6.4) on a bimodal building.</text>
+  <g id="plates">
+    <rect x="158" y="118" width="174" height="104" class="plate"/>
+    <rect x="352" y="118" width="246" height="104" class="plate-new"/>
+    <rect x="40" y="264" width="492" height="166" class="plate"/>
+    <rect x="246" y="278" width="106" height="128" class="plate-inner"/>
+    <rect x="372" y="278" width="148" height="128" class="plate-inner"/>
+    <rect x="18" y="472" width="724" height="152" class="plate-obs"/>
+  </g>
+  <g id="edges">
+    <path d="M 64 162 L 26 162 L 26 442 C 26 456, 246 448, 300 510" class="edge"/>
+    <path d="M 245 222 L 245 232 C 245 240, 362 240, 362 264 L 362 440 C 362 476, 328 486, 324 506" class="edge"/>
+    <path d="M 475 222 L 475 232 C 475 240, 548 240, 548 264 L 548 444 C 548 478, 412 492, 352 515" class="edge-new"/>
+    <path d="M 92 388 C 92 442, 236 476, 302 516" class="edge-main"/>
+    <path d="M 190 388 C 190 442, 268 476, 310 510" class="edge-new"/>
+    <path d="M 299 388 C 299 442, 306 476, 319 507" class="edge-main"/>
+    <path d="M 446 388 C 446 444, 366 478, 338 509" class="edge-main"/>
+    <path d="M 652 390 C 652 446, 578 464, 578 506" class="edge-main"/>
+    <path d="M 118 532 L 298 532" class="edge-main"/>
+    <path d="M 350 532 L 552 532" class="edge-main"/>
+    <path d="M 662 532 L 604 532" class="edge"/>
+  </g>
+  <g id="tiers">
+    <text x="18" y="108" class="tier-lbl">1. Global features, quarterly market trend &amp; bedroom-group time curves</text>
+    <text x="40" y="254" class="tier-lbl">2. Building &amp; apartment memory (left) + listing noise scale (right)</text>
+    <text x="18" y="462" class="tier-blue">3. Each observed rental listing</text>
+  </g>
+  <g id="plate-labels">
+    <text x="166" y="132" class="pidx">q = 1…Q quarters</text>
+    <text x="360" y="132" class="pidx-new">NEW · g = 0, 1, 2, 3+ bedrooms</text>
+    <text x="50" y="421" class="pidx">b = 1…B buildings (Chelsea → NB9 → All-Scraped)</text>
+    <text x="254" y="292" class="pidx-w">q = quarters</text>
+    <text x="380" y="292" class="pidx-w">u = 1…U_b units</text>
+    <text x="30" y="614" class="pidx-obs">i = 1…N listings (52k Chelsea → 266k NB9 → 1.58M All-Scraped Manhattan &amp; Brooklyn)</text>
+  </g>
+  <g id="nodes">
+    <circle cx="84" cy="162" r="20" class="node"/>
+    <text x="84" y="167" class="sym-up">α, β</text>
+    <circle cx="245" cy="162" r="20" class="node"/>
+    <text x="245" y="167" class="sym">g<tspan dy="3" font-size="9">q</tspan></text>
+    <circle cx="475" cy="162" r="20" class="node-new"/>
+    <text x="475" y="167" class="sym-new">f<tspan dy="3" font-size="9">g</tspan><tspan dy="-3">(q)</tspan></text>
+    <circle cx="92" cy="324" r="19" class="node"/>
+    <text x="92" y="329" class="sym">b<tspan dy="3" font-size="9">j</tspan></text>
+    <circle cx="190" cy="324" r="19" class="node-new"/>
+    <text x="190" y="329" class="sym-new">γ<tspan dy="3" font-size="9">b</tspan></text>
+    <circle cx="299" cy="324" r="19" class="node"/>
+    <text x="299" y="329" class="sym">w<tspan dy="3" font-size="9">b</tspan><tspan dy="-3">(q)</tspan></text>
+    <circle cx="446" cy="324" r="19" class="node"/>
+    <text x="446" y="329" class="sym">u<tspan dy="3" font-size="9">u</tspan></text>
+    <circle cx="652" cy="324" r="20" class="node"/>
+    <text x="652" y="329" class="sym">σ</text>
+    <circle cx="94" cy="532" r="22" class="node-obs"/>
+    <text x="94" y="537" class="sym-obs">x<tspan dy="3" font-size="9">i</tspan></text>
+    <circle cx="324" cy="532" r="24" class="node-det"/>
+    <circle cx="324" cy="532" r="19" class="node-det-in"/>
+    <text x="324" y="537" class="sym">μ<tspan dy="3" font-size="9">i</tspan></text>
+    <circle cx="578" cy="532" r="24" class="node-obs"/>
+    <text x="578" y="537" class="sym-obs">y<tspan dy="3" font-size="9">i</tspan></text>
+    <circle cx="684" cy="532" r="20" class="node"/>
+    <text x="684" y="537" class="sym">λ<tspan dy="3" font-size="9">i</tspan></text>
+  </g>
+  <g id="captions">
+    <text x="84" y="195" class="cap-b hw">Feature effects</text>
+    <text x="84" y="206" class="cap-s hw">ad &amp; bldg cols</text>
+    <text x="84" y="217" class="cap-s hw">+ seasonal terms</text>
+    <text x="245" y="195" class="cap-b hp">Quarterly trend</text>
+    <text x="245" y="206" class="cap-s hp">overall market</text>
+    <text x="245" y="217" class="cap-s hp">quarterly RW</text>
+    <text x="475" y="195" class="cap-new hn">Bedroom-time curve</text>
+    <text x="475" y="206" class="cap-s hn">separate quarterly path</text>
+    <text x="475" y="217" class="cap-s hn">per bed group (0..3+BR)</text>
+    <text x="92" y="356" class="cap-b hp">Building level</text>
+    <text x="92" y="367" class="cap-s hp">permanent</text>
+    <text x="92" y="378" class="cap-s hp">bldg offset</text>
+    <text x="190" y="356" class="cap-new hp">Bldg slopes</text>
+    <text x="190" y="367" class="cap-s hp">bed, sqft &amp; baths</text>
+    <text x="190" y="378" class="cap-s hp">per building</text>
+    <text x="299" y="356" class="cap-b hw">Building walk</text>
+    <text x="299" y="367" class="cap-s hw">quarterly RW</text>
+    <text x="299" y="378" class="cap-s hw">per building</text>
+    <text x="446" y="356" class="cap-b hw">Unit baseline</text>
+    <text x="446" y="367" class="cap-s hw">Gaussian offset</text>
+    <text x="446" y="378" class="cap-s hw">constant over time</text>
+    <text x="652" y="357" class="cap-b hw">Shared noise</text>
+    <text x="652" y="368" class="cap-s hw">single scale for</text>
+    <text x="652" y="379" class="cap-s hw">all listings</text>
+    <text x="94" y="567" class="cap-b hw">Listing features</text>
+    <text x="94" y="578" class="cap-s hw">beds, baths, sqft,</text>
+    <text x="94" y="589" class="cap-s hw">building attributes</text>
+    <text x="324" y="569" class="cap-b hw">Expected log rent</text>
+    <text x="324" y="580" class="cap-s hw">sum of all 7 mean pieces</text>
+    <text x="578" y="569" class="cap-b hw">Observed log rent</text>
+    <text x="578" y="580" class="cap-s hw">log(ask), Student-t(ν)</text>
+    <text x="684" y="565" class="cap-b hw">Outlier weight</text>
+    <text x="684" y="576" class="cap-s hw">learned ν tails</text>
+    <text x="684" y="587" class="cap-s hw">downweights outliers</text>
+  </g>
+  <g id="footer">
+    <rect x="18" y="636" width="724" height="72" class="eq-box"/>
+    <text x="30" y="653" class="eq-hdr">Exact prediction equation for listing i:</text>
+    <text x="30" y="669" class="eq-code">log(ask_i) = α + x_i·(β + γ_b) + g_q + f_g(quarter_i) + b_j + w_b(quarter_i) + u_u + noise_i</text>
+    <text x="30" y="685" class="eq-note">where f_g(q) lets each bedroom group follow its own quarterly curve and γ_b expands to beds, log-sqft, 2-bath, and 3-bath slopes.</text>
+    <text x="30" y="699" class="eq-note">Bimodal posterior in 110 W 26th St prevented clean MCMC mixing under Gaussian unit baselines.</text>
+    <circle cx="26" cy="725" r="5.5" class="node-obs"/>
+    <text x="38" y="728" class="leg-txt">Observed data</text>
+    <circle cx="136" cy="725" r="5.5" class="node"/>
+    <text x="148" y="728" class="leg-txt">Learned latent parameter</text>
+    <circle cx="298" cy="725" r="5.5" class="node-det"/>
+    <circle cx="298" cy="725" r="3.2" class="node-det-in"/>
+    <text x="310" y="728" class="leg-txt">Deterministic sum</text>
+    <circle cx="428" cy="725" r="5.5" class="node-new"/>
+    <text x="440" y="728" class="leg-txt" style="fill:#be123c;font-weight:600;">New in Gen 2b vs Gen 2a</text>
+  </g>
+</svg>
