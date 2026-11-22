@@ -212,7 +212,11 @@ BASELINES = (
     ("--model", "drift-building-phase-unitkn-level"),
     ("--model", "drift-building-phase-unitkn-level-bedtext"),
     ("--model", "drift-building-phase-unitkn-level-bedunit"),
+    ("--model", "drift-building-phase-unitkn-level-slow"),
+    ("--model", "drift-building-phase-unitkn-level-phase"),
     ("--model", "drift-building-phase-unitkn-segment"),
+    ("--model", "drift-building-phase-unitkn-unified"),
+    ("--model", "drift-building-phase-unitkn-unified-seg"),
     ("--model", "drift-building-phase-unitt"),
     ("--model", "drift-building-unitkn"),
     ("--model", "drift-building-unitt"),
@@ -430,10 +434,16 @@ def _fit(spec):
     if spec.get("publish_only"):
         return _publish(spec)
     started = time.time()
+    volume.reload()
     _stage(spec)
     staged = time.time() - started
     out = Path("/vol/out") / spec["name"]
     out.mkdir(parents=True, exist_ok=True)
+    # Persistent XLA compilation cache on the Volume: repeat fits of the same model/shape on
+    # the same GPU skip the ~110-125 s cold compile. Committed alongside /vol/out at save time.
+    jax_cache = Path("/vol/jax-cache")
+    jax_cache.mkdir(parents=True, exist_ok=True)
+    jax_cache_before = sum(1 for p in jax_cache.iterdir() if p.is_file())
     env = dict(
         os.environ,
         PYTHONPATH=f"{WORK}/frontier/src",
@@ -442,6 +452,9 @@ def _fit(spec):
         # JAX caps its allocator at 75% of the card unless told otherwise; the fit is the only
         # process on it.
         XLA_PYTHON_CLIENT_MEM_FRACTION="0.95",
+        JAX_COMPILATION_CACHE_DIR=str(jax_cache),
+        JAX_PERSISTENT_CACHE_MIN_COMPILE_TIME_SECS="2",
+        JAX_PERSISTENT_CACHE_MIN_ENTRY_SIZE_BYTES="0",
         PYTHONUNBUFFERED="1",
         # rentfrontier.loo and the post-fit statistics then read the design rentfrontier.run
         # built (rentfrontier.design).
@@ -503,6 +516,7 @@ def _fit(spec):
         for d in (OUTPUT / kind).glob(f"{spec['name']}-*"):
             if d.is_dir() and _complete(d):
                 shutil.copytree(d, out / kind / d.name, dirs_exist_ok=True)
+    jax_cache_after = sum(1 for p in jax_cache.iterdir() if p.is_file())
     meta = {
         "name": spec["name"],
         "gpu": gpu,
@@ -511,6 +525,7 @@ def _fit(spec):
         "stage_seconds": staged,
         "stages": stages,
         "post": post,
+        "jax_cache": {"before": jax_cache_before, "after": jax_cache_after},
         "wall_seconds": time.time() - started,
         "memory_peak_bytes": _memory_peak(),
     }

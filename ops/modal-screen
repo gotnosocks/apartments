@@ -1,0 +1,71 @@
+#!/bin/bash
+# Fast screening harness CLI for Modal cloud GPUs (`rentfrontier.screen` + `ops/modal-fit`).
+#
+# Subcommands:
+#   ops/modal-screen build SOURCE OUT (--fraction F | --divisor K) [--split latest|market] [--seed S]
+#   ops/modal-screen run [options] COMMIT LABEL MODEL [EXTRA_RUN_ARGS...]
+#     Options: --gpu GPU (default A100-40GB), --dataset DIR (required), --input PATH (repeatable),
+#              --baseline RUN, --chains N (2), --warmup N (250), --draws N (400), --keep N (10),
+#              --seed N (1), --budget-seconds N (1800), --outside-budget, --foreground
+#   ops/modal-screen compare BASELINE CANDIDATE [--gate G] [--prior-sd S] [--extra-noise-scale C] [--json]
+set -eu
+here=$(cd "$(dirname "$0")" && pwd)
+repo=$(cd "$here/.." && pwd)
+py=${FRONTIER_PYTHON:-/data1/apartments/venvs/bridge-frontier/bin/python}
+
+cmd=${1:-}
+if [ -z "$cmd" ]; then
+  sed -n '2,12p' "$0" >&2
+  exit 2
+fi
+shift
+
+case "$cmd" in
+  build|compare)
+    exec env PYTHONPATH="$repo/frontier/src${PYTHONPATH:+:$PYTHONPATH}" "$py" -m rentfrontier.screen "$cmd" "$@"
+    ;;
+  run)
+    gpu=A100-40GB
+    dataset=""
+    chains=2
+    warmup=250
+    draws=400
+    keep=10
+    seed=1
+    budget_seconds=1800
+    features=b0
+    modal_opts=()
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --gpu) gpu=$2; shift 2 ;;
+        --dataset) dataset=$2; shift 2 ;;
+        --input) modal_opts+=(--input "$2"); shift 2 ;;
+        --baseline) modal_opts+=(--baseline "$2"); shift 2 ;;
+        --features) features=$2; shift 2 ;;
+        --chains) chains=$2; shift 2 ;;
+        --warmup) warmup=$2; shift 2 ;;
+        --draws) draws=$2; shift 2 ;;
+        --keep) keep=$2; shift 2 ;;
+        --seed) seed=$2; shift 2 ;;
+        --budget-seconds) budget_seconds=$2; shift 2 ;;
+        --outside-budget) modal_opts+=(--outside-budget); shift ;;
+        --foreground) modal_opts=(--foreground "${modal_opts[@]}"); shift ;;
+        --) shift; break ;;
+        -*) echo "unknown option: $1" >&2; exit 2 ;;
+        *) break ;;
+      esac
+    done
+    if [ -z "$dataset" ] || [ $# -lt 3 ]; then
+      echo "usage: ops/modal-screen run --dataset DIR [options] COMMIT LABEL MODEL [EXTRA...]" >&2
+      exit 2
+    fi
+    commit=$1; label=$2; model=$3; shift 3
+    exec "$here/modal-fit" "${modal_opts[@]}" --gpu "$gpu" --dataset "$dataset" --split carried \
+      "$commit" "$label" "$model" "$features" "$chains" "$warmup" "$draws" "$keep" \
+      --seed "$seed" --budget-seconds "$budget_seconds" "$@"
+    ;;
+  *)
+    echo "unknown subcommand: $cmd (expected build, run, or compare)" >&2
+    exit 2
+    ;;
+esac
