@@ -1045,7 +1045,9 @@ def factor_names(phases, pmap: np.ndarray) -> list[str]:
     return names
 
 
-def cell_terms(d: b0.Design, frame: pd.DataFrame) -> SimpleNamespace | None:
+def cell_terms(
+    d: b0.Design, frame: pd.DataFrame, ref_years: set[int] | None = None
+) -> SimpleNamespace | None:
     """What `cell_today` reads of a `phase_map` design: its map from cells to free factors,
     the factors' names, and each frame row's lease phase as its place in L1's `PHASES`.
     None for a design without a map. The factors must be ones `cell_today` knows, and the
@@ -1078,7 +1080,13 @@ def cell_terms(d: b0.Design, frame: pd.DataFrame) -> SimpleNamespace | None:
             raise SystemExit(
                 f"the rows' {n} factor is not the one their price_at gives"
             )
-    return SimpleNamespace(pmap=pmap, names=names, lease=lease, log_factor=None)
+    return SimpleNamespace(
+        pmap=pmap,
+        names=names,
+        lease=lease,
+        ref_years=set(ref_years) if ref_years is not None else {Y[0]},
+        log_factor=None,
+    )
 
 
 def log_factors(pmap: np.ndarray, phase_scale: np.ndarray) -> np.ndarray:
@@ -1114,7 +1122,8 @@ def load(run_dir: Path, draws: int = DRAWS, log=print) -> Fit:
     frame = b0.load_frame(dataset)
     set_split(record["split"])
     held = splits.SPLITS[record["split"]](frame)
-    d = spec.design(frame, **design_kw(spec, record))
+    kw = design_kw(spec, record)
+    d = spec.design(frame, **kw)
     # The snapshots the design read must be the fit's, as `simulate` checks them.
     now = spec.run_record(d)
     for k in simulate.SNAPSHOT_KEYS:
@@ -1150,7 +1159,14 @@ def load(run_dir: Path, draws: int = DRAWS, log=print) -> Fit:
         raise SystemExit(f"{name}'s design and kept draws disagree on lines")
     if lines and record.get("line", {}).get("lines") != int(d.lines):
         raise SystemExit("the rebuilt design's lines differ from the fit's")
-    cells = cell_terms(d, frame)
+    ref_years = None
+    if "y1_pre2024" in kw.get("variant", ()):
+        ref_years = {
+            y
+            for y in drift_building_phase_year.YEARS
+            if y >= drift_building_phase_year.REFERENCE_YEAR
+        }
+    cells = cell_terms(d, frame, ref_years=ref_years)
     if (
         cells is None
         and d.phase is not None
@@ -1556,7 +1572,7 @@ def cell_today(fit: Fit, rows: np.ndarray, day: pd.Timestamp) -> np.ndarray:
     # rows would read as the reference's.
     for kind, want in (
         ("phase", set(lease[~fit.held[rows]]) - {P[0]}),
-        ("yr", {year} - {Y[0]}),
+        ("yr", {year} - cl.ref_years),
     ):
         if any(n.startswith(kind + ":") for n in cl.names):
             free = sorted(str(w) for w in want if f"{kind}:{w}" not in col)

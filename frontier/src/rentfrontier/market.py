@@ -48,6 +48,8 @@ from .b0data import sha256
 
 # Statuses of an ad whose latest ask is not final.
 OPEN = ("ACTIVE", "TEMPORARILY_OFF_MARKET")
+# Unpublished drafts never belong in training rows or open-market backtest asks.
+EXCLUDED = ("DRAFT",)
 COLUMNS = ("status", "first_day", "first_ask", "off_day")
 INPUTS = "inputs.json"
 
@@ -70,10 +72,11 @@ def with_status(
         frame[c] = a[c].to_numpy()
     last = pd.to_datetime(frame.latest_day)
     still = frame.status.isin(OPEN).to_numpy()
+    draft = frame.status.isin(EXCLUDED).to_numpy()
     if as_of is None:
         day = last.max()
-        is_open = still
-        keep = pd.Series(True, index=frame.index).to_numpy()
+        is_open = still & ~draft
+        keep = ~draft
     else:
         day = pd.Timestamp(as_of)
         first = pd.to_datetime(frame.first_day).fillna(
@@ -83,7 +86,7 @@ def with_status(
         # so an ad counts as closed only when its last ask is in by the scoring day too.
         end = pd.to_datetime(frame.off_day).fillna(last)
         end = end.where(end >= last, last)
-        keep = (first <= day).to_numpy() & ~still
+        keep = (first <= day).to_numpy() & ~still & ~draft
         is_open = keep & (end > day).to_numpy()
     frame["open"] = is_open
     frame["final_day"] = frame.latest_day

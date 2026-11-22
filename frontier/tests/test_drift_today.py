@@ -1239,3 +1239,28 @@ def test_today_rows_moves_l2s_levels_by_the_lease_phase_not_the_cell(monkeypatch
     np.testing.assert_allclose(rw.xb, base + want)
     np.testing.assert_array_equal(rw.phase[fit.held], fit.full.phase[fit.held])
     assert rw.phase.max() < len(fit.full.phases)
+
+
+def test_y1_pre2024_treats_2024_and_later_as_reference(monkeypatch):
+    monkeypatch.setattr(dt, "covid_regime", lambda day: (0.0, 0.0))
+    fit = cell_fit(seed=8)[0]
+    cl = fit.full.cells
+    keep = [
+        j
+        for j, name in enumerate(cl.names)
+        if not (name.startswith("yr:") and int(name.split(":")[1]) >= 2024)
+    ]
+    cl.names = [cl.names[j] for j in keep]
+    cl.pmap = cl.pmap[:, keep]
+    cl.log_factor = cl.log_factor[:, keep]
+    cl.ref_years = {2024, 2025, 2026}
+    fit.full.phases = tuple(
+        "|".join(n for n, on in zip(cl.names, r) if on) or "ref" for r in cl.pmap
+    )
+    fit.kept["phase_scale"] = np.exp(cl.log_factor @ cl.pmap.T)
+    rows = np.flatnonzero(~fit.held)
+    for day in ("2024-06-01", "2025-11-10", "2026-11-22"):
+        phase = dt.cell_today(fit, rows, pd.Timestamp(day))
+        # No yr:* factor is active for 2024+ under y1_pre2024.
+        yr_cols = [j for j, n in enumerate(cl.names) if n.startswith("yr:")]
+        assert not (cl.pmap[phase][:, yr_cols] > 0.5).any()
