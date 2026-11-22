@@ -589,6 +589,10 @@ def main(argv=None):
             "drift_building_phase_unitkn_segment",
         ),
         (
+            "drift-building-phase-unitkn-ablate",
+            "drift_building_phase_unitkn_ablate",
+        ),
+        (
             "drift-building-phase-unitkn-unified",
             "drift_building_phase_unitkn_unified",
         ),
