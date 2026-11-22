@@ -149,3 +149,106 @@ def test_unified_scales_logp_matches_dense_and_runs_smoke():
     assert out_seg["kept"]["phase_scale"].shape[-1] == len(cell_names)
     diag_seg = US.diagnostics(out_seg["trace"], train_seg.names)
     assert "max_rhat" in diag_seg
+
+
+def test_phase_collapsed_binary_and_nonbinary_match_direct_t_logpdf():
+    """Verify both the binary fast path and general non-binary path of `phase_collapsed`
+    evaluate the exact Student-t conditional log-density (up to a constant independent of v)
+    and that a non-binary `phase_map` runs cleanly through `drift.run`."""
+    import jax
+    import jax.numpy as jnp
+
+    from rentfrontier import b0, drift
+
+    jax.config.update("jax_enable_x64", True)
+    rng = np.random.default_rng(17)
+    n = 400
+    r = jnp.asarray(rng.normal(0.0, 0.14, n))
+    sigma = jnp.asarray([0.08, 0.09, 0.10, 0.11])
+    group = jnp.asarray(rng.integers(0, 4, n))
+    nu = 2.0
+    lf0 = jnp.asarray([0.15, -0.22, 0.09])
+
+    # 1. Binary phase_map fast path vs direct full-data b0.t_logpdf
+    pmap_bin = jnp.asarray(
+        [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 1.0]]
+    )
+    ph_idx = jnp.asarray(rng.integers(0, 4, n))
+    sd0 = sigma[group] * jnp.exp((pmap_bin @ lf0)[ph_idx])
+    u2_0 = (r / sd0) ** 2 / nu
+    for j in range(3):
+        active = pmap_bin[ph_idx, j] > 0.5
+        old_v = lf0[j]
+        n_act = jnp.sum(active)
+        u2_act = jnp.where(active, u2_0 * jnp.exp(2.0 * old_v), 0.0)
+        diffs = []
+        for v in (-0.35, 0.0, float(old_v), 0.45):
+            lf_try = lf0.at[j].set(v)
+            sd_full = sigma[group] * jnp.exp((pmap_bin @ lf_try)[ph_idx])
+            direct = float(
+                jnp.sum(b0.t_logpdf(r, nu, sd_full))
+                - v * v / (2 * drift.PHASE_PRIOR**2)
+            )
+            fast = float(
+                -v * n_act
+                - 0.5 * (nu + 1.0) * jnp.sum(jnp.log1p(u2_act * jnp.exp(-2.0 * v)))
+                - v * v / (2 * drift.PHASE_PRIOR**2)
+            )
+            diffs.append(fast - direct)
+        assert max(diffs) - min(diffs) < 1e-11
+
+    # 2. General non-binary phase_map path vs direct full-data b0.t_logpdf
+    pmap_nb = jnp.asarray([[0.0, 0.0], [0.5, 0.0], [1.5, 0.25], [0.0, 0.75]])
+    lf_nb = jnp.asarray([0.2, -0.1])
+    ls_base = jnp.log(sigma[group]) + (pmap_nb @ lf_nb)[ph_idx]
+    for j in range(2):
+        m_j = pmap_nb[ph_idx, j]
+        active = m_j != 0.0
+        old_v = lf_nb[j]
+        ls_without = ls_base - old_v * m_j
+        diffs = []
+        for v in (-0.3, 0.0, float(old_v), 0.4):
+            lf_try = lf_nb.at[j].set(v)
+            sd_full = sigma[group] * jnp.exp((pmap_nb @ lf_try)[ph_idx])
+            direct = float(
+                jnp.sum(b0.t_logpdf(r, nu, sd_full))
+                - v * v / (2 * drift.PHASE_PRIOR**2)
+            )
+            sd_j = jnp.exp(ls_without + v * m_j)
+            gen = float(
+                jnp.sum(jnp.where(active, b0.t_logpdf(r, nu, sd_j), 0.0))
+                - v * v / (2 * drift.PHASE_PRIOR**2)
+            )
+            diffs.append(gen - direct)
+        assert max(diffs) - min(diffs) < 1e-11
+
+    # 3. Smoke test non-binary phase_map + RBF custom nugget in drift.run
+    full = td._design(per_unit=6)
+    cell = np.arange(len(full.y)) % 4
+    d_nb = dataclasses.replace(
+        full,
+        phase=cell,
+        phases=["ref", "a", "b", "c"],
+        phase_map=np.asarray(pmap_nb, float),
+    )
+    train_nb, _, _ = td._split(d_nb)
+    settings = U.Settings(
+        chains=2, warmup=2, draws=2, keep_every=1, chunks=1, budget_seconds=None
+    )
+    gp_rbf_nug = [
+        g | {"kernel": "rbf", "nugget": 1e-3} for g in U.gp_spec(train_nb.names)
+    ]
+    out_nb = drift.run(
+        train_nb,
+        U.Priors(),
+        settings,
+        log=lambda *_: None,
+        gp=gp_rbf_nug,
+        groups=drift.groups_of(train_nb, U.GROUPS),
+        unit_t=True,
+        unit_dof_fixed=U.UNIT_DOF,
+        unit_kap_collapsed=True,
+        row_dof_fixed=U.ROW_DOF,
+        phase_collapsed=True,
+    )
+    assert out_nb["kept"]["phase_scale"].shape[-1] == 4

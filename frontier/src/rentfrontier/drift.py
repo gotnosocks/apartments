@@ -807,8 +807,12 @@ def make_sampler(
         gp_kernels.append((spec.get("kernel", "rbf"), spec.get("nugget")))
 
     def _gp_cov(xk, ls, kernel, nugget):
-        if kernel == "rbf" and nugget is None:
-            return gp_cov(jnp, xk, ls)
+        if kernel == "rbf":
+            if nugget is None:
+                return gp_cov(jnp, xk, ls)
+            K = jnp.exp(-0.5 * (xk[:, None] - xk[None, :]) ** 2 / ls**2)
+            k0 = jnp.exp(-0.5 * xk**2 / ls**2)
+            return K - jnp.outer(k0, k0) + nugget * jnp.eye(xk.shape[0])
         if kernel == "matern32":
             r = jnp.sqrt(3.0) * jnp.abs(xk[:, None] - xk[None, :]) / ls
             K = (1.0 + r) * jnp.exp(-r)

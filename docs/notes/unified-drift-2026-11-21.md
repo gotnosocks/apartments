@@ -21,6 +21,8 @@ Joint cross-fitted sizing (`p2_joint_sizing.py` & `p2_panel_c.py` in `/data1/apa
    - Rejected on `range-j`: `concession` (`+2.1` LOO), `rent_stabilized` (`-0.2` LOO).
 
 ## Models Implemented
+> **Bundling caveat (deviates from one-change-per-fit):** Relative to `l2bt`, `unified` bundles ~6 mean feature groups (`same_bed_first`, `bedunit`, `layout-range`, `size_imp_log_size_rel`, `large_01br`), `Y1` calendar-year noise scales, and 6 exogenous noise marks into one Modal refit rather than isolating each change in a separate GPU fit. Individual block contributions were sized via zero-spend cross-fitted checks (`p2_joint_sizing.py` / `p2_panel_c.py`), not individual GPU ablations.
+
 1. **`drift-building-phase-unitkn-unified`**:
    - Base: `drift-building-phase-unitkn-level` (`nu_u=3` collapsed Student-t unit levels, fixed row `nu=2`, collapsed building AR(1) paths + Student-t building levels `dof=4`, lease-phase level columns).
    - Mean upgrades: `same_bed_first=True` in `sizefill.asof_size`, `bedunit` (`ad:bed_text_smaller` + `uever`), `layout-range` (8 columns), `ad:size_imp_log_size_rel`, `ad:large_01br`.
@@ -90,7 +92,7 @@ Settled Modal spend through Stage 1: **`$10.66`** (`$0.82` early setup fixes + `
   - `unified-seg` over `unified` was **`+2,153` all years (`+1,252` on `2022+`)**, **4×–5× LARGER** than our `+200 to +550` (`+80 to +220` on `2022+`) prediction! Quarterly `(zone × bed)` segment paths are by far the single largest remaining signal in the entire NYC dataset.
   - `u1-mkt-p3` on `market` was `+176.8` (just below `+180` lower bound), and `no_hist & thin<5` coverage moved from `68.1% -> 70.6%` (less than predicted `76–82%`) because `mark:thin_first_ad` had slow mixing without collapsed phase updates.
 - **Exact root causes of `u1s-lat-p3` failure (`max_rhat = 7.81`) and `u1` slow `phase_scale`:**
-  1. **Sum-to-zero segment nullspace:** All 8 segment columns satisfy $\sum_{k=0}^7 x_{kj}(i) \equiv 0$, so adding a common shift $c_j$ across all 8 segments leaves $X\beta$ invariant (`+0.077` identical chain-0 vs chain-1 offset across all 8 segments at `2021q1`), causing `gp_amp`/`gp_ls` funnel sticking (`rhat = 2.3–5.0`). **Fix:** Drop `REF_SEGMENT = "manhattan:1br"` in `identifiable_segment_paths` (preserves exact zero share-weighted mean across all 8 segments while giving full rank 7).
+  1. **Sum-to-zero segment nullspace:** All 8 segment columns satisfy $\sum_{k=0}^7 x_{kj}(i) \equiv 0$, so adding a common shift $c_j$ across all 8 segments leaves $X\beta$ invariant (`+0.077` identical chain-0 vs chain-1 offset across all 8 segments at `2021q1`), causing `gp_amp`/`gp_ls` funnel sticking (`rhat = 2.3–5.0`). **Fix:** Drop `REF_SEGMENT = "manhattan:1br"` in `identifiable_segment_paths` so the remaining 7 segment coefficients are parameterized relative to `manhattan:1br` (fixed at 0) with exact full rank 7, while each centered hat column retains zero share-weighted mean across rows.
   2. **`2024q1` nugget trade-off:** Including the `2024q1` knot gave prior sd `0.1 * amp` at `x=0`, letting segment paths shift vertically against `level:outer:*` and `bed>=*` (`rhat = 1.76–2.79`). **Fix:** Drop `REF_QUARTER = "2024q1"` so every segment path is identically 0 on `2024-01-01`.
   3. **Slow `phase_scale` mixing (ESS 71–79 in 900 draws):** Updating `phase_scale` only conditionally on `lam` mixes slowly with `row_dof=2`. **Fix:** Generalized `phase_collapsed=True` in `drift.py` to support binary `phase_map` via an exact zero-`exp` systematic-scan coordinate slice update with `lam` integrated out.
 
@@ -148,11 +150,9 @@ Launching TWO full 6-chain (3 containers × 2 chains, `2 500 9000 25`, `budget_s
 - **Right-boundary knot discovery on `market` (`u3s-mkt-c` vs `u1-mkt-p3` vs `range-j`):**
   - `u3s-mkt-c` achieved lower RMSE (`0.1059` vs `0.1070` `u1-mkt-p3` vs `0.1086` `range-j`) and beat `range-j` by `+138.3` elpd (SE `42.5`, A `+93.3`, B `+45.0`), but trailed `u1-mkt-p3` (`+176.8`) by `-38.5` elpd.
   - **Root cause (confirmed against `u3s-lat-a`'s true 2026 knots):** `quarter_starts(d)` creates a future knot `2026q1` (52 days after `2025-11-10`) with almost no training weight; the zero-mean GP shrinks `2026q1` back toward 0 (`seg:manhattan:3br+:2026q1 = -0.0105` vs true `+0.0306`, `-4.1%` error; `seg:manhattan:2br:2026q1 = -0.0054` vs true `+0.0162`, `-2.2%` error), even though `2025q4` was accurate to within `±0.004`. Simultaneously, absorbing 2020–24 segment variance slightly tightened 2BR/3BR+ `sigma`, nudging `market` 80% coverage down to `76.3%`.
-- **Stage 3b Market Gate Fit (`u3-mkt` = 3-container 6-chain pool of `u3-mkt-a/b/c`, `drift-building-phase-unitkn-unified`, commit `90628dc7`, `2 500 1600 25`, seeds `1, 2, 3`):**
-  - Launched 3 containers in parallel on standard H100 (`~50 min`, `~$3.60` each, `9,600` pooled draws).
-  - **Pre-fit predictions for `u3-mkt` (6 chains pooled):**
-    1. Passes strict convergence gate (`max_rhat ≤ 1.01`, `min_ess > 400` across all scalars, betas, and `phase_scale`).
-    2. Beats `range-j` by **`+160 to +240` elpd** (`z > +4.8`, both halves A & B positive) on `9,346` open ads (`asof-20251110`), with positive Δelpd on `has_unit_history`, `no_unit_history`, and `no_hist & thin<5` (`<5%` tail `4.5%–5.8%`).
+- **Stage 3b Market Gate Fit (`u3-mkt` = 3-container 6-chain pool of `u3-mkt-a/b/c2`, `drift-building-phase-unitkn-unified`, commit `90628dc7`, `2 500 1600 25`, seeds `1, 2, 3`):**
+  - Launched 3 containers in parallel on standard H100 at `03:55 ET` (`u3-mkt-c` hit the 3,600 s timeout and was replaced by `u3-mkt-c2` on `--large --gpu H100`).
+  - **Note on prediction timing (NOT pre-committed):** The expectations below (`R-hat ≤ 1.01`, `ESS > 400`; `+160 to +240` elpd over `range-j`; `<5%` tail `4.5%–5.8%`) were written in the working tree at `03:57 ET` (2 min after launch) and committed in `ac506608` (`05:05 ET`, after `u3-mkt-a/b/c` settled at `04:53–04:56`). Because they were not committed before launch, `u3-mkt` is excluded from the pre-fit prediction scorecard's HITs below.
 
 ### Stage 3c Final Gate Fit on `latest` (`u4s-lat` = 3-container 6-chain pool, `2 500 2600 40 --budget-seconds 4500`, `--large --gpu H200`)
 - **Diagnosis of `u3s-lat` (`1,375` draws/chain × 6 chains = `8,250` draws):**
@@ -167,7 +167,13 @@ Launching TWO full 6-chain (3 containers × 2 chains, `2 500 9000 25`, `budget_s
 
 ---
 
-## Final Gate-Passing Results (Stage 3b & 3c — BOTH PASS!)
+## Final Gate-Passing Results (Two Distinct Models — One Per Split)
+
+> **Important scope limitation:** These two passing fits are for **two different models**.
+> - `drift-building-phase-unitkn-unified-seg` passed the strict gate on **`latest`** (`u4s-lat`, `+5,097.3` vs `l2bt`), but has **no passing `market` backtest** (only 2-chain `u3s-mkt-c` completed, scoring `+138.3` vs `range-j`, `-35.5` behind `u3-mkt`, gate FAIL).
+> - `drift-building-phase-unitkn-unified` passed the strict gate on **`market`** (`u3-mkt`, `+173.8` vs `range-j`), but has **no passing `latest` fit** (only 2-chain pilot `u1-lat-p3`, `max_rhat = 1.032`, gate FAIL).
+>
+> Neither model yet has **both** a gate-passing `latest` fit and a gate-passing `market` backtest (which a Deals publish requires). With `$92.04 / $100.00` spent (`$7.96` remaining), completing a paired fit requires Ben's approval for additional Modal budget.
 
 ### 1. Summary Comparison Table
 
@@ -199,11 +205,11 @@ Launching TWO full 6-chain (3 containers × 2 chains, `2 500 9000 25`, `budget_s
   - `seg:outer:1br`: `amp = 0.0525 ± 0.0102`, `ls = 1.108 ± 0.171 yr`
   - `seg:outer:2br`: `amp = 0.0467 ± 0.0100`, `ls = 1.020 ± 0.175 yr`
   - `seg:outer:3br+`: `amp = 0.0223 ± 0.0036`, `ls = 0.424 ± 0.073 yr`
-- **Ablation progression on `latest` vs `l2bt` (all years / `2022+`):**
-  - `u1-lat-p3` (`unified`, no segments): `+2,762.9` / `+1,845.3`
-  - `u2s-lat-p` (`unified-seg`, identifiable RBF): `+4,889.0` / `+3,096.7` (`+2,126` from segment paths)
-  - `u3s-lat` (`unified-seg`, Matérn-3/2, `1,375` draws/ch): `+5,062.2` / `+3,203.1` (`+173` from Matérn-3/2 over RBF!)
-  - **`u4s-lat` (`unified-seg`, Matérn-3/2, `2,600` draws/ch, PASS):** **`+5,097.3` / `+3,226.8`**!
+- **Run progression on `latest` vs `l2bt` (all years / `2022+`):**
+  - `u1-lat-p3` (`unified`, no segments, 2 ch × 900 d, FAIL): `+2,762.9` / `+1,845.3`
+  - `u2s-lat-p` (`unified-seg`, identifiable RBF, 2 ch × 900 d, FAIL `R-hat=4.68`): `+4,889.0` / `+3,096.7`
+  - `u3s-lat` (`unified-seg`, Matérn-3/2, 6 ch × 1,375 d, FAIL `R-hat=1.0123`): `+5,062.2` / `+3,203.1` *(note: the `+173` difference vs `u2s-lat-p` is **unattributed** because kernel, chain count, draw count, and GP convergence all changed simultaneously)*
+  - **`u4s-lat` (`unified-seg`, Matérn-3/2, 6 ch × 2,600 d, PASS):** **`+5,097.3` / `+3,226.8`**!
 
 ### 4. `u3-mkt` (`market` `asof-20251110`) Deals Backtest Breakdown vs `range-j`
 - **ALL open ads (`n=9,346`):** Δelpd = **`+173.8` (SE `32.3`, z=`+5.4`; A `+122.3`, B `+51.6`)**, `<5%` `4.5% -> 5.6%`, `>95%` `6.1% -> 6.8%`, 80% cov `79.2% -> 76.7%`.
@@ -218,18 +224,26 @@ Launching TWO full 6-chain (3 containers × 2 chains, `2 500 9000 25`, `budget_s
   - `yr:2020 = 1.65× / 1.71×`, `yr:2021 = 1.63× / 1.66×`, `yr:2022 = 1.20× / 1.19×`, `yr:2018–2019 = 0.86–0.87× / 0.85–0.86×`, `yr:2026 = 0.984×`.
 
 ### 6. Honest Pre-Fit Prediction Scorecard
-- **HIT:**
+- **HIT (pre-committed before launch):**
   - `u4s-lat` strict gate PASS (`max_rhat=1.0075 ≤ 1.008`, `min_ess=1,130 > 900`, all 9 GPs `R-hat ≤ 1.0004, ESS ≥ 7,836`).
-  - `u3-mkt` strict gate PASS (`max_rhat=1.0094 ≤ 1.01`, `min_ess=695 > 400`) and Δelpd vs `range-j` **`+173.8`** (predicted `+160 to +240`, positive on both halves and all subgroups, `<5%` tail `5.6%` in `4.5%–5.8%`).
-  - `u4s-lat` 2020–2021 80% coverage jumped from `72.6%–74.4%` to `78.2%–79.1%`, 2024–2026 within `80.7%–81.3%`.
-  - `unified` on `latest` (`+2,762.9` all / `+1,845.3` `2022+`) landed right inside Stage 1 predictions (`+1,500..+3,200` / `+900..+2,100`).
-- **MISSES / SURPRISES:**
-  - **Under-predicted segment GP gain by 4×:** Stage 1 predicted `+200 to +550` over `unified`; actual gain was **`+2,126` (RBF) → `+2,334` (Matérn-3/2)** (`+5,097.3` total vs `l2bt`!).
+  - `u4s-lat` 2020–2021 80% coverage jumped from `72.6%–74.4%` to `78.2%–79.1%`, and 2024–2026 landed within `80.7%–81.3%`.
+  - `unified` on `latest` (`u1-lat-p3`, `+2,762.9` all / `+1,845.3` `2022+`) landed inside Stage 1 predictions (`+1,500..+3,200` / `+900..+2,100`).
+- **Post-launch / un-preregistered outcome (excluded from pre-fit HITs):**
+  - `u3-mkt` (`unified` on `market`) passed the strict gate (`max_rhat=1.0094`, `min_ess=695`) and scored `+173.8` elpd vs `range-j`, but its Stage 3b predictions were not committed until `ac506608` (after `a/b/c` settled).
+- **MISSES / REGRESSIONS / SURPRISES:**
+  - **`market` (`u3-mkt` vs `range-j`) coverage & Deals-tail regression:** Overall 80% coverage fell **`79.2% -> 76.7%`** (`has_unit_history` `80.9% -> 77.7%`, `no_unit_history` `75.8% -> 74.6%`), and the `<5%` low tail widened **`4.5% -> 5.6%`** (`has_unit_history` `4.5% -> 5.9%`), flagging more ads as deals than the nominal 5% rate.
+  - **`latest` (`u4s-lat` vs `l2bt`) 2014–2019 & 2022 coverage regression:** 2014–2019 80% coverage dropped from `0.805–0.848` to `0.779–0.813` (notably `2015: 0.805 -> 0.779`, `2016: 0.809 -> 0.782`, `2018: 0.835 -> 0.792`, dropping ~1.5–2.6 pp below 80% in 2014–2017 while reducing 2018–2019 over-coverage), and 2022 remained under-covered at `0.769` (`l2bt: 0.760`).
+  - **Under-predicted segment GP gain by ~4×:** Stage 1 predicted `+200 to +550` over `unified`; actual gain from `u1-lat-p3` to `u4s-lat` was `+2,334` (`+5,097.3` total vs `l2bt`, though comparing 2-chain `u1-lat-p3` to 6-chain `u4s-lat`).
   - **Under-predicted row-scale multipliers:** Predicted `1.15–1.65×` on `mark:*` and `yr:2020–21`, actual row-level multipliers were `1.5–3.25×` because `sigma` (~`0.013`) is only the row-noise component beneath `unit_sd` (`0.042`) and `building_ar_sd` (`0.070`).
-  - **Over-predicted `unified-seg` on single-date `market` split (`asof-20251110`):** Predicted `+200..+420` over `range-j`, actual `u3s-mkt-c` was `+138.3` (`-35.5` behind `u3-mkt`) due to the right-boundary future `2026q1` knot shrinking `-2.2%` to `-4.1%` toward 0; `u3-mkt` (`unified` without segments) remained the stronger `market` model.
-  - **`no_hist & thin<5` 80% coverage on `market`:** Moved `68.1% -> 71.1%` (less than Stage 1's optimistic `76%–82%` prediction) though `>95%` dropped `16.6% -> 13.8%` with `+23.4` elpd (`z=+2.8`, both halves positive).
+  - **Over-predicted `unified-seg` on single-date `market` split (`asof-20251110`):** Predicted `+200..+420` over `range-j`, actual 2-chain `u3s-mkt-c` was `+138.3` (`-35.5` behind `u3-mkt`) due to the right-boundary future `2026q1` knot shrinking `-2.2%` to `-4.1%` toward 0; `u3-mkt` (`unified` without segments) outperformed it on `market`.
+  - **`no_hist & thin<5` 80% coverage on `market`:** Moved `68.1% -> 71.1%` (short of Stage 1's `76%–82%` prediction), though `>95%` dropped `16.6% -> 13.8%` with `+23.4` elpd (`z=+2.8`, both halves positive).
 
-### 7. Itemized Modal Spend Ledger (`2026-11-22`, `/data1/apartments/modal/ledger.jsonl`)
+### 7. Required Follow-Ups (Before Serving / Deals Publish)
+1. **Blinded broker worst-miss readings (`docs/expert-reads.md`):** Not yet run for `u4s-lat` or `u3-mkt`. Required after gate pass before selecting further candidate features (cached scores already exist in `/data1/apartments/tmp/whole-dataset-audit-2026-11-21/scores_*.npz`).
+2. **Paired `latest` + `market` gate passes on a single model (requires Ben's budget approval — `$92.04 / $100.00` spent, `$7.96` left):** Either (a) run a 6-chain gate fit of `unified` on `latest`, or (b) fix the future boundary knot (`quarter_starts` / clamped `t`) in `unified-seg`, verify the `market` coverage & `<5%` Deals-tail calibration, and run a 6-chain `market` gate fit of `unified-seg`.
+3. **Trace the 24 free `phase_map` factors instead of 1,905 expanded `phase_scale` cells:** Tracing and diagnosing all 1,905 expanded cells added ~676 s of post-sampling CPU overhead (pushing three 1h H100 containers past 3,600 s). Changing `trace/phase_scale` to store the 24 free factors (while keeping `kept/phase_scale` for scoring) will cut save/diagnostics time by >10× in future fits.
+
+### 8. Itemized Modal Spend Ledger (`2026-11-22`, `/data1/apartments/modal/ledger.jsonl`)
 - Authorized cap: **`$100.00`** (OxyLabs spend: **`$0.00`**).
 - **Total settled across 23 runs: `$92.04` / `$100.00` (`$7.96` remaining under budget):**
   - Early setup fixes (`p` / `p2`, 4 runs): `$0.26 + $0.28 + $0.10 + $0.18 = $0.82`

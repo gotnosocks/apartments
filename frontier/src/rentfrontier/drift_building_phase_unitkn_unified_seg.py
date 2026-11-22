@@ -7,7 +7,9 @@ Identifiability fixes over the unconstrained 8-segment pilot (`u1s-lat-p3`, whic
 per-quarter constant shift across all 8 segments and R-hat 2.8 on `level:outer:*` from
 the 2024q1 nugget):
 1. Drops the reference segment (`manhattan:1br`, or the first segment present when absent)
-   so the remaining 7 segment paths have exact full column rank at every quarter knot.
+   so the remaining 7 segment coefficients are parameterized relative to `manhattan:1br`
+   (fixed at 0) with exact full column rank at every quarter knot, while each centered hat
+   column retains zero share-weighted mean across rows.
 2. Drops the reference quarter knot (`2024q1`) from every segment so every path is
    identically 0 on 2024-01-01 (zero nugget trade-off against `level:*` and `bed>=*`).
 3. Enables `phase_collapsed=True` so the 24 additive `phase_map` log-scale factors are
