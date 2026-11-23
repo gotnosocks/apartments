@@ -28,4 +28,18 @@ minutes, about $0.9. Not a model test.
 
 ## Result
 
-(after the probe lands)
+Run `drift-building-phase-unitkn-ablate-b0-onefit-f8f32e6a-chains4-probe`, 04:46 ET: exit 0,
+651 s wall, $0.96 at the lean rate. Compile 125.5 s; sampling 73 s, which the log reports as
+3.131 s a sweep of 4 chains (mem-probe: 40 s, 1.610 s a sweep of 2, the same measure).
+
+| Prediction | Outcome |
+|---|---|
+| 1. Exit 0 in 48 GiB, peak 15–22 GiB | Right: **15.3 GiB** (16,423,874,560 bytes), 0.5 GiB over two chains. |
+| 2. Four chains fit on the H200 | Right. |
+| 3. r ≈ 1.5 (1.9–3.2 s a sweep) | Wrong, high: r = 3.131 / 1.610 = **1.94** (1.83 by total sampling time). The GPU is close to saturated at 2 chains. |
+| 4. Decision | r > 1.7: **keep two containers**. At r = 1.94 one container would save about 9% (7,266 against 7,946 container seconds) and double the wall time to about 2 h. |
+
+A sweep of 2 chains ran at 1.13 s over the full fit's 3,100 sweeps against 1.61 s over the
+probe's 40, so a probe's rate is an upper bound. The ratio between the probes is the like-for-like
+measure. The extra 4 chains cost about as much GPU time as a second container, so the gain
+from one container is only the prep and compile it skips.
