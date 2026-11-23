@@ -57,7 +57,8 @@ to need one. That is the top item.
 - 05:45 ET: where a lean container's 4,037 s goes (`u5-of-a` `result.json`): prepare 190, compile
   119, warmup 666 (500 sweeps), sampling 2,836, the rest about 225. A prepare or compile cache
   saves nothing, because both containers run them at the same time. Warmup 300 in place of 500
-  would save about $0.8 a fit (the scalars are flat from sweep 100); try it on the next onefit
+  would save about $0.8 a fit (the scales are flat from sweep 100; `amp` and the phase factors
+  settle by about sweep 200); try it on the next onefit
   fit that runs anyway. A lean onefit fit costs about $11.9. The `variance` post-step failure
   appears only on `u5-of`; the later probes ran no post step, so nothing to fix. A message to
   the session `tmp-95` about #1538 was held undelivered (permission modes differ).
