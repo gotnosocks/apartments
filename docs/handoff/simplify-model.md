@@ -40,6 +40,16 @@ to need one. That is the top item.
   the Nov 15 cutover). Moved it to origin/master by hand 2026-11-23 03:40 ET; check it before
   each launch (`git -C /data1/apartments/serve/master log -1`).
 
+- 2026-11-23 04:40 ET: memory probe (`...-fe4930e7-mem-probe`, $1.09) peaked at 14.8 GiB
+  (`ru_maxrss`) on the full onefit design. #1541 merged: `ops/modal-fit --large --lean`
+  reserves 48 GiB for a baseline's fit with no in-container scoring ($5.30/h on an H200 in
+  place of $6.45; about $2.6 off a two-container onefit fit). Use `--lean` on drift fits.
+- 04:46 ET: probe `chains4-probe` (4 chains in one lean container, 20 + 20 sweeps) against
+  mem-probe's 1.610 s a 2-chain sweep. If r = 4-chain/2-chain sweep time is at most 1.7, run
+  full onefit fits as one 4-chain container. Note `docs/notes/four-chains-one-container-2026-11-23.md`.
+  Result: r = 1.94 (3.131 s against 1.610 s), so keep two containers; the lean container ran
+  in 15.3 GiB. Modal spend about $22 of $50.
+
 ## Next
 
 Pages read one run: PR #1538 (competitor, `feat/simplify-model-discovery`) wires Deals,
