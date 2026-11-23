@@ -20,6 +20,12 @@ to need one. That is the top item.
 - Gate on fewer draws (u5-svgpmo-lat traces): pass at 6×2,000 and 4×2,600; fail at 6×1,600.
 - Container memory reservation (192 GiB, ~$1.90/h of $6.45/h) unmeasured: a candidate saving.
 
+- 2026-11-23: the competitor's one-fit full fit (`...-b0-unified-7c95e5b8-c1-compact-uni-{a,b}`,
+  compact model, open + 2% latest, 2 containers × 2 chains × 2,000 draws) passes the gate on
+  its 4 chains combined (`scratchpad/combine_gate.py`): max R-hat 1.0096, min ESS 642. Each
+  container took ~3,050 s, so about $11 for the fit, against ~$28 for one 3-container fit
+  before and three fits per model.
+
 ## Next
 
 PR this branch. Then the plumbing so Deals, Today and Diagnostics read one onefit run's two
