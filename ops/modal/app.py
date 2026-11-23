@@ -540,7 +540,10 @@ def _fit(spec):
 def _memory_peak():
     """cgroup v2's high-water mark of the container's memory. Modal's gVisor sandbox has no
     `memory.peak` (every fit so far recorded None), so failing that, the largest resident
-    set of a finished child process (the fit, LOO and post steps run as children), or None."""
+    set of any one finished child process (the fit, LOO and post steps run as children), or
+    None. That is one process's peak, not the container's: steps with worker processes
+    (`drift_today --workers`, parallel LOO) use more than it says, and a warm container
+    that served an earlier input reports the larger of the two."""
     try:
         return int(Path("/sys/fs/cgroup/memory.peak").read_text())
     except (OSError, ValueError):
