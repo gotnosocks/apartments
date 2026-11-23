@@ -91,20 +91,33 @@ def run_record(d: Design) -> dict:
     return ablate.run_record(d) | {"cost_variant": list(ACTIVE_COST)}
 
 
+def strip_cost(argv) -> tuple[list[str], tuple[str, ...]]:
+    """`argv` with the cost tokens taken out of `--variant`, and those tokens."""
+    out, cost = [], ()
+    argv = list(argv)
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--variant" and i + 1 < len(argv):
+            flag, spec, i = "--variant", argv[i + 1], i + 2
+        elif a.startswith("--variant="):
+            flag, spec, i = None, a.split("=", 1)[1], i + 1
+        else:
+            out.append(a)
+            i += 1
+            continue
+        tokens = [t.strip() for t in spec.split(",") if t.strip()]
+        rest, cost = split_variant(tokens)
+        value = ",".join(rest)
+        out += [flag, value] if flag else [f"--variant={value}"]
+    return out, cost
+
+
 def main_run(argv) -> None:
     """`rentfrontier.run --model drift-building-phase-unitkn-cost --variant ...`."""
     global ACTIVE_COST
-    argv = list(argv)
-    spec = None
-    for i, a in enumerate(argv):
-        if a == "--variant" and i + 1 < len(argv):
-            spec = argv[i + 1]
-        elif a.startswith("--variant="):
-            spec = a.split("=", 1)[1]
-    tokens = tuple(t.strip() for t in (spec or "").split(",") if t.strip())
-    rest_tokens, ACTIVE_COST = split_variant(tokens)
-    _, rest = ablate._extract_variant(argv)
-    ablate.ACTIVE_VARIANT = rest_tokens
+    argv, ACTIVE_COST = strip_cost(argv)
+    ablate.ACTIVE_VARIANT, rest = ablate._extract_variant(argv)
     drift.main_run(
         rest,
         name=NAME,

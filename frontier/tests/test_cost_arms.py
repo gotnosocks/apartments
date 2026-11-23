@@ -34,3 +34,23 @@ def test_no_slow_empties_the_slow_columns():
 def test_spec_reads_through_to_ablate():
     assert cost.design is cost.ablate.design
     assert cost.NAME != cost.ablate.NAME
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["--variant", "layrng,bld_semi,no_slow", "--data", "D"],
+        ["--variant=layrng,bld_semi,no_slow", "--data", "D"],
+    ],
+)
+def test_main_run_takes_the_cost_tokens_out(monkeypatch, argv):
+    from rentfrontier import drift_building_phase_unitkn_ablate as ablate
+
+    seen = {}
+    monkeypatch.setattr(drift, "main_run", lambda rest, **kw: seen.update(rest=rest))
+    monkeypatch.setattr(ablate, "ACTIVE_VARIANT", ())
+    monkeypatch.setattr(cost, "ACTIVE_COST", ())
+    cost.main_run(argv)
+    assert seen["rest"] == ["--data", "D"]
+    assert ablate.ACTIVE_VARIANT == ("layrng",)
+    assert cost.ACTIVE_COST == ("bld_semi", "no_slow")
