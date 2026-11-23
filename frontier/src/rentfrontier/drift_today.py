@@ -272,6 +272,7 @@ FRAME = (
     "latest_day",
     "latest_ask",
     "price_at",
+    "open",
 )
 COLUMNS = (
     "apartment",
@@ -1108,8 +1109,8 @@ def load(run_dir: Path, draws: int = DRAWS, log=print) -> Fit:
         raise SystemExit(
             f"{run_dir.name} is a {name} fit, not one of {', '.join(MODELS)}"
         )
-    if record.get("split") != "market":
-        raise SystemExit(f"{run_dir.name} is not a fit on the market split")
+    if record.get("split") not in ("market", "unified"):
+        raise SystemExit(f"{run_dir.name} is not a fit on the market or unified split")
     if not drift_deals._gate(record)["passes"]:
         raise SystemExit(f"{run_dir.name} did not pass the convergence gate")
     # A fit on the market split of a market dataset (not a backtest) whose ads table is
@@ -1439,11 +1440,20 @@ def season_at(day: pd.Timestamp) -> dict:
     return out
 
 
+def _on_market(fit: Fit) -> np.ndarray:
+    """True for rows currently open on the market. Equals `fit.held` on a `market` split
+    and `fit.frame['open']` on a `unified` split (where closed eval rows are also held)."""
+    if "open" in fit.frame:
+        return fit.frame.open.to_numpy(bool)
+    return np.asarray(fit.held, bool)
+
+
 def apartments(fit: Fit) -> pd.DataFrame:
     """One row per apartment: its newest ad in the frame (training or held out), with the
     apartment's training unit number and count of training ads."""
     f = fit.frame
     unit = fit.full.unit
+    on_mkt = _on_market(fit)
     none = f.unit_id.isna().to_numpy()
     key = (
         f.building.astype(str).to_numpy(object)
@@ -1453,7 +1463,7 @@ def apartments(fit: Fit) -> pd.DataFrame:
     key = np.where(none, key + "#" + np.arange(len(f)).astype(str), key)
     day = pd.to_datetime(f.latest_day).to_numpy()
     t = pd.DataFrame(
-        {"key": key, "day": day, "row": np.arange(len(f)), "held": fit.held}
+        {"key": key, "day": day, "held": on_mkt, "row": np.arange(len(f))}
     ).sort_values(["key", "day", "held", "row"], kind="stable")
     newest = t.groupby("key", sort=False).tail(1)
     ads = np.bincount(unit[~fit.held & (unit >= 0)], minlength=int(unit.max()) + 1)
@@ -1463,7 +1473,7 @@ def apartments(fit: Fit) -> pd.DataFrame:
             "apartment": newest.key.str.replace(r"#\d+$", "", regex=True).to_numpy(),
             "row": rows,
             "unit": unit[rows],
-            "held": fit.held[rows],
+            "held": on_mkt[rows],
         }
     )
     out["unit_ads"] = np.where(out.unit >= 0, ads[np.maximum(out.unit, 0)], 0)
@@ -1498,7 +1508,7 @@ def phase_today(fit: Fit, rows: np.ndarray, day: pd.Timestamp) -> np.ndarray | N
     parts = own.str.partition("|")
     names = names + parts[1].to_numpy(object) + parts[2].to_numpy(object)
     out = pd.Index(fit.full.phases).get_indexer(names).astype(np.int64)
-    held = fit.held[rows]
+    held = _on_market(fit)[rows]
     out[held] = fit.full.phase[rows][held]
     if (out < 0).any():
         raise SystemExit("an apartment's phase today is not one of the fit's phases")
@@ -1514,7 +1524,7 @@ def lease_today(
     if fit.full.cells is None:
         return phase
     out = pd.Index(fit.full.leases).get_indexer(lease_names(fit, rows, day))
-    held = fit.held[rows]
+    held = _on_market(fit)[rows]
     out[held] = fit.full.lease[rows][held]
     return out.astype(np.int64)
 
@@ -1570,8 +1580,9 @@ def cell_today(fit: Fit, rows: np.ndarray, day: pd.Timestamp) -> np.ndarray:
     year = Y[drift_building_phase_year.year_index(pd.DataFrame({"price_at": [day]}))[0]]
     # A phase or year with no training rows has no factor (`compact_phase_map`), and its
     # rows would read as the reference's.
+    on_mkt = _on_market(fit)[rows]
     for kind, want in (
-        ("phase", set(lease[~fit.held[rows]]) - {P[0]}),
+        ("phase", set(lease[~on_mkt]) - {P[0]}),
         ("yr", {year} - cl.ref_years),
     ):
         if any(n.startswith(kind + ":") for n in cl.names):
@@ -1594,8 +1605,7 @@ def cell_today(fit: Fit, rows: np.ndarray, day: pd.Timestamp) -> np.ndarray:
         put("mark:covid_surge", surge)
         put("mark:covid_elevated", elevated)
     out = cell_index(fit, v)
-    held = fit.held[rows]
-    out[held] = own[held]
+    out[on_mkt] = own[on_mkt]
     return out
 
 

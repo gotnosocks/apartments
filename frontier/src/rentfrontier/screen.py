@@ -873,6 +873,11 @@ def format_report(report: dict) -> str:
     b = report["bayesian"]
     eff = report["efficiency"]
     tc = report["candidate"]
+    prob_label = (
+        f"P(>-{report['tol_elpd']:.0f})={b['p_gt_gate']:.3f}"
+        if report.get("mode") == "simplify"
+        else f"P(>{report['gate_elpd']:.0f})={b['p_gt_gate']:.3f}"
+    )
     lines = [
         f"Screen verdict: {b['verdict']}  ({tc['run']} vs {report['baseline']['run']})",
         f"  subsample: f={report['fraction']:.3f} (scale x{report['scale_factor']:.2f}), "
@@ -883,7 +888,7 @@ def format_report(report: dict) -> str:
         f"  projected: {pf['delta']:+.0f} ± {pf['se']:.0f} full-data ΔELPD "
         f"(80% MDE = {b['mde_80']:.0f})",
         f"  posterior: mean {b['post_mean']:+.0f} ± {b['post_sd']:.0f} | "
-        f"P(>0)={b['p_positive']:.3f} | P(>{report['gate_elpd']:.0f})={b['p_gt_gate']:.3f} | "
+        f"P(>0)={b['p_positive']:.3f} | {prob_label} | "
         f"IG={b['ig_bits']:.2f} bits (decision {b['decision_ig_bits']:.2f} bits)",
         f"  coverage : 80% {cov['cov80_base'] * 100:.2f}% -> {cov['cov80_cand'] * 100:.2f}% "
         f"({cov['cov80_shift'] * 100:+.2f} pp) | <5% tail {cov['tail05_base'] * 100:.2f}% -> "

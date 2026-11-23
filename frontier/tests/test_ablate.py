@@ -573,13 +573,25 @@ def test_seg_add_and_lowrank_covariance_exact(screen_rows):
     sframe, sheld = screen_rows
     sframe = sframe.copy()
     sframe["price_at"] = pd.date_range(
-        "2018-01-01", periods=len(sframe), freq="14D", tz="UTC"
+        "2018-01-01", periods=len(sframe), freq="45D", tz="UTC"
     )
+    sframe["latest_day"] = sframe["price_at"].dt.tz_convert(None)
     d_add = ablate.design(sframe, held=sheld, variant="seg_add")
     specs = ablate.gp_spec(d_add.names)
     seg_specs = [s for s in specs if s["name"].startswith("seg:")]
     assert 1 <= len(seg_specs) <= 4
     assert not any(c.endswith(":2024q1") for s in seg_specs for c in s["cols"])
+
+    # Verify semi-annual stride cuts knot count roughly in half on a multi-year grid
+    d_long = td._design(n=400, weeks=160)
+    d_q = ablate.additive_segment_paths(d_long, stride=1)
+    d_s = ablate.additive_segment_paths(d_long, stride=2)
+    q_cols = [n for n in d_q.names if n.startswith("seg:")]
+    s_cols = [n for n in d_s.names if n.startswith("seg:")]
+    assert len(s_cols) < len(q_cols)
+    assert not any(c.endswith(":2024q1") for c in s_cols)
+    d_semi = ablate.design(sframe, held=sheld, variant="seg_add_semi")
+    assert any(n.startswith("seg:") for n in d_semi.names)
 
     d_lr = ablate.design(sframe, held=sheld, variant="seg_add_lr16")
     assert any(n.startswith("seglr:") for n in d_lr.names)

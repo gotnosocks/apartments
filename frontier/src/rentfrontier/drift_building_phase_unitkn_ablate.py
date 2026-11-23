@@ -107,7 +107,14 @@ MARK_TOKENS = {
     "mark_large01br": ("mark:large_01br",),
     "mark_thin": ("mark:thin_first_ad",),
 }
-SEG_TOKENS = ("seg", "seg_add", "seg_add_lr16", "seg_add_lr12", "seg_lr16")
+SEG_TOKENS = (
+    "seg",
+    "seg_add",
+    "seg_add_semi",
+    "seg_add_lr16",
+    "seg_add_lr12",
+    "seg_lr16",
+)
 SV_TOKENS = ("sv_gp", "sv_gp_mo", "sv_gp_mo16", "sv_gp_mo12", "sv_gp_wk", "sv_gp_wk05")
 VEL_TOKENS = ("vel_gp", "vel_gp_wk")
 SPATIAL_TOKENS = ("spatial_k80", "spatial_k40")
@@ -476,18 +483,31 @@ def _additive_path_indicators(d: Design) -> list[tuple[str, np.ndarray]]:
     return [(name, ind) for name, ind in cands if ind.any() and not ind.all()]
 
 
-def additive_segment_paths(d: Design) -> Design:
-    """Additive identifiable quarterly Matérn-3/2 segment paths (4 paths instead of 7:
+def additive_segment_paths(d: Design, *, stride: int = 1) -> Design:
+    """Additive identifiable Matérn-3/2 segment paths (4 paths instead of 7:
     1 zone path + 3 bedroom paths, dropping `2024q1`, retaining the 3 static `level:outer:*`
-    columns). Cuts 371 -> 212 cols and 7 -> 4 segment GPs."""
-    q = drift_building_phase_segment.quarter_starts(d)
+    columns). With `stride=1` (quarterly), cuts 371 -> 212 cols and 7 -> 4 segment GPs;
+    with `stride=2` (semi-annual, `seg_add_semi`), cuts 371 -> ~104 cols while keeping
+    learned Matérn-3/2 amplitude and lengthscale per path."""
+    q_full = drift_building_phase_segment.quarter_starts(d)
+    labels_full = [f"{t.year}q{t.quarter}" for t in q_full]
+    ref_q = drift_building_phase_unitkn_unified_seg.REF_QUARTER
+    if stride > 1:
+        keep_idx = sorted(
+            set(range(0, len(q_full), stride))
+            | {len(q_full) - 1}
+            | ({labels_full.index(ref_q)} if ref_q in labels_full else set())
+        )
+        q = q_full[keep_idx]
+        labels = [labels_full[i] for i in keep_idx]
+    else:
+        q = q_full
+        labels = labels_full
     knots = np.asarray((q - pd.Timestamp(d.start)).days, float) / (
         drift_building_phase_segment.YEAR_DAYS
     )
-    labels = [f"{t.year}q{t.quarter}" for t in q]
     H = drift_building_phase_segment.hat_weights(years(d), knots)
     denom = np.maximum(H.sum(axis=0), 1.0)
-    ref_q = drift_building_phase_unitkn_unified_seg.REF_QUARTER
 
     lead_names, lead_x = drift_building_phase_segment.level_columns(d)
     cols: list[str] = list(lead_names)
@@ -1231,11 +1251,13 @@ def design(
         per_zone = 40 if spatial_active[0] == "spatial_k80" else 20
         d = apply_spatial_trunc(d, per_zone=per_zone)
 
-    # 6. Segment paths (full GP, additive GP, or low-rank whitened Matérn-3/2)
+    # 6. Segment paths (full GP, additive GP, semi-annual additive GP, or low-rank)
     if "seg" in tok:
         d = drift_building_phase_unitkn_unified_seg.identifiable_segment_paths(d)
     elif "seg_add" in tok:
-        d = additive_segment_paths(d)
+        d = additive_segment_paths(d, stride=1)
+    elif "seg_add_semi" in tok:
+        d = additive_segment_paths(d, stride=2)
     elif "seg_add_lr16" in tok:
         d = lowrank_segment_paths(d, additive=True, max_modes=16)
     elif "seg_add_lr12" in tok:

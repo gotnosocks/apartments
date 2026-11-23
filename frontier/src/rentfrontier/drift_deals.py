@@ -114,6 +114,21 @@ def _held_frame(run_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame, np.ndarray]:
     return frame, frame[held].reset_index(drop=True), held
 
 
+def _market_mask(
+    run_dir: Path, frame: pd.DataFrame, held: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """For a `unified` split, separate active market ads (`open`) from closed eval ads.
+
+    Returns `(target_mask_in_frame, target_mask_in_held)`. On a `market` split, every
+    held-out row is an open ad so `target_mask_in_held` is all True."""
+    record = json.loads((run_dir / "result.json").read_text())
+    held_b = np.asarray(held, bool)
+    if record.get("split") == "unified" and "open" in frame:
+        is_open = frame.open.to_numpy(bool)
+        return held_b & is_open, is_open[held_b]
+    return held_b, np.ones(int(held_b.sum()), bool)
+
+
 def _ads(ads: Path, listing_ids) -> pd.DataFrame:
     a = pd.read_parquet(ads, columns=list(AD_FIELDS))
     a = a.assign(listing_id=a.listing_id.astype(str)).drop_duplicates()
@@ -155,7 +170,7 @@ def _raised(frame, held, ads: Path, final: bool = False) -> np.ndarray:
     return marks[np.asarray(held, bool)[near]]
 
 
-def _thin(run_dir: Path, frame, held) -> np.ndarray:
+def _thin(run_dir: Path, frame, held, target: np.ndarray | None = None) -> np.ndarray:
     """`cautions.thin_level` for the held-out rows: the posterior mean of the level of
     each one's building (`drift_diagnostics.levels`) and the building's count of training
     rows, one per ad and every unit's. A held-out row's ask reaches neither. A run that
@@ -165,15 +180,16 @@ def _thin(run_dir: Path, frame, held) -> np.ndarray:
     from . import drift_diagnostics
 
     held = np.asarray(held, bool)
+    eval_mask = held if target is None else np.asarray(target, bool)
     if "kept/bld" not in np.load(run_dir / "posterior.npz"):
-        return np.zeros(int(held.sum()), bool)
+        return np.zeros(int(eval_mask.sum()), bool)
     record = json.loads((run_dir / "result.json").read_text())
     building = frame.building.astype(str)
     levels, why = drift_diagnostics.levels(run_dir, record, building.to_numpy())
     if levels is None:
         raise SystemExit(f"no thin_level caution for {run_dir.name}: {why}")
     counts = building[~held].value_counts()
-    b = building[held]
+    b = building[eval_mask]
     return cautions_module.thin_level(
         b.map(levels.level).to_numpy(float), b.map(counts).fillna(0).to_numpy(float)
     )
@@ -193,7 +209,9 @@ def texts(run_dir: Path, records: dict | None = None) -> pd.DataFrame:
             f"the records file {records['path']} is of another build than the dataset of "
             f"{run_dir.name} (its ads file is not {market['ads']})"
         )
-    _, h, _ = _held_frame(run_dir)
+    frame, h, held = _held_frame(run_dir)
+    _, keep_h = _market_mask(run_dir, frame, held)
+    h = h[keep_h].reset_index(drop=True)
     table = descriptions.record_descriptions(records, set(h.listing_id.astype(str)))
     # The table carries its build, so `deals` can refuse the texts of another run's ads.
     return (
@@ -204,16 +222,26 @@ def texts(run_dir: Path, records: dict | None = None) -> pd.DataFrame:
 
 
 def _cautions(
-    frame, h, held, unit_key, texts: Path | None, ads_sha: str, a, raised, thin
+    frame,
+    h,
+    held,
+    unit_key,
+    texts: Path | None,
+    ads_sha: str,
+    a,
+    raised,
+    thin,
+    target: np.ndarray | None = None,
 ) -> tuple[list, int | None, int | None]:
     """Each held-out row's caution codes, how many of the rows have a text and how many
     a flat security deposit (both None without `texts`). `a` holds the rows' ads, which
     `cautions.net_ask` and `cautions.deposit_net` read, `raised` marks the rows
     `cautions.raised` found and `thin` those `cautions.thin_level` found. `texts` must be
     the table `texts` wrote for the build whose ads file has the SHA-256 `ads_sha`."""
+    eval_mask = np.asarray(held if target is None else target, bool)
     known = frame.unit_id.notna().to_numpy()
     counts = frame.bedrooms[known].groupby(unit_key[known]).nunique()
-    varied = unit_key[held].map(counts).fillna(0) > 1
+    varied = unit_key[eval_mask].map(counts).fillna(0) > 1
     # The dataset starts a new piece of a unit, "~1", "~2", where its ads' bedroom count
     # changes (`data.split_unit_histories`), and the model reads a piece as an apartment
     # with no history. Across the pieces of one apartment a difference of one bedroom is
@@ -223,11 +251,11 @@ def _cautions(
     # ("~review-") is another apartment.
     whole = unit_key.str.replace(PIECE, "", regex=True)
     beds = frame.bedrooms[known].groupby(whole[known])
-    apart = whole[held].map(beds.max() - beds.min()).fillna(0) >= PIECES_APART
-    varied = (varied | apart).to_numpy() & known[held]
+    apart = whole[eval_mask].map(beds.max() - beds.min()).fillna(0) >= PIECES_APART
+    varied = (varied | apart).to_numpy() & known[eval_mask]
     # An ad coding more bedrooms or more baths than the latest training ad of its
     # apartment, the pieces of a split unit read together (`layout.changes`).
-    marks = layout.changes(frame, ~np.asarray(held, bool))[held]
+    marks = layout.changes(frame, ~np.asarray(held, bool))[eval_mask]
     more = (marks[:, MORE_ROOMS] > 0).any(axis=1)
     flagged = (
         h.income_restricted.fillna(False).astype(bool).to_numpy()
@@ -282,14 +310,23 @@ def _cautions(
 
 
 def _run_cautions(
-    run_dir: Path, frame, h, held, a, ads: Path, texts: Path | None
+    run_dir: Path,
+    frame,
+    h,
+    held,
+    a,
+    ads: Path,
+    texts: Path | None,
+    target: np.ndarray | None = None,
 ) -> tuple[list, int | None, int | None]:
     """`_cautions` for the held-out rows `h` of the run at `run_dir`, with `a` their rows
     of the ads table `ads`. `deals` and `validate` both call this, so a backtest's ads
     are cautioned by the rules the published table's are."""
     market = _manifest(run_dir)
+    eval_mask = np.asarray(held if target is None else target, bool)
     # The model's unit is the pair of building and unit_id (`drift.unit_index`).
     unit_key = frame.building.astype(str) + "|" + frame.unit_id.astype(str)
+    raised = _raised(frame, eval_mask, ads, bool(market.get("backtest")))
     return _cautions(
         frame,
         h,
@@ -298,8 +335,9 @@ def _run_cautions(
         texts,
         market["ads_sha256"],
         a,
-        _raised(frame, held, ads, bool(market.get("backtest"))),
-        _thin(run_dir, frame, held),
+        raised,
+        _thin(run_dir, frame, held, target=eval_mask),
+        target=eval_mask,
     )
 
 
@@ -317,7 +355,11 @@ def deals(
     under a bound exactly when its `below_share` is under the bound's level; with `exact`
     false they are sampled (`drift_score.SAMPLES`), as until 2026-11-20."""
     frame, h, held = _held_frame(run_dir)
+    target, keep_h = _market_mask(run_dir, frame, held)
     res = drift_score.score_run(run_dir, exact=exact)
+    if not keep_h.all():
+        h = h[keep_h].reset_index(drop=True)
+        res = {k: v[keep_h] for k, v in res.items()}
     a = _ads(ads, h.listing_id)
     q = np.exp(res["q"].astype(float))
     ask = h.latest_ask.to_numpy(float)
@@ -326,9 +368,9 @@ def deals(
     unit_key = frame.building.astype(str) + "|" + frame.unit_id.astype(str)
     train_units = unit_key[~held & frame.unit_id.notna().to_numpy()].value_counts()
     codes, with_text, with_deposit = _run_cautions(
-        run_dir, frame, h, held, a, ads, texts
+        run_dir, frame, h, held, a, ads, texts, target=target
     )
-    prev = drift_previous.previous_columns(frame, held)
+    prev = drift_previous.previous_columns(frame, target)
     out = pd.DataFrame(
         {
             "listing_id": h.listing_id.astype(str),
@@ -360,7 +402,7 @@ def deals(
             "model_hi95": q[:, 7].round(0),
             "discount_pct": (100 * (median / ask - 1)).round(1),
             "below_share": res["cdf"].round(4),
-            "unit_ads": unit_key[held]
+            "unit_ads": unit_key[target]
             .map(train_units)
             .fillna(0)
             .astype(int)
@@ -430,8 +472,14 @@ def validate(
     wrote for the run, the cautions read from an ad's text are not made and `texts_read`
     is false."""
     frame, h, held = _held_frame(run_dir)
+    target, keep_h = _market_mask(run_dir, frame, held)
+    h_all = h
+    if not keep_h.all():
+        h = h[keep_h].reset_index(drop=True)
     a = _ads(ads, h.listing_id)
-    codes, with_text, _ = _run_cautions(run_dir, frame, h, held, a, ads, texts)
+    codes, with_text, _ = _run_cautions(
+        run_dir, frame, h, held, a, ads, texts, target=target
+    )
     plain = ~np.array([bool(c) for c in codes], bool)
     final = h.latest_ask.to_numpy(float)
     free = np.nan_to_num(a.months_free.to_numpy(float)) > 0
@@ -439,7 +487,11 @@ def validate(
     first = first_net(gross, final, a.page_price, free)
     ok = np.isfinite(first) & (first > 0)
     no_basis = int((np.isfinite(gross) & (gross > 0) & ~ok).sum())
-    res = drift_score.score_run(run_dir, at=np.log(np.where(ok, first, final)))
+    at_vals = np.log(h_all.latest_ask.to_numpy(float))
+    at_vals[keep_h] = np.log(np.where(ok, first, final))
+    res = drift_score.score_run(run_dir, at=at_vals)
+    if not keep_h.all():
+        res = {k: v[keep_h] for k, v in res.items()}
     place = res["cdf_at"]
     day = pd.to_datetime(h.final_day if "final_day" in h else h.latest_day)
     off = pd.to_datetime(a.off_day).to_numpy()
@@ -515,9 +567,12 @@ def _checked(
     result = json.loads((run_dir / "result.json").read_text())
     market = _manifest(run_dir)
     kind = "a backtest" if backtest else "the market"
-    if result.get("split") != "market" or bool(market.get("backtest")) != backtest:
+    if (
+        result.get("split") not in ("market", "unified")
+        or bool(market.get("backtest")) != backtest
+    ):
         raise SystemExit(
-            f"{run_dir.name} is not a run on the market split of {kind} dataset"
+            f"{run_dir.name} is not a run on the market split of {kind} dataset (or unified)"
         )
     if model is not None and result["model"]["name"] != model:
         raise SystemExit(
@@ -601,6 +656,16 @@ def publish(
         meta["heldout"] = drift_score.summary(
             {k: scores[k] for k in ("y", "q", "pred", "elpd")}
         ) | {"run": heldout.name, "split": record.get("split")}
+    elif result.get("split") == "unified":
+        frame, _, held = _held_frame(run_dir)
+        _, keep_h = _market_mask(run_dir, frame, held)
+        scores = drift_score.score_run(run_dir, exact=False)
+        closed = ~keep_h
+        if closed.any():
+            gate["heldout"] = gate["market"]
+            meta["heldout"] = drift_score.summary(
+                {k: scores[k][closed] for k in ("y", "q", "pred", "elpd")}
+            ) | {"run": run_dir.name, "split": "unified"}
     check = None
     if backtest is not None:
         past_result, past = _checked(backtest, backtest=True, model=model)

@@ -50,3 +50,73 @@ Anchor (`s0-anchor` on `latest`, `m0-anchor` on `market`): `u5-svgpmo` (`layrng,
 | `m3` | `m3-scalar-sv16` | `market` `sv_gp_mo16,scalar_sigma,phase_compact,no_season2` | `-18` (`-12 K_scale`) | `-15 to +15` | `SIMPLIFY_KEEP` |
 | `m4` | `m4-marks-bt` | `market` `marks` → `mark_baths,mark_thin` | `-3` (`-3 K_scale`) | `+15 to +65` | `SIMPLIFY_KEEP` (beats `u5` on `market`!) |
 | `m5` | `m5-spatial-biwk` | `market` `+spatial_k80,biweekly_walk` | `0` (`-451 G`) | `-20 to +10` | `SIMPLIFY_KEEP` / `ESCALATE` |
+
+---
+
+## Wave 1 Scored Results (`af19ed85`, all 26/26 runs landed, `$15.80` total)
+
+Reference anchor: `u5-svgpmo-lat` (`695` explicit params, full 6-chain production gate **PASSED** in sibling thread at **`243,290.3` ELPD**, `+538.8 ± 48.1` over `u4s-lat`, `R-hat = 1.0087` on `sigma[2]`, `ESS = 1,077`, `$27.68`).
+
+### `screen-k5` (`latest`, 19/19 single-block ablations, `80.7` total IG bits, `$12.00`, `0.28 bits/min`, `6.7 bits/$`)
+
+| Arm | Exact Ablation | ΔParams (ΔG) | Projected ΔELPD ± SE | ELPD / Removed Param | s/sweep | Max R-hat | Verdict | Prediction Hit? |
+|---|---|---:|---:|---:|---:|---:|---|---|
+| `s11-scalar-sigma` | `sigma[4]` → scalar | `-3` (`-3 K_scale`) | **`+53 ± 40`** | `-17.7` (improves!) | `0.713` (`-6.3%`) | `1.128` | **`SIMPLIFY_KEEP`** | **HIT** (also removes `u5`'s `sigma[2]` R-hat bottleneck!) |
+| `s8-ad-core` | `35 → 6` legacy `ad:*` | `-31` (`-31`) | **`-6 ± 44`** | `+0.19` | `0.759` | `1.096` | `ESCALATE` (pure noise) | **HIT** |
+| `s15-biweekly` | `W1: 673 → 337` | `0` (`-336`) | **`-23 ± 36`** | `0` | `0.749` | `1.114` | `ESCALATE` (pure noise) | **BETTER than predicted** |
+| `s1-seg-add` | `7` → `4` additive seg GPs | `-165` (`-159`) | **`-30 ± 86`** | `+0.18` | `0.732` (`-3.8%`) | **`1.071`** (ESS `3×`) | `ESCALATE` (pure noise) | **HIT** |
+| `s5-floor-poly` | `68` floor dummies + `2` GPs → `5` | `-67` (`-63`) | **`-32 ± 42`** | `+0.47` | `0.756` | **`1.051`** | `ESCALATE` (pure noise) | **HIT** |
+| `s14-phase-compact` | drop `phase:22-25`, `none`, `sin2/cos2` | `-7` (`-6`) | `-49 ± 33` | `+7.0` | `0.761` | `1.098` | `ESCALATE` | Miss (slightly steeper) |
+| `s9-bld-core` | `52 → 17` legacy `bld:*` | `-35` (`-35`) | `-63 ± 42` | `+1.81` | `0.720` (`-5.4%`) | `1.072` | `ESCALATE` | Slight miss |
+| `s16-spatial-k80` | `K: 195 → 80` | `0` (`-115`) | `-72 ± 38` | `+0.63/mode` | `0.742` | `1.090` | `ESCALATE` | Slight miss |
+| `s10-no-bld-ks` | drop all `52` legacy `bld:*` | `-52` (`-52`) | `-78 ± 59` | `+1.50` | `0.716` (`-5.9%`) | `1.074` | `ESCALATE` | **HIT** |
+| `s12-sv-mo16` | `24 → 16` `sv_gp_mo` modes | `-8` (`-8 K_scale`) | `-119 ± 39` | `+14.9` | `0.691` (`-9.2%`) | `1.086` | `KEEP_COMPLEX` | Steeper than predicted |
+| `s13-sv-mo12` | `24 → 12` `sv_gp_mo` modes | `-12` (`-12 K_scale`) | `-148 ± 44` | `+12.3` | `0.652` (`-14.3%`) | `1.090` | `KEEP_COMPLEX` | **HIT** |
+| `s19-no-phase-mean` | drop `6` `phase:*` mean cols | `-6` (`-6`) | `-485 ± 68` | `+80.8` | `0.771` | `1.097` | `KEEP_COMPLEX` | **HIT** (even stronger) |
+| `s2-seg-add-lr16` | fixed-amp `lr16` additive seg | `-321` (`-307`) | `-661 ± 130` | `+2.06` | `0.691` | `1.149` | `KEEP_COMPLEX` | Miss (fixed `amp=0.05` over-shrunk COVID) |
+| `s4-seg-lr16` | fixed-amp `lr16` 7-seg | `-273` (`-259`) | `-702 ± 120` | `+2.57` | `0.708` | `1.138` | `KEEP_COMPLEX` | Miss (fixed `amp=0.05` over-shrunk COVID) |
+| `s3-seg-add-lr12` | fixed-amp `lr12` additive seg | `-337` (`-323`) | `-778 ± 139` | `+2.31` | `0.696` | `1.177` | `KEEP_COMPLEX` | **HIT** |
+| `s18-marks-baths` | drop `changed/floor1/large01br` | `-3` (`-3 K_scale`) | `-817 ± 129` | **`+272.3`** | `0.708` | `1.095` | `KEEP_COMPLEX` | **HIT** (even stronger) |
+| `s7-umean-core` | `45 → 5` Mundlak `umean:` cols | `-40` (`-40`) | `-999 ± 170` | `+25.0` | `0.769` | `1.127` | `KEEP_COMPLEX` | Miss (Mundlak cols are huge!) |
+| `s6-no-umean` | drop all `45` `umean:` cols | `-45` (`-45`) | `-2,417 ± 265` | `+53.7` | `0.771` | `1.063` | `KEEP_COMPLEX` | **HIT** (even stronger) |
+| `s17-no-bld-ar` | drop building quarterly AR(1) | `0` (latent AR) | **`-34,228 ± 1,829`** | `+17,114/hyp` | `0.438` | `1.150` | `KEEP_COMPLEX` | **HIT** |
+
+### `screen-mkt-k5` (`market`, 5/5 ablations, `33.4` total IG bits, `$2.54`, `0.55 bits/min`, `13.1 bits/$`)
+
+| Arm | Exact Ablation | ΔParams | Projected ΔELPD ± SE | 80% Cov Shift | s/sweep | Max R-hat | Verdict | Prediction Hit? |
+|---|---|---:|---:|---:|---:|---:|---|---|
+| `m4-marks-bt` | `marks` → `mark_baths,mark_thin` | `-3` | **`+50 ± 22`** | `+0.85 pp` | `0.629` | **`1.036`** | **`SIMPLIFY_KEEP`** | **HIT** |
+| `m5-spatial-biwk` | `+spatial_k80,biweekly_walk` | `0` (`-451 G`) | **`+8 ± 7`** | — | `0.638` | **`1.038`** | **`SIMPLIFY_KEEP`** | **HIT** |
+| `m1-floor-poly` | `+floor_poly` | `-67` | **`+6 ± 7`** | — | `0.654` | `1.058` | **`SIMPLIFY_KEEP`** | **HIT** |
+| `m3-scalar-sv16` | `sv_gp_mo16,scalar_sigma,phase_compact,no_season2` | `-18` | `-38 ± 13` | — | `0.521` (`-20%`) | `1.065` | `KEEP_COMPLEX` | Miss (`sv_gp_mo16` cost `-38`) |
+| `m2-ks-core` | `+umean_core,ad_core,bld_core` | `-106` | `-48 ± 48` | — | `0.610` | `1.061` | `ESCALATE` | **HIT** (driven by `umean_core`) |
+
+---
+
+## Wave 2 Pre-Fit Quantitative Predictions (Pareto Combinations, Single-Fit `--split unified` Proof, and `bits/min` Optimization)
+
+Committed **before** launching Wave 2 (`13` Modal `A100-40GB` screens, est. `~$5.80`).
+
+### 1. Combined Pareto Frontier Candidates (`latest` & `market` — testing ONE IDENTICAL unified model across both splits)
+- **`c1-compact`**: `layrng,size,sv_gp_mo,marks,seg_add,floor_poly,ad_core,scalar_sigma,biweekly_walk` (`429` params, `-266` / `-38%`, `4` GPs vs `9`, `-39% G_dim`)
+  - `latest` (`w2-c1-compact`): projected ΔELPD **`-120 to +40`**, `s/sw ≈ 0.65–0.70`, `max_rhat ≤ 1.06`.
+  - `market` (`w2-m-c1-compact`): projected ΔELPD **`-20 to +25`** vs `m0-anchor` (proving `seg_add` can stay in the single unified model for `market` too!).
+- **`c1s-semi`**: same as `c1-compact` with **`seg_add_semi`** (`4` semi-annual Matérn-3/2 GPs, **`325` params, `-370` / `-53%`!!**)
+  - `latest` (`w2-c1s-semi`): projected ΔELPD **`-160 to +20`** vs `s0-anchor` (within `-40` of `c1-compact` while cutting `-104` more params!).
+  - `market` (`w2-m-c1s-semi`): projected ΔELPD **`-15 to +25`** vs `m0-anchor`, `max_rhat ≤ 1.05`.
+- **`c2-lean`**: `c1s-semi` + `no_bld_ks,spatial_k80,phase_compact,no_season2` (**`266` params, `-429` / `-62%`!!**, `G_dim: -51%`, skips slow `bld:` step!)
+  - `latest` (`w2-c2-lean`): projected ΔELPD **`-280 to -80`**, `s/sw ≈ 0.54–0.62` (`1.25–1.40×` speedup!).
+  - `market` (`w2-m-c2-lean`): projected ΔELPD **`-30 to +15`** vs `m0-anchor`, `s/sw ≈ 0.48–0.56`.
+- **`c3-ultra`**: `c2-lean` with `sv_gp_mo16` (**`258` params, `-63%`**, `K_scale: 43 → 31`)
+  - `latest` (`w2-c3-ultra`): projected ΔELPD **`-400 to -180`**, `s/sw ≈ 0.48–0.55` (`1.40–1.55×` speedup!).
+- **`c0-noseg`**: `layrng,size,sv_gp_mo,marks,floor_poly,ad_core,scalar_sigma,biweekly_walk` (0 GPs, **`209` params, `-70%`**!)
+  - `latest` (`w2-c0-noseg`): quantifies exact total ELPD value of `seg_add` on `latest` — predicted **`-1,800 to -900`** vs `s0-anchor`.
+  - `market` (`w2-m-c0-noseg`): predicted **`-10 to +20`** vs `m0-anchor` (direct paired test of whether `seg_add_semi` helps or is neutral on `market`).
+
+### 2. Single-Fit Consolidation Proof (`--split unified` vs `--split market` on `screen-mkt-k5`)
+- **`w2-m-unified-proof`**: `c1s-semi` fitted on **`--split unified`** (holding out all `open` ads + 5% non-active `latest` closed ads) vs `w2-m-c1s-semi` on `--split market`:
+  - **Pre-fit prediction on shared `open` active ads:** **`ΔELPD = -8 to +8` (`|z| < 1.0`)**, 80% coverage shift **`within ±0.3 pp`**, proving ONE SINGLE FIT serves `/deals`, `/price-now`, `/estimates`, AND `/diagnostics` with zero active-market degradation — cutting live production fit count immediately by **`2×`**!
+
+### 3. Model Discovery Agent `bits/min` & `bits/$` Frontier Optimization
+- **`w2-fast-k5-short`** (`screen-k5`, `2 150 200 5`, `c2-lean`): predicted wall **`~6 min` (`$0.25`)**, **`≥ 0.55 bits/min` (`~2×` faster discovery rate!)** and **`≥ 13 bits/$`**, matching `w2-c2-lean` full-schedule ΔELPD within `±60`.
+- **`w2-k10-anchor`** & **`w2-k10-c2-lean`** (`screen-k10`, `2 200 300 10`): predicted wall **`~5–6 min` (`$0.23`)**, **`≥ 0.65 bits/min`**, **`≥ 15 bits/$`** — mapping the exact `(subsample × schedule × model complexity)` discovery rate Pareto frontier!

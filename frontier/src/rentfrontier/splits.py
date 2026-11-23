@@ -37,6 +37,7 @@ import pandas as pd
 
 SEED = 20260922
 FRACTION = 0.10
+UNIFIED_FRACTION = 0.05
 
 
 def row_split(data: pd.DataFrame, fraction=FRACTION, seed=SEED) -> np.ndarray:
@@ -121,6 +122,35 @@ def carried_split(data: pd.DataFrame, fraction=FRACTION, seed=SEED) -> np.ndarra
     return data.carried_heldout.to_numpy(bool)
 
 
+def unified_split(
+    data: pd.DataFrame, fraction=UNIFIED_FRACTION, seed=SEED
+) -> np.ndarray:
+    """Single-fit production split combining `market` and non-active `latest`.
+
+    Holds out every currently open (`open == True`) ad PLUS a leak-free `fraction`
+    (default 5%) draw of latest closed listings strictly from units that have no open
+    ad on the market. Every active apartment keeps 100% of its closed history in
+    training while the same single fit serves Deals, Today, Estimates, and Diagnostics."""
+    if "open" not in data:
+        raise ValueError("the unified split needs a dataset from rentfrontier.market")
+    open_mask = data.open.to_numpy(bool)
+    if "building" in data:
+        unit_key = (data.building.astype(str) + "|" + data.unit_id.astype(str)).where(
+            data.unit_id.notna()
+        )
+    else:
+        unit_key = data.unit_id
+    open_units = set(unit_key[open_mask].dropna())
+    non_active = ~open_mask & ~unit_key.isin(open_units).to_numpy(bool)
+    closed_idx = np.flatnonzero(non_active)
+    if len(closed_idx) == 0:
+        return open_mask
+    closed_held = latest_split(data.iloc[closed_idx], fraction=fraction, seed=seed)
+    out = open_mask.copy()
+    out[closed_idx[closed_held]] = True
+    return out
+
+
 SPLITS = {
     "rows": row_split,
     "units": unit_split,
@@ -128,7 +158,8 @@ SPLITS = {
     "buildings": building_split,
     "all": no_split,
     "market": market_split,
+    "unified": unified_split,
     "carried": carried_split,
 }
 # Splits drawn after the data rules (on merged units and kept rows).
-AFTER_RULES = {"latest", "buildings"}
+AFTER_RULES = {"latest", "buildings", "unified"}
