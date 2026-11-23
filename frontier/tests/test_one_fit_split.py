@@ -25,6 +25,7 @@ def test_holds_open_ads_and_old_latest_rows_of_units_with_no_open_ad():
     # latest row is too recent, so it stays in training.
     assert held.tolist() == [False, True, False, True, False, True, False, False]
     assert splits.SPLITS["onefit"] is splits.one_fit_split
+    assert "onefit" in splits.AFTER_RULES
 
 
 def test_min_age_zero_is_the_plain_union():

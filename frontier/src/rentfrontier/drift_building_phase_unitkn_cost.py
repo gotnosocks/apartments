@@ -88,7 +88,11 @@ def run(d: Design, priors: Priors, settings: Settings, log=print, checkpoint=Non
 
 
 def run_record(d: Design) -> dict:
-    return ablate.run_record(d) | {"cost_variant": list(ACTIVE_COST)}
+    rec = ablate.run_record(d) | {"cost_variant": list(ACTIVE_COST)}
+    for g in groups(d):
+        if g["name"] in rec.get("local", {}):
+            rec["local"][g["name"]]["steps_per_year"] = g["per_year"]
+    return rec
 
 
 def strip_cost(argv) -> tuple[list[str], tuple[str, ...]]:

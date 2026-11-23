@@ -54,3 +54,18 @@ def test_main_run_takes_the_cost_tokens_out(monkeypatch, argv):
     assert seen["rest"] == ["--data", "D"]
     assert ablate.ACTIVE_VARIANT == ("layrng",)
     assert cost.ACTIVE_COST == ("bld_semi", "no_slow")
+
+
+def test_run_record_has_the_buildings_steps(monkeypatch):
+    from rentfrontier import drift_building_phase_unitkn_ablate as ablate
+
+    monkeypatch.setattr(
+        ablate, "run_record", lambda d: {"local": {"building": {"steps_per_year": 4}}}
+    )
+    monkeypatch.setattr(
+        drift, "groups_of", lambda d, which: [{"name": "building", "per_year": 4}]
+    )
+    monkeypatch.setattr(cost, "ACTIVE_COST", ("bld_semi",))
+    rec = cost.run_record(None)
+    assert rec["local"]["building"]["steps_per_year"] == 2
+    assert rec["cost_variant"] == ["bld_semi"]

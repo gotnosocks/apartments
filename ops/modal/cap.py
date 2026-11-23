@@ -431,7 +431,6 @@ SWEEP_BUDGET_SECONDS = dict.fromkeys(
         "drift-building-phase-unitkn-segment",
         "drift-building-phase-unitkn-ablate",
         "drift-building-phase-unitkn-cost",
-        "drift-building-phase-unitkn-cost",
         "drift-building-phase-unitkn-unified",
         "drift-building-phase-unitkn-unified-seg",
         "drift-building-phase-unitt",

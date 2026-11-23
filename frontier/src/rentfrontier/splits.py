@@ -162,4 +162,4 @@ SPLITS = {
     "onefit": one_fit_split,
 }
 # Splits drawn after the data rules (on merged units and kept rows).
-AFTER_RULES = {"latest", "buildings"}
+AFTER_RULES = {"latest", "buildings", "onefit"}
