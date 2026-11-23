@@ -6,9 +6,12 @@ a sweep of 2 chains), 3,961 s in its fit stage. Two containers pay the prep and 
 One container with all 4 chains pays them once. That is cheaper if a sweep of 4 chains costs
 well under twice a sweep of 2, which holds if the GPU is not yet saturated at 2 chains.
 
-Cost of a fit, in container seconds at one rate: two containers about 2 × (470 + 3,100 × 1.13)
-= 7,946 s. One container about 470 + 3,100 × 1.13 × r, where r is the 4-chain sweep time over
-the 2-chain one. Break-even is r ≈ 2.13. At r = 1.7 it saves 19%.
+Cost of a fit, in container seconds at one rate, from `u5-of-a`'s logged prep, compile and
+sampling: two containers about 2 × (470 + 2,836) = 6,612 s. One container about
+470 + 2,836 × r, where r is the 4-chain sweep time over the 2-chain one. Break-even is
+r ≈ 2.17. At r = 1.7 it saves 20%. (Written before launch with 3,100 × 1.13 s for the
+sampling, which gives 7,946 s, break-even 2.13 and 19%; corrected in review, with the same
+decision rule.)
 
 ## Probe
 
@@ -37,7 +40,7 @@ Run `drift-building-phase-unitkn-ablate-b0-onefit-f8f32e6a-chains4-probe`, 04:46
 | 1. Exit 0 in 48 GiB, peak 15–22 GiB | Right: **15.3 GiB** (16,423,874,560 bytes), 0.5 GiB over two chains. |
 | 2. Four chains fit on the H200 | Right. |
 | 3. r ≈ 1.5 (1.9–3.2 s a sweep) | Wrong, high: r = 3.131 / 1.610 = **1.94** (1.83 by total sampling time). The GPU is close to saturated at 2 chains. |
-| 4. Decision | r > 1.7: **keep two containers**. At r = 1.94 one container would save about 9% (7,266 against 7,946 container seconds) and double the wall time to about 2 h. |
+| 4. Decision | r > 1.7: **keep two containers**. At r = 1.94 one container would save about 10% (5,972 against 6,612 container seconds) and roughly double the wall time. |
 
 A sweep of 2 chains ran at 1.13 s over the full fit's 3,100 sweeps against 1.61 s over the
 probe's 40, so a probe's rate is an upper bound. The ratio between the probes is the like-for-like
