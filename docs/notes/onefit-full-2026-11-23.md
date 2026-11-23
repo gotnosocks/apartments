@@ -38,6 +38,46 @@ the draw-count check, not tested here.
 5. Validity on the old latest rows (`drift_deals.validate` read on the held-out latest rows):
    monotone, Spearman ≥ 0.9 for days on market and for share cut, as at k5 (0.98 and 1.00).
 
-## Result
+## Result (2026-11-23 03:30 ET)
 
-(after the fit lands)
+Pooled run `drift-building-phase-unitkn-ablate-b0-onefit-b7f7036d-u5-of` (`drift_pool`, from
+`-u5-of-a` and `-u5-of-b`). Scores: `/data1/apartments/tmp/one-fit-2026-11-22/full_score.json`.
+
+| | u5-svgpmo market fit (3 containers, 6 × 1,800) | one fit (2 containers, 4 × 2,600) |
+|---|---|---|
+| gate | pass, R-hat 1.0069, ESS 810 | **pass, R-hat 1.0072 (phase_factor[35]), ESS 788 (unit_sd)** |
+| open ads: elpd (9,346) | 10,249.7 | 10,224.8 (**−24.9 ± 8.7 paired**) |
+| open ads: median abs error | 0.0464 | 0.0464 |
+| open ads: RMSE | 0.1015 | 0.1016 |
+| open ads: coverage 50/80/90/95 | 0.504/0.788/0.889/0.951 | 0.498/0.788/0.889/0.951 |
+| open-ad validity, Spearman days / cut | 1.00 / 1.00 | 1.00 / 1.00 |
+| old latest rows (133,774): elpd | not held out | 165,191; median abs error 0.0413; 80% coverage 0.797 |
+| old-row validity, Spearman days / cut | – | 0.99 / 1.00 |
+| fit time per container | ~3,357 s | 3,961 s |
+| cost | ~$19 (3 × $6.3) | **$14.46** (2 × $7.23) |
+
+Each container alone missed ESS 400 (347 and 404); pooled, the four chains pass with room.
+After the fit, each container's `variance` post step failed (`model.MODELS` has no ablate
+model). The exit code 1 comes from that, not from the fit.
+
+Predictions scored:
+
+1. Gate passes: **right.**
+2. ~4,000 s a container: **right** (3,961 s).
+3. ~$15: **right** ($14.46).
+4. Open-ad elpd between −100 and +20, central −50: **right**, −24.9 ± 8.7, smaller than the
+   k5 rate (−0.0027 a row against −0.006). Median error and coverage are unchanged.
+5. Monotone validity on the old latest rows: **right** (0.99 and 1.00).
+
+So one $14.5 fit gives what three fits gave (selection rows, the Deals fit, validity) for
+25 nats on 9,346 open ads, about 0.003 a row. That is under 3 SE, and smaller than most
+term changes the project tests. Today's three fits per model cost about $45 to $55.
+
+## What it leaves
+
+- The selection rows here are the old latest rows of the market dataset, not the latest
+  split of the newest dataset. A model compared on them is compared on ads at least a year
+  old. The k5 table (`one-fit-protocol-2026-11-22.md`) showed selection keeping its z on
+  them.
+- The pages still read three runs. Wiring Deals, Today and Diagnostics to one run's two
+  subsets is in the competitor thread's PR #1538 (for `unified` and `onefit`).

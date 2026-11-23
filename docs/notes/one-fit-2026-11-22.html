@@ -159,10 +159,23 @@ code{font-size:.9em}
 </table></div>
 <p>Two containers in place of three would cut a full fit by a third, with a thin margin. The other thread's full fits now running use two containers and will test that.</p>
 
+<h2>The full one fit (2026-11-23)</h2>
+<p>One full fit of the current candidate on the <code>onefit</code> split: 2 containers, 4 chains of 2,600 draws. It holds out the 9,346 open ads and 133,774 latest rows a year or more old.</p>
+<div class="scroll"><table>
+<tr><th></th><th>market fit now (3 containers)</th><th>one fit (2 containers)</th></tr>
+<tr><td>gate</td><td>pass (R-hat 1.0069, ESS 810)</td><td><b>pass</b> (R-hat 1.0072, ESS 788)</td></tr>
+<tr><td>open-ad elpd</td><td>10,249.7</td><td>10,224.8 (−24.9 ± 8.7)</td></tr>
+<tr><td>open-ad median error</td><td>0.0464</td><td>0.0464</td></tr>
+<tr><td>open-ad 80% coverage</td><td>0.788</td><td>0.788</td></tr>
+<tr><td>validity on old rows (Spearman days / cut)</td><td>–</td><td>0.99 / 1.00</td></tr>
+<tr><td>cost</td><td>~$19, and two more fits per model</td><td><b>$14.46</b>, nothing else</td></tr>
+</table></div>
+<p>One fit gives what three gave, for about 0.003 nats on each open ad. A model now costs about $15 to fit, not $45 to $55. All five predictions held.</p>
+
 <h2>What's next</h2>
 <ul>
 <li>The <code>onefit</code> split is now in <code>splits.py</code>, and it matches D row for row. The other thread's <code>unified</code> split, open ads plus 2% of the latest rows with no age filter, overlaps it. The two should become one, and the age filter is the part to keep.</li>
-<li>Still to build: Deals, Today and Diagnostics need to read the two subsets of one run, and the split needs one full fit that passes the gate.</li>
+<li>Still to build: Deals, Today and Diagnostics need to read the two subsets of one run (the other thread's PR #1538 does this). The full fit now passes the gate, so this is the last piece.</li>
 <li>Large H200 containers reserve 192 GiB and 8 CPUs, about $1.90 of their $6.45 an hour, and peak memory is not recorded. Measuring it might allow a smaller reservation.</li>
 </ul>
 <p class="muted">Notes: docs/notes/one-fit-protocol-2026-11-22.md, docs/notes/cost-arms-2026-11-22.md. The screens cost under $5 on Modal.</p>
