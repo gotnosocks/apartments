@@ -400,3 +400,98 @@ def test_hybrid_sv_gp_and_vel_gp_combine_cleanly(screen_rows):
     fnames = rec["phase"]["free_factors"]
     assert any(n.startswith("sv:m") for n in fnames)
     assert "vel:down" in fnames or "vel:up" in fnames
+
+
+@pytest.mark.parametrize(
+    ("token", "res", "ls", "n_pts", "ref_idx", "n_modes"),
+    [
+        (
+            "sv_gp_mo",
+            "month",
+            None,
+            ablate.SV_MONTHS,
+            ablate.SV_REF_MONTH,
+            ablate.SV_MO_MODES,
+        ),
+        (
+            "sv_gp_wk",
+            "week",
+            None,
+            ablate.SV_WEEKS,
+            ablate.SV_REF_WEEK,
+            ablate.SV_WK_MODES,
+        ),
+        (
+            "sv_gp_wk05",
+            "week",
+            ablate.SV_WK05_LS,
+            ablate.SV_WEEKS,
+            ablate.SV_REF_WEEK,
+            ablate.SV_WK05_MODES,
+        ),
+    ],
+)
+def test_sv_gp_monthly_and_weekly_basis_and_future_clamp(
+    screen_rows, token, res, ls, n_pts, ref_idx, n_modes
+):
+    B = ablate.sv_gp_basis(resolution=res, ls=ls)
+    assert B.shape == (n_pts, n_modes)
+    assert np.all(B[ref_idx] == 0.0)
+    # Clamping: held-out future dates strictly after last training date inherit last training bucket.
+    frame = pd.DataFrame(
+        {
+            "price_at": pd.to_datetime(
+                ["2024-01-05", "2025-11-05", "2026-06-15", "2026-10-15"], utc=True
+            )
+        }
+    )
+    train = np.array([True, True, False, False])
+    mat, names = ablate.sv_gp_features(frame, train=train, resolution=res, ls=ls)
+    assert len(names) == n_modes
+    np.testing.assert_array_equal(mat[2], mat[1])
+    np.testing.assert_array_equal(mat[3], mat[1])
+
+    # Smoke test design + MCMC for weekly sv_gp_wk.
+    if token == "sv_gp_wk":
+        sframe, sheld = screen_rows
+        sframe = sframe.copy()
+        sframe["price_at"] = pd.date_range(
+            "2018-01-01", periods=len(sframe), freq="7D", tz="UTC"
+        )
+        d = ablate.design(sframe, held=sheld, variant=f"mark_baths,{token}")
+        assert not d.phase_map[0].any()
+        settings = ablate.Settings(
+            chains=2, warmup=2, draws=4, keep_every=2, budget_seconds=None
+        )
+        out = ablate.run(
+            ablate.subset(d, ~sheld), ablate.Priors(), settings, log=lambda _: None
+        )
+        assert out["trace"]["phase_factor"].shape == (2, 4, d.phase_map.shape[1])
+
+
+def test_vel_gp_weekly_is_strictly_leak_free_and_clamps_future():
+    n = 300
+    days = pd.date_range("2019-01-01", periods=n, freq="5D", tz="UTC")
+    log_rent = np.where(
+        days.year == 2020,
+        8.0 - 0.30 * (days.dayofyear / 365.0),
+        np.where(days.year == 2021, 7.70 + 0.35 * (days.dayofyear / 365.0), 8.0),
+    )
+    frame = pd.DataFrame(
+        {"price_at": days, "latest_ask": np.exp(log_rent), "bedrooms": 1.0}
+    )
+    train = np.ones(n, dtype=bool)
+    train[10::5] = False
+    train[-10:] = False  # Future tail strictly after last training date
+    base, names = ablate.vel_gp_features(frame, train, weekly=True)
+    assert names == ["vel:down", "vel:up"]
+    perturbed = frame.copy()
+    perturbed.loc[~train, "latest_ask"] *= 50.0
+    after, _ = ablate.vel_gp_features(perturbed, train, weekly=True)
+    np.testing.assert_array_equal(base, after)
+    # Future rows strictly after last training week match last training week.
+    last_tr = int(np.flatnonzero(train)[-1])
+    np.testing.assert_array_equal(base[-1], base[last_tr])
+    # Weekly resolution varies within 2020 (not flat within a quarter).
+    q_mat, _ = ablate.vel_gp_features(frame, train, weekly=False)
+    assert not np.array_equal(base, q_mat)

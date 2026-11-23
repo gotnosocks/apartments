@@ -22,8 +22,16 @@ Supported variant tokens (all strictly leak-free):
 - `covid_vol`: adds 2 causal 14-day-lagged Covid volatility regime scale marks (`surge`, `elevated`).
 - `sv_gp`: replaces discrete calendar years with an exact anchored whitened Matérn-3/2
   stochastic volatility GP over 52 quarters (`2014 Q1-2026 Q4`, anchored at `2024 Q1 = 0`).
+- `sv_gp_mo`: monthly anchored Matérn-3/2 stochastic volatility GP (`156` months, `ℓ=1.0 yr`,
+  24 modes, anchored at `2024-01`, clamped at the last training month).
+- `sv_gp_wk`: weekly anchored Matérn-3/2 stochastic volatility GP (`672` weeks matching `L(t)`,
+  `ℓ=1.0 yr`, 28 modes, anchored at `2024-01-01`, clamped at the last training week).
+- `sv_gp_wk05`: weekly anchored Matérn-3/2 stochastic volatility GP with sharper `ℓ=0.5 yr`
+  (`672` weeks, 36 modes, anchored at `2024-01-01`, clamped at the last training week).
 - `vel_gp`: adds 2 strictly leak-free causal trailing market-velocity scale factors
-  (`vel:down`, `vel:up`) driven by prior training-row rent trend speed `|L'(t)|`.
+  (`vel:down`, `vel:up`) driven by prior training-row rent trend speed `|L'(t)|` (quarterly).
+- `vel_gp_wk`: weekly-resolution version of `vel_gp` (exact same causal weekly EMA slope,
+  evaluated directly at each listing's week instead of quarterly medians).
 - `concess_gap`: adds strictly as-of building concession history x 2020-2022 gap columns.
 - `stab_dhcr`: joins DHCR rent-stabilized BBL counts (as-of prior year) + stabilized x regime
   (2020-2021 dip, 2022+ boom) path decoupling terms.
@@ -111,20 +119,38 @@ ALL_TOKENS = (
     "covid_mean",
     "covid_vol",
     "sv_gp",
+    "sv_gp_mo",
+    "sv_gp_wk",
+    "sv_gp_wk05",
     "vel_gp",
+    "vel_gp_wk",
     "concess_gap",
     "stab_dhcr",
     "income_scale",
     "u4_bed",
 )
 
-# Anchored Matérn-3/2 stochastic volatility GP constants (`sv_gp`).
+# Anchored Matérn-3/2 stochastic volatility GP constants (`sv_gp*`).
 SV_FIRST_YEAR = 2014
 SV_QUARTERS = 52  # 2014 Q1 through 2026 Q4
 SV_REF_QUARTER = 40  # 2024 Q1 (anchor: log scale = 0)
 SV_AMP = 0.25  # prior log-scale sd (2 sd spans ~0.61x to 1.65x)
 SV_LS = 1.0  # lengthscale in years
 SV_MODES = 22  # orthogonal eigenmodes (>99% of Matérn-3/2 variance)
+
+SV_MONTHS = 156  # 2014-01 through 2026-12
+SV_REF_MONTH = 120  # 2024-01
+SV_MO_MODES = 24  # >99% of Matérn-3/2 variance at ls=1.0 yr
+
+SV_WEEK_START = pd.Timestamp("2013-12-02", tz="UTC")  # exact match to L(t) weekly grid
+SV_WEEKS = 672  # 672 weeks (~2013-12-02 through late 2026)
+SV_REF_WEEK = 526  # week of 2024-01-01
+SV_WK_MODES = 28  # 99.27% of Matérn-3/2 variance at ls=1.0 yr
+SV_WK05_LS = 0.5  # sharper 6-month lengthscale
+SV_WK05_MODES = 36  # 97.68% of Matérn-3/2 variance at ls=0.5 yr
+
+SV_TOKENS = ("sv_gp", "sv_gp_mo", "sv_gp_wk", "sv_gp_wk05")
+VEL_TOKENS = ("vel_gp", "vel_gp_wk")
 
 # Causal market-velocity volatility constants (`vel_gp`).
 VEL_SCALE = 0.15  # 15%/yr annualized trend speed maps to 1.0
@@ -186,46 +212,113 @@ def _quarter_index(frame: pd.DataFrame) -> np.ndarray:
     return np.clip(q, 0, SV_QUARTERS - 1)
 
 
-def sv_gp_basis() -> np.ndarray:
-    """Exact anchored whitened Matérn-3/2 eigenbasis `(SV_QUARTERS, SV_MODES)` scaled by
+def _month_index(frame: pd.DataFrame) -> np.ndarray:
+    """Each row's month index in `[0, SV_MONTHS - 1]` (`2014-01` .. `2026-12`, clamped)."""
+    dt = pd.to_datetime(frame["price_at"], utc=True)
+    m = (dt.dt.year.to_numpy(int) - SV_FIRST_YEAR) * 12 + (
+        dt.dt.month.to_numpy(int) - 1
+    )
+    return np.clip(m, 0, SV_MONTHS - 1)
+
+
+def _week_index(frame: pd.DataFrame) -> np.ndarray:
+    """Each row's week index in `[0, SV_WEEKS - 1]` on `L(t)`'s `2013-12-02` weekly grid."""
+    dt = pd.to_datetime(frame["price_at"], utc=True)
+    w = np.floor(((dt - SV_WEEK_START) / pd.Timedelta(days=7)).to_numpy(float)).astype(
+        int
+    )
+    return np.clip(w, 0, SV_WEEKS - 1)
+
+
+def _matern32_anchored_basis(
+    t_years: np.ndarray,
+    ref_idx: int,
+    amp: float,
+    ls: float,
+    max_modes: int,
+) -> np.ndarray:
+    """Exact anchored whitened Matérn-3/2 eigenbasis `(len(t_years), m)` scaled by
     `1 / drift.PHASE_PRIOR`. Under `drift.py`'s i.i.d. `Normal(0, PHASE_PRIOR^2)` prior on
-    each log factor, `B @ lf` has exact conditioned Matérn-3/2 covariance with `g(2024 Q1) = 0`."""
-    t = SV_FIRST_YEAR + 0.125 + 0.25 * np.arange(SV_QUARTERS, dtype=float)
-    r = np.abs(t[:, None] - t[None, :])
-    u = np.sqrt(3.0) * r / SV_LS
-    K = (SV_AMP**2) * (1.0 + u) * np.exp(-u)
-    k_ref = K[:, SV_REF_QUARTER]
-    K_cond = K - np.outer(k_ref, k_ref) / K[SV_REF_QUARTER, SV_REF_QUARTER]
+    each log factor, `B @ lf` has exact conditioned Matérn-3/2 covariance with `g(ref) = 0`."""
+    r = np.abs(t_years[:, None] - t_years[None, :])
+    u = np.sqrt(3.0) * r / ls
+    K = (amp**2) * (1.0 + u) * np.exp(-u)
+    k_ref = K[:, ref_idx]
+    K_cond = K - np.outer(k_ref, k_ref) / K[ref_idx, ref_idx]
     K_cond = 0.5 * (K_cond + K_cond.T)
     evals, evecs = np.linalg.eigh(K_cond)
     order = np.argsort(evals)[::-1]
     evals = np.maximum(evals[order], 0.0)
     evecs = evecs[:, order]
-    m = min(SV_MODES, int((evals > 1e-10).sum()))
+    m = min(max_modes, int((evals > 1e-10).sum()))
     B = evecs[:, :m] * np.sqrt(evals[:m])[None, :] / drift.PHASE_PRIOR
-    B[SV_REF_QUARTER, :] = 0.0
+    B[ref_idx, :] = 0.0
     B = np.round(B, 6)
     B[B == 0.0] = 0.0
     return B
 
 
-def sv_gp_features(frame: pd.DataFrame) -> tuple[np.ndarray, list[str]]:
-    """Quarterly Matérn-3/2 stochastic-volatility basis features for `frame`."""
-    B = sv_gp_basis()
-    q_idx = _quarter_index(frame)
+def sv_gp_basis(resolution: str = "quarter", ls: float | None = None) -> np.ndarray:
+    """Anchored whitened Matérn-3/2 eigenbasis for `quarter`, `month`, or `week` grids."""
+    if resolution == "quarter":
+        t = SV_FIRST_YEAR + 0.125 + 0.25 * np.arange(SV_QUARTERS, dtype=float)
+        return _matern32_anchored_basis(
+            t, SV_REF_QUARTER, SV_AMP, SV_LS if ls is None else ls, SV_MODES
+        )
+    if resolution == "month":
+        t = SV_FIRST_YEAR + (np.arange(SV_MONTHS, dtype=float) + 0.5) / 12.0
+        return _matern32_anchored_basis(
+            t, SV_REF_MONTH, SV_AMP, SV_LS if ls is None else ls, SV_MO_MODES
+        )
+    if resolution == "week":
+        t = np.arange(SV_WEEKS, dtype=float) * (7.0 / 365.25)
+        eff_ls = SV_LS if ls is None else ls
+        modes = SV_WK05_MODES if eff_ls <= 0.6 else SV_WK_MODES
+        return _matern32_anchored_basis(t, SV_REF_WEEK, SV_AMP, eff_ls, modes)
+    raise ValueError(f"unknown sv_gp resolution: {resolution!r}")
+
+
+def sv_gp_features(
+    frame: pd.DataFrame,
+    train: np.ndarray | None = None,
+    resolution: str = "quarter",
+    ls: float | None = None,
+) -> tuple[np.ndarray, list[str]]:
+    """Matérn-3/2 stochastic-volatility basis features for `frame`.
+
+    When `train` is provided for monthly/weekly grids, indices strictly after the last
+    training bucket are clamped to the last training bucket so unobserved future periods
+    smoothly inherit the final observed regime rather than oscillating in the eigenbasis.
+    """
+    B = sv_gp_basis(resolution=resolution, ls=ls)
+    if resolution == "quarter":
+        idx = _quarter_index(frame)
+    elif resolution == "month":
+        idx = _month_index(frame)
+    elif resolution == "week":
+        idx = _week_index(frame)
+    else:
+        raise ValueError(f"unknown sv_gp resolution: {resolution!r}")
+    if train is not None and resolution != "quarter":
+        tr = np.asarray(train, bool)
+        if tr.any():
+            idx = np.minimum(idx, int(idx[tr].max()))
     names = [f"sv:m{j:02d}" for j in range(B.shape[1])]
-    return B[q_idx], names
+    return B[idx], names
 
 
 def vel_gp_features(
-    frame: pd.DataFrame, train: np.ndarray
+    frame: pd.DataFrame,
+    train: np.ndarray,
+    weekly: bool = False,
 ) -> tuple[np.ndarray, list[str]]:
     """Strictly leak-free causal trailing market-velocity scale features (`vel:down`, `vel:up`).
 
     Reads ONLY training rows (`train`) to build a bedroom-residualized weekly median log-ask
     index, applies a strictly forward causal EMA (`alpha=0.25`), takes the 2-week-lagged
-    trailing 16-week annualized slope, and aggregates to quarterly medians so every row's
-    velocity depends solely on earlier training ads (zero held-out target leakage).
+    trailing 16-week annualized slope, and maps either directly by week (`weekly=True`,
+    clamped at the last training week) or via quarterly medians (`weekly=False`) so every
+    row's velocity depends solely on earlier training ads (zero held-out target leakage).
     """
     tr = np.asarray(train, bool)
     q_idx = _quarter_index(frame)
@@ -247,7 +340,7 @@ def vel_gp_features(
     global_med = float(np.median(log_y))
     resid = log_y - np.array([med_by_bed.get(b, global_med) for b in bed_v])
 
-    t0 = pd.Timestamp("2013-12-02", tz="UTC")
+    t0 = SV_WEEK_START
     wk_all = ((dt - t0) / pd.Timedelta(days=7)).to_numpy(float)
     wk_v = np.floor(wk_all[valid]).astype(int)
     w_min = int(min(0, wk_v.min()))
@@ -273,6 +366,16 @@ def vel_gp_features(
     lag, span = 2, 16
     if n_wk > lag + span:
         vel_wk[lag + span :] = (ema[span:-lag] - ema[: -(lag + span)]) * (52.0 / span)
+
+    if weekly:
+        last_tr_w = int(wk_v.max()) - w_min
+        row_w = np.clip(np.floor(wk_all).astype(int) - w_min, 0, last_tr_w)
+        v_raw = vel_wk[row_w]
+        v_down = np.round(np.clip(-v_raw, 0.0, VEL_CLIP) / VEL_SCALE, 4)
+        v_up = np.round(np.clip(v_raw, 0.0, VEL_CLIP) / VEL_SCALE, 4)
+        v_down[v_down == 0.0] = 0.0
+        v_up[v_up == 0.0] = 0.0
+        return np.column_stack([v_down, v_up]), names
 
     # Map each quarter to the median causal velocity across weeks in that quarter.
     wk_dates = t0 + pd.to_timedelta((np.arange(n_wk) + w_min) * 7, unit="D")
@@ -662,12 +765,20 @@ def design(
         d = append(d, st_names, st_mat)
 
     # 4. Additive noise-scale upgrades (only when any scale token is active)
+    sv_active = [t for t in SV_TOKENS if t in tok]
+    if len(sv_active) > 1:
+        raise ValueError(f"at most one sv_gp resolution token allowed, got {sv_active}")
+    vel_active = [t for t in VEL_TOKENS if t in tok]
+    if len(vel_active) > 1:
+        raise ValueError(
+            f"at most one vel_gp resolution token allowed, got {vel_active}"
+        )
     scale_tokens = tok & {
         "y1",
         "y1_pre2024",
         "covid_vol",
-        "sv_gp",
-        "vel_gp",
+        *SV_TOKENS,
+        *VEL_TOKENS,
         "income_scale",
         "u4_bed",
     }
@@ -728,13 +839,27 @@ def design(
             factor_names.extend(["mark:covid_surge", "mark:covid_elevated"])
             mats.append(covid_vol_mat)
 
-        if "sv_gp" in tok:
-            sv_mat, sv_names = sv_gp_features(frame)
+        if sv_active:
+            sv_tok = sv_active[0]
+            if sv_tok == "sv_gp":
+                sv_mat, sv_names = sv_gp_features(frame)
+            elif sv_tok == "sv_gp_mo":
+                sv_mat, sv_names = sv_gp_features(
+                    frame, train=train, resolution="month"
+                )
+            elif sv_tok == "sv_gp_wk":
+                sv_mat, sv_names = sv_gp_features(frame, train=train, resolution="week")
+            else:  # sv_gp_wk05
+                sv_mat, sv_names = sv_gp_features(
+                    frame, train=train, resolution="week", ls=SV_WK05_LS
+                )
             factor_names.extend(sv_names)
             mats.append(sv_mat)
 
-        if "vel_gp" in tok:
-            vel_mat, vel_names = vel_gp_features(frame, train)
+        if vel_active:
+            vel_mat, vel_names = vel_gp_features(
+                frame, train, weekly=(vel_active[0] == "vel_gp_wk")
+            )
             factor_names.extend(vel_names)
             mats.append(vel_mat)
 
@@ -756,7 +881,7 @@ def design(
             mats.append(np.column_stack([new_b2, new_b3p]))
 
         full_mat = np.hstack(mats)
-        if tok & {"sv_gp", "vel_gp"}:
+        if sv_active or vel_active:
             cell_idx, cell_names, pmap, kept_fnames = compact_continuous_phase_map(
                 factor_names, full_mat, train
             )
