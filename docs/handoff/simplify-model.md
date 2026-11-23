@@ -50,6 +50,10 @@ to need one. That is the top item.
   Result: r = 1.94 (3.131 s against 1.610 s), so keep two containers; the lean container ran
   in 15.3 GiB. Modal spend about $22 of $50.
 
+- 05:25 ET: H100 lean probe: h = 1.117 against the H200 (`docs/notes/h100-lean-2026-11-23.md`);
+  same cost a sweep within noise, so stay on H200s (H100 as a fallback). Modal spend about
+  $23 of $50. Cost levers left: design prep (about 350 s a container, paid twice), warmup.
+
 ## Next
 
 Pages read one run: PR #1538 (competitor, `feat/simplify-model-discovery`) wires Deals,
