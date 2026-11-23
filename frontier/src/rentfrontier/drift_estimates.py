@@ -154,7 +154,57 @@ def _registry(path: Path | None) -> pd.DataFrame | None:
 def estimates(
     latest: Path, market: Path | None = None, registry: Path | None = None
 ) -> tuple[pd.DataFrame, dict]:
-    """The table and the meta of `publish`, written nowhere."""
+    """The table and the meta of `publish`, written nowhere.
+
+    Accepts either a paired (`latest`, `market`) run or a single `unified` run (with
+    `market=None`), which already holds out both open market ads and non-active latest ads."""
+    raw = json.loads((latest / "result.json").read_text())
+    if raw.get("split") in ("unified", "onefit") and market is None:
+        split_name = raw["split"]
+        record, manifest = drift_deals._checked(latest, backtest=False)
+        _result(latest, split_name)
+        model = record["model"]["name"]
+        reg = _registry(registry)
+        out, res = table(latest, "latest", reg)
+        frame = pd.read_parquet(
+            drift_deals._dataset(latest) / "rows.parquet", columns=["open"]
+        )
+        held = np.load(latest / "posterior.npz")["heldout"]
+        is_open = frame.open.to_numpy(bool)[held]
+        out["source"] = np.where(is_open, "market", "latest")
+        out = out.sort_values(["day", "listing_id"], kind="stable").reset_index(
+            drop=True
+        )
+        past_res = {
+            k: (
+                v[~is_open]
+                if isinstance(v, np.ndarray)
+                and v.ndim >= 1
+                and v.shape[0] == len(is_open)
+                else v
+            )
+            for k, v in res.items()
+        }
+        gate = drift_deals._gate(record)
+        prov = _provenance(record)
+        meta = {
+            "model": model,
+            "runs": {
+                "unified": latest.name,
+                "latest": latest.name,
+                "market": latest.name,
+            },
+            "datasets": {"unified": prov, "latest": prov, "market": prov},
+            "gate": {"unified": gate, "latest": gate, "market": gate},
+            "scoring_day": manifest.get("scoring_day"),
+            "heldout": drift_score.summary(past_res),
+            "ads": {
+                "all": int(len(out)),
+                **{s: int((out.source == s).sum()) for s in ("latest", "market")},
+            },
+        }
+        return out, meta
+
     record = _result(latest, "latest")
     model = record["model"]["name"]
     reg = _registry(registry)

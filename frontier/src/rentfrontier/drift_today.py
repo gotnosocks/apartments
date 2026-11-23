@@ -272,6 +272,7 @@ FRAME = (
     "latest_day",
     "latest_ask",
     "price_at",
+    "open",
 )
 COLUMNS = (
     "apartment",
@@ -967,14 +968,57 @@ def level_columns(
 
 def segment_terms(d: b0.Design, names: list[str]) -> SimpleNamespace | None:
     """What `segment_shift` reads of a segment model's design, in the terms
-    `drift_building_phase_segment.path_design` builds its columns from: the quarter starts
-    in years from the grid start, each one's segment shares over the frame's rows, each
-    frame row's segment, and each path column's segment and quarter start. None for a design
-    with no path columns."""
+    `drift_building_phase_segment.path_design` or `ablate.additive_segment_paths` builds
+    its columns from. None for a design with no path columns."""
     cols = [j for j, n in enumerate(names) if n.startswith("seg:")]
     if not cols:
         return None
     sp = drift_building_phase_segment
+    col_names = [names[c] for c in cols]
+    additive = any(n.startswith(("seg:zone:", "seg:bed:")) for n in col_names)
+    if additive:
+        ab = drift_building_phase_unitkn_ablate
+        q_full = sp.quarter_starts(d)
+        labels_full = [f"{t.year}q{t.quarter}" for t in q_full]
+        present_labels = {n.rsplit(":", 1)[1] for n in col_names}
+        ref_q = drift_building_phase_unitkn_unified_seg.REF_QUARTER
+        keep_idx = [
+            i
+            for i, lbl in enumerate(labels_full)
+            if lbl in present_labels or lbl == ref_q
+        ]
+        q = q_full[keep_idx]
+        knots = np.asarray((q - pd.Timestamp(d.start)).days, float) / sp.YEAR_DAYS
+        paths = ab._additive_path_indicators(d)
+        pnames = [p for p, _ in paths]
+        ind = np.column_stack([arr for _, arr in paths])
+        H = sp.hat_weights(drift.years(d), knots)
+        denom = np.maximum(H.sum(axis=0), 1.0)
+        share = (H.T @ ind) / denom[:, None]
+        at = {
+            f"seg:{p}:{t.year}q{t.quarter}": (k, j)
+            for k, p in enumerate(pnames)
+            for j, t in enumerate(q)
+        }
+        kj = np.asarray([at[n] for n in col_names])
+        out = SimpleNamespace(
+            additive=True,
+            knots=knots,
+            share=share,
+            ind=ind,
+            row=None,
+            cols=np.asarray(cols),
+            k=kj[:, 0],
+            j=kj[:, 1],
+        )
+        some = np.unique(np.linspace(0, len(ind) - 1, 2000).astype(np.int64))
+        x = H[some][:, out.j] * (ind[some][:, out.k] - share[out.j, out.k][None, :])
+        if not np.allclose(x, d.x[some][:, cols], rtol=0, atol=1e-10):
+            raise SystemExit(
+                "the additive segment columns rebuilt from their terms differ"
+            )
+        return out
+
     q = sp.quarter_starts(d)
     knots = np.asarray((q - pd.Timestamp(d.start)).days, float) / sp.YEAR_DAYS
     segments = sp.segment_names(d)
@@ -990,8 +1034,10 @@ def segment_terms(d: b0.Design, names: list[str]) -> SimpleNamespace | None:
     }
     kj = np.asarray([at[names[c]] for c in cols])
     out = SimpleNamespace(
+        additive=False,
         knots=knots,
         share=share,
+        ind=None,
         row=row,
         cols=np.asarray(cols),
         k=kj[:, 0],
@@ -1045,19 +1091,61 @@ def factor_names(phases, pmap: np.ndarray) -> list[str]:
     return names
 
 
+def _sv_day_vector(
+    sv_token: str,
+    day: pd.Timestamp,
+    max_train_bucket: int | None,
+) -> tuple[np.ndarray, list[str]]:
+    """Evaluate the `sv_gp*` eigenbasis vector at `day`, clamped at `max_train_bucket`."""
+    ab = drift_building_phase_unitkn_ablate
+    one = pd.DataFrame({"price_at": [utc_day(day)]})
+    if sv_token == "sv_gp":
+        B = ab.sv_gp_basis(resolution="quarter")
+        idx = int(ab._quarter_index(one)[0])
+    elif sv_token in ("sv_gp_mo", "sv_gp_mo16", "sv_gp_mo12"):
+        mm = {
+            "sv_gp_mo": None,
+            "sv_gp_mo16": ab.SV_MO16_MODES,
+            "sv_gp_mo12": ab.SV_MO12_MODES,
+        }[sv_token]
+        B = ab.sv_gp_basis(resolution="month", max_modes=mm)
+        idx = int(ab._month_index(one)[0])
+    elif sv_token in ("sv_gp_wk", "sv_gp_wk05"):
+        ls = ab.SV_WK05_LS if sv_token == "sv_gp_wk05" else None
+        B = ab.sv_gp_basis(resolution="week", ls=ls)
+        idx = int(ab._week_index(one)[0])
+    else:
+        raise SystemExit(f"unknown sv_gp token: {sv_token}")
+    if max_train_bucket is not None and sv_token != "sv_gp":
+        idx = min(idx, max_train_bucket)
+    vec = np.round(B[idx], 6)
+    vec[vec == 0.0] = 0.0
+    names = [f"sv:m{j:02d}" for j in range(B.shape[1])]
+    return vec, names
+
+
 def cell_terms(
-    d: b0.Design, frame: pd.DataFrame, ref_years: set[int] | None = None
+    d: b0.Design,
+    frame: pd.DataFrame,
+    ref_years: set[int] | None = None,
+    *,
+    factor_list: list[str] | tuple[str, ...] | None = None,
+    sv_token: str | None = None,
+    train: np.ndarray | None = None,
 ) -> SimpleNamespace | None:
     """What `cell_today` reads of a `phase_map` design: its map from cells to free factors,
     the factors' names, and each frame row's lease phase as its place in L1's `PHASES`.
-    None for a design without a map. The factors must be ones `cell_today` knows, and the
-    rows' lease phase and year factors the ones their price_at gives."""
+    Supports both 0/1 binary maps (`y1`/`marks`) and continuous `sv_gp*` eigenbasis maps."""
     if d.phase is None or getattr(d, "phase_map", None) is None:
         return None
     pmap = np.asarray(d.phase_map, float)
-    if not np.all((pmap == 0) | (pmap == 1)):
+    is_binary = bool(np.all((pmap == 0) | (pmap == 1)))
+    if is_binary and factor_list is None:
+        names = factor_names(d.phases, pmap)
+    elif factor_list is not None and len(factor_list) == pmap.shape[1]:
+        names = list(factor_list)
+    else:
         raise SystemExit("the design's phase_map is not 0/1")
-    names = factor_names(d.phases, pmap)
     P, Y = drift_building_phase.PHASES, drift_building_phase_year.YEARS
     known = (
         {f"phase:{p}" for p in P[1:]}
@@ -1065,7 +1153,7 @@ def cell_terms(
         | set(KEPT_MARKS)
         | set(DAY_MARKS)
     )
-    unknown = [n for n in names if n not in known]
+    unknown = [n for n in names if n not in known and not n.startswith("sv:m")]
     if unknown:
         raise SystemExit(f"noise factors drift_today cannot set for a day: {unknown}")
     lease = drift_building_phase.phase_index(frame)
@@ -1080,11 +1168,22 @@ def cell_terms(
             raise SystemExit(
                 f"the rows' {n} factor is not the one their price_at gives"
             )
+    max_train_bucket = None
+    if sv_token is not None and train is not None and sv_token != "sv_gp":
+        ab = drift_building_phase_unitkn_ablate
+        tr = np.asarray(train, bool)
+        if tr.any():
+            if sv_token.startswith("sv_gp_mo"):
+                max_train_bucket = int(ab._month_index(frame)[tr].max())
+            elif sv_token.startswith("sv_gp_wk"):
+                max_train_bucket = int(ab._week_index(frame)[tr].max())
     return SimpleNamespace(
         pmap=pmap,
         names=names,
         lease=lease,
         ref_years=set(ref_years) if ref_years is not None else {Y[0]},
+        sv_token=sv_token,
+        max_train_bucket=max_train_bucket,
         log_factor=None,
     )
 
@@ -1108,8 +1207,8 @@ def load(run_dir: Path, draws: int = DRAWS, log=print) -> Fit:
         raise SystemExit(
             f"{run_dir.name} is a {name} fit, not one of {', '.join(MODELS)}"
         )
-    if record.get("split") != "market":
-        raise SystemExit(f"{run_dir.name} is not a fit on the market split")
+    if record.get("split") not in ("market", "unified", "onefit"):
+        raise SystemExit(f"{run_dir.name} is not a fit on the market or unified split")
     if not drift_deals._gate(record)["passes"]:
         raise SystemExit(f"{run_dir.name} did not pass the convergence gate")
     # A fit on the market split of a market dataset (not a backtest) whose ads table is
@@ -1160,13 +1259,29 @@ def load(run_dir: Path, draws: int = DRAWS, log=print) -> Fit:
     if lines and record.get("line", {}).get("lines") != int(d.lines):
         raise SystemExit("the rebuilt design's lines differ from the fit's")
     ref_years = None
-    if "y1_pre2024" in kw.get("variant", ()):
+    variant_toks = kw.get("variant", ())
+    if "y1_pre2024" in variant_toks:
         ref_years = {
             y
             for y in drift_building_phase_year.YEARS
             if y >= drift_building_phase_year.REFERENCE_YEAR
         }
-    cells = cell_terms(d, frame, ref_years=ref_years)
+    ab = drift_building_phase_unitkn_ablate
+    sv_toks = [t for t in variant_toks if t in ab.SV_TOKENS]
+    sv_token = sv_toks[0] if sv_toks else None
+    factor_list = (
+        list(ab._ACTIVE_SCALE_FACTORS)
+        if spec is ab and ab._ACTIVE_SCALE_FACTORS
+        else (record.get("phase") or {}).get("free_factors")
+    )
+    cells = cell_terms(
+        d,
+        frame,
+        ref_years=ref_years,
+        factor_list=factor_list,
+        sv_token=sv_token,
+        train=~np.asarray(held, bool),
+    )
     if (
         cells is None
         and d.phase is not None
@@ -1439,11 +1554,20 @@ def season_at(day: pd.Timestamp) -> dict:
     return out
 
 
+def _on_market(fit: Fit) -> np.ndarray:
+    """True for rows currently open on the market. Equals `fit.held` on a `market` split
+    and `fit.frame['open']` on a `unified` split (where closed eval rows are also held)."""
+    if "open" in fit.frame:
+        return fit.frame.open.to_numpy(bool)
+    return np.asarray(fit.held, bool)
+
+
 def apartments(fit: Fit) -> pd.DataFrame:
     """One row per apartment: its newest ad in the frame (training or held out), with the
     apartment's training unit number and count of training ads."""
     f = fit.frame
     unit = fit.full.unit
+    on_mkt = _on_market(fit)
     none = f.unit_id.isna().to_numpy()
     key = (
         f.building.astype(str).to_numpy(object)
@@ -1453,7 +1577,7 @@ def apartments(fit: Fit) -> pd.DataFrame:
     key = np.where(none, key + "#" + np.arange(len(f)).astype(str), key)
     day = pd.to_datetime(f.latest_day).to_numpy()
     t = pd.DataFrame(
-        {"key": key, "day": day, "row": np.arange(len(f)), "held": fit.held}
+        {"key": key, "day": day, "held": on_mkt, "row": np.arange(len(f))}
     ).sort_values(["key", "day", "held", "row"], kind="stable")
     newest = t.groupby("key", sort=False).tail(1)
     ads = np.bincount(unit[~fit.held & (unit >= 0)], minlength=int(unit.max()) + 1)
@@ -1463,7 +1587,7 @@ def apartments(fit: Fit) -> pd.DataFrame:
             "apartment": newest.key.str.replace(r"#\d+$", "", regex=True).to_numpy(),
             "row": rows,
             "unit": unit[rows],
-            "held": fit.held[rows],
+            "held": on_mkt[rows],
         }
     )
     out["unit_ads"] = np.where(out.unit >= 0, ads[np.maximum(out.unit, 0)], 0)
@@ -1498,7 +1622,7 @@ def phase_today(fit: Fit, rows: np.ndarray, day: pd.Timestamp) -> np.ndarray | N
     parts = own.str.partition("|")
     names = names + parts[1].to_numpy(object) + parts[2].to_numpy(object)
     out = pd.Index(fit.full.phases).get_indexer(names).astype(np.int64)
-    held = fit.held[rows]
+    held = _on_market(fit)[rows]
     out[held] = fit.full.phase[rows][held]
     if (out < 0).any():
         raise SystemExit("an apartment's phase today is not one of the fit's phases")
@@ -1514,7 +1638,7 @@ def lease_today(
     if fit.full.cells is None:
         return phase
     out = pd.Index(fit.full.leases).get_indexer(lease_names(fit, rows, day))
-    held = fit.held[rows]
+    held = _on_market(fit)[rows]
     out[held] = fit.full.lease[rows][held]
     return out.astype(np.int64)
 
@@ -1570,8 +1694,9 @@ def cell_today(fit: Fit, rows: np.ndarray, day: pd.Timestamp) -> np.ndarray:
     year = Y[drift_building_phase_year.year_index(pd.DataFrame({"price_at": [day]}))[0]]
     # A phase or year with no training rows has no factor (`compact_phase_map`), and its
     # rows would read as the reference's.
+    on_mkt = _on_market(fit)[rows]
     for kind, want in (
-        ("phase", set(lease[~fit.held[rows]]) - {P[0]}),
+        ("phase", set(lease[~on_mkt]) - {P[0]}),
         ("yr", {year} - cl.ref_years),
     ):
         if any(n.startswith(kind + ":") for n in cl.names):
@@ -1593,9 +1718,12 @@ def cell_today(fit: Fit, rows: np.ndarray, day: pd.Timestamp) -> np.ndarray:
         surge, elevated = covid_regime(day)
         put("mark:covid_surge", surge)
         put("mark:covid_elevated", elevated)
+    if getattr(cl, "sv_token", None) is not None:
+        sv_vec, sv_names = _sv_day_vector(cl.sv_token, day, cl.max_train_bucket)
+        for sname, sval in zip(sv_names, sv_vec):
+            put(sname, sval)
     out = cell_index(fit, v)
-    held = fit.held[rows]
-    out[held] = own[held]
+    out[on_mkt] = own[on_mkt]
     return out
 
 
@@ -1638,20 +1766,29 @@ def phase_level_shift(fit: Fit, rows: np.ndarray, lease: np.ndarray) -> np.ndarr
 def segment_shift(fit: Fit, rows: np.ndarray, t_new: float) -> np.ndarray:
     """The change in x beta of frame rows `rows` at each kept draw, (draws, rows), when
     their segment path columns move from each row's own time to `t_new`, in years from the
-    grid start. Past the last quarter start the paths hold their value there."""
+    grid start. Past the last knot start the paths hold their value there."""
     sg = fit.seg
     B = np.zeros((len(fit.pick), sg.share.shape[1], len(sg.knots)))
     B[:, sg.k, sg.j] = fit.kept["beta"][:, sg.cols]
-    # A row of segment s with hat weights h gains sum_j h_j D[s, j] from the path columns:
-    # its segment's coefficient at each quarter start less the share-weighted mean of all
-    # segments' coefficients there. A column the design left out counts as 0.
-    D = B - np.einsum("jk,dkj->dj", sg.share, B)[:, None, :]
-    s = sg.row[rows]
     t_new = float(np.clip(t_new, sg.knots[0], sg.knots[-1]))
     hat = drift_building_phase_segment.hat_weights
     H_old = hat(fit.full.t[rows], sg.knots)
     H_new = hat(np.array([t_new]), sg.knots)[0]
     out = np.zeros((len(fit.pick), len(rows)))
+    if getattr(sg, "additive", False):
+        ind_r = sg.ind[rows]
+        for j in range(len(sg.knots)):
+            dh = H_new[j] - H_old[:, j]
+            live = np.flatnonzero(dh)
+            if len(live):
+                centered = ind_r[live] - sg.share[j][None, :]
+                out[:, live] += (B[:, :, j] @ centered.T) * dh[live]
+        return out
+    # A row of segment s with hat weights h gains sum_j h_j D[s, j] from the path columns:
+    # its segment's coefficient at each quarter start less the share-weighted mean of all
+    # segments' coefficients there. A column the design left out counts as 0.
+    D = B - np.einsum("jk,dkj->dj", sg.share, B)[:, None, :]
+    s = sg.row[rows]
     for j in range(len(sg.knots)):
         dh = H_new[j] - H_old[:, j]
         live = np.flatnonzero(dh)

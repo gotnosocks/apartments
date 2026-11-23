@@ -683,7 +683,9 @@ def held_steps(scales: dict | None, groups) -> frozenset:
                 "bld_sd is held with a collapsed term's scales"
             )
             steps.add(step)
-    assert set(scales) <= known, f"not scales to hold: {sorted(set(scales) - known)}"
+    assert set(scales) <= (known | {"phase_scale"}), (
+        f"not scales to hold: {sorted(set(scales) - (known | {'phase_scale'}))}"
+    )
     return frozenset(steps)
 
 
@@ -698,6 +700,8 @@ def held_state(scales: dict | None, held: frozenset) -> dict:
             "sigma": scales["sigma"],
             "hyp": np.log([scales[k] for k in HYP]),
         }
+        if "phase_scale" in scales:
+            out["phase_scale"] = scales["phase_scale"]
     if "cells" in held:
         sd = next(v for k, v in scales.items() if k.endswith("_ar_sd"))
         rho = next(v for k, v in scales.items() if k.endswith("_ar_rho"))
@@ -726,6 +730,9 @@ def make_sampler(
     unit_slow: bool = False,
     phase_collapsed: bool = False,
     scales_fixed: dict | None = None,
+    scalar_sigma: bool = False,
+    walk_stride: int = 1,
+    scale_passes: int = 1,
 ):
     """The jitted sweep, the initial state, the jitted prediction step and the sampler's
     parts for design `d`. The sweep, the initial state and the prediction step are vmapped
@@ -765,16 +772,19 @@ def make_sampler(
     assert unit_dof_fixed is None or unit_t, "unit_dof_fixed needs unit_t"
     assert unit_kap_collapsed or not unit_slow, "unit_slow needs unit_kap_collapsed"
     fixed_steps = held_steps(scales_fixed, groups)
-    assert not (fixed_steps and (unit_t or unit_slow)), (
-        "scales_fixed needs normal unit levels"
-    )
-    assert unit_t or not unit_kap_collapsed, "unit_kap_collapsed needs unit_t"
     # Whether the sweep moves nu_u.
     dof_free = unit_t and unit_dof_fixed is None
+    assert not (fixed_steps and (dof_free or unit_slow)), (
+        "scales_fixed needs fixed or normal unit dof (not free unit_dof or unit_slow)"
+    )
+    assert unit_t or not unit_kap_collapsed, "unit_kap_collapsed needs unit_t"
     # Whether the sweep moves the rows' nu, and where the phases' factors start in the
     # scale step's coordinates.
+    assert walk_stride >= 1, "walk_stride must be at least 1"
+    assert scale_passes >= 1, "scale_passes must be at least 1"
     nu_free = row_dof_fixed is None
-    pf = 7 + nu_free
+    n_sigma = 1 if scalar_sigma else 4
+    pf = 3 + n_sigma + nu_free
     # The kap drawn with u integrated out must come after every move of nu_u, which a free
     # nu_u's slice update in `update_unit_t` does not.
     assert not (dof_free and unit_kap_collapsed), (
@@ -785,7 +795,8 @@ def make_sampler(
     alpha = d.names.index("alpha")
     others = np.array([j for j in range(len(d.names)) if j != alpha])
     pb = len(others)
-    W1 = d.weeks + 1
+    W1_full = d.weeks + 1
+    W1 = W1_full if walk_stride == 1 else (d.weeks + walk_stride - 1) // walk_stride + 1
     Bc, sds = wave_matrix(d)
     K = len(sds)
     nz = len(d.surfaces)
@@ -852,9 +863,14 @@ def make_sampler(
         free = len(d.phases) - 1
     phased = free > 0
     assert not phase_collapsed or phased, "phase_collapsed needs phases"
-    assert not ("noise" in fixed_steps and phased), (
-        "a held noise step leaves the lease phases' factors undrawn"
-    )
+    if "noise" in fixed_steps and phased:
+        assert scales_fixed is not None and "phase_scale" in scales_fixed, (
+            "a held noise step leaves the lease phases' factors undrawn"
+        )
+        assert len(scales_fixed["phase_scale"]) == free, (
+            f"scales_fixed phase_scale has {len(scales_fixed['phase_scale'])} "
+            f"values, expected {free}"
+        )
     pmap_j = None if pmap is None else jnp.asarray(pmap)
     pmap_binary = pmap is not None and bool(np.all((pmap == 0.0) | (pmap == 1.0)))
 
@@ -941,7 +957,20 @@ def make_sampler(
         blk_part.append(part)
         blk_idx.append(idxs)
         blk_take.append(take)
-    wk_all, fr_all = d.week[order], d.frac[order]
+    if walk_stride == 1:
+        wk_all, fr_all = d.week[order], d.frac[order]
+        p_wk_arr = np.asarray(rows_to_predict["week"])
+        p_fr_arr = np.asarray(rows_to_predict["frac"])
+    else:
+        pos_tr = (d.week[order] + d.frac[order]) / float(walk_stride)
+        wk_all = np.minimum(np.floor(pos_tr).astype(np.int64), W1 - 2)
+        fr_all = pos_tr - wk_all
+        pos_pr = (
+            np.asarray(rows_to_predict["week"], float)
+            + np.asarray(rows_to_predict["frac"], float)
+        ) / float(walk_stride)
+        p_wk_arr = np.minimum(np.floor(pos_pr).astype(np.int64), W1 - 2)
+        p_fr_arr = pos_pr - p_wk_arr
     # The rows' data goes to the jitted sweep as an argument: closed over, it would be
     # compiled in as constants. Each block's rows and columns of the design are gathered on
     # their own, so the host holds no sorted copy of the whole design.
@@ -971,8 +1000,8 @@ def make_sampler(
         p_years=jnp.asarray(pred["years"]),
         p_x=jnp.asarray(np.asarray(rows_to_predict["x"])[:, others]),
         p_site=jnp.asarray(rows_to_predict["site"]),
-        p_wk=jnp.asarray(rows_to_predict["week"]),
-        p_fr=jnp.asarray(rows_to_predict["frac"]),
+        p_wk=jnp.asarray(p_wk_arr),
+        p_fr=jnp.asarray(p_fr_arr),
         ar_cell=[jnp.asarray(v) for v in ar_cell],
         ar_pcell=[jnp.asarray(v) for v in ar_pcell],
         cells={k: jnp.asarray(v) for k, v in (col or {}).items() if k != "buckets"}
@@ -1001,12 +1030,20 @@ def make_sampler(
     which_j = jnp.asarray(which)
     sds_j = jnp.asarray(sds)
     prec_b, lin_b = jnp.asarray(prec_b), jnp.asarray(lin_b)
-    # The walk's prior on (M, g): E (M, g) = diff(M) - g.
+    # The walk's prior on (M, g): E (M, g) = diff(M) - walk_stride * g.
     E = np.zeros((W1 - 1, W1 + 1))
     E[np.arange(W1 - 1), np.arange(W1 - 1)] = -1
     E[np.arange(W1 - 1), np.arange(1, W1)] = 1
-    E[:, W1] = -1
+    E[:, W1] = -float(walk_stride)
     EtE = jnp.asarray(E.T @ E)
+    if walk_stride > 1:
+        g_pos = np.arange(W1_full, dtype=float) / float(walk_stride)
+        g_wk = np.minimum(np.floor(g_pos).astype(np.int64), W1 - 2)
+        g_fr = g_pos - g_wk
+        full_wk_j = jnp.asarray(g_wk)
+        full_fr_j = jnp.asarray(g_fr)
+    else:
+        full_wk_j = full_fr_j = None
     share = site_share(d)
     parts = [slice(s["first"], s["first"] + s["sites"]) for s in d.surfaces]
     zone_share = [jnp.asarray(share[p] / max(share[p].sum(), 1e-300)) for p in parts]
@@ -1215,7 +1252,9 @@ def make_sampler(
             A = A.at[np.ix_(pos, pos)].add(Ki / st["gp_amp"][k] ** 2)
         A = A.at[pb, pb].add(1 / s_a**2)
         h = h.at[pb].add(m_a / s_a**2)
-        A = A.at[pb : i_g + 1, pb : i_g + 1].add(EtE / st["tau"] ** 2)
+        A = A.at[pb : i_g + 1, pb : i_g + 1].add(
+            EtE / (float(walk_stride) * st["tau"] ** 2)
+        )
         A = A.at[i_g, i_g].add(1 / s_g**2)
         h = h.at[i_g].add(m_g / s_g**2)
         return A, h, (om_d, om_off, ctil)
@@ -1381,10 +1420,12 @@ def make_sampler(
             nu = st["unit_dof"]
         if kap is None:
             kap = jax.random.gamma(k2, (nu + 1) / 2, (U,)) / ((nu + (s / ss) ** 2) / 2)
+        pred_kap = jax.random.gamma(k4, nu / 2, (n_pred,)) / (nu / 2)
+        if "noise" in fixed_steps:
+            return nu, kap, hyp, pred_kap
         g2 = jax.random.gamma(k3, (1 + nu * U) / 2) / (
             ss**2 / (2 * UNIT_SD_PRIOR**2) + nu * jnp.sum(kap) / 2
         )
-        pred_kap = jax.random.gamma(k4, nu / 2, (n_pred,)) / (nu / 2)
         return nu, kap * g2, hyp.at[0].add(0.5 * jnp.log(g2)), pred_kap
 
     def collapsed_kap(D, key, hyp, nu, ukap, w1, Wb, e, c=None):
@@ -1602,9 +1643,10 @@ def make_sampler(
         `keta` holds their standardized logs.
 
         `unit_loglik` leaves out the rows' log c / 2."""
-        ls = x[3:7]
-        lnu = x[7] if nu_free else jnp.log(jnp.asarray(row_dof_fixed))
-        sig = jnp.exp(ls)
+        ls = x[3 : 3 + n_sigma]
+        lnu = x[3 + n_sigma] if nu_free else jnp.log(jnp.asarray(row_dof_fixed))
+        sig_free = jnp.exp(ls)
+        sig = jnp.broadcast_to(sig_free, (4,)) if scalar_sigma else sig_free
         a = jnp.exp(lnu) / 2
         m, sd = lam_moments(lnu)
         loglam = m + sd * eta
@@ -1621,16 +1663,17 @@ def make_sampler(
         w1, Wb = unit_W(D, hu, c, ukap)
         om_d, om_off = pair_weights(D, w1, Wb)
         a_nu, b_nu = priors.nu
+        sig_term = n * ls[0] if scalar_sigma else jnp.sum(group_rows * ls)
         out = (
             hyp_logp(D, hu, c, tgt, ukap)
             + 0.5 * jnp.sum(loglam)
-            - jnp.sum(group_rows * ls)
+            - sig_term
             + level_loglik(D, bsd, par, F, om_d, om_off, tgt, kap)
             # lam's Gamma(a, rate a) density, with the map's Jacobian.
             + n * (a * jnp.log(a) - jax.scipy.special.gammaln(a) + jnp.log(sd))
             + a * jnp.sum(loglam)
             - a * jnp.sum(lam)
-            - jnp.sum(sig**2) / (2 * priors.sigma**2)
+            - jnp.sum(sig_free**2) / (2 * priors.sigma**2)
             + jnp.sum(ls)
             + a_nu * lnu
             - b_nu * 2 * a
@@ -1664,7 +1707,8 @@ def make_sampler(
     def scales_x(st):
         """The state's point in the coordinates of `scales_logp`."""
         lnu = jnp.log(st["nu"])[None] if nu_free else jnp.zeros(0)
-        x = jnp.concatenate([st["hyp"], jnp.log(st["sigma"]), lnu])
+        ls_vec = jnp.log(st["sigma"][:1]) if scalar_sigma else jnp.log(st["sigma"])
+        x = jnp.concatenate([st["hyp"], ls_vec, lnu])
         x = jnp.concatenate([x, jnp.log(st["phase_scale"])]) if phased else x
         x = jnp.concatenate([x, jnp.log(st["unit_dof"])[None]]) if dof_free else x
         return jnp.concatenate([x, jnp.log(st["unit_tau"])[None]]) if unit_slow else x
@@ -1693,11 +1737,14 @@ def make_sampler(
 
         x = scales_x(st)
         x, _ = slice_along(key, x, logp(x), logp, st["hyp_dirs"])
-        lnu = x[7] if nu_free else lnu
+        lnu = x[3 + n_sigma] if nu_free else lnu
         m, sd = lam_moments(lnu)
+        sig_new = (
+            jnp.broadcast_to(jnp.exp(x[3:4]), (4,)) if scalar_sigma else jnp.exp(x[3:7])
+        )
         new = dict(
             hyp=x[:3],
-            sigma=jnp.exp(x[3:7]),
+            sigma=sig_new,
             nu=jnp.exp(lnu),
             lam=jnp.exp(m + sd * eta),
         )
@@ -2082,18 +2129,29 @@ def make_sampler(
             else st["nu"]
         )
 
-        def logp_sigma(ls):
-            sig = jnp.exp(ls)
-            ll = seg(b0.t_logpdf(r, nu, scale(sig)), group_all, num_segments=4)
-            return ll - sig**2 / (2 * priors.sigma**2) + ls
+        if "noise" in fixed_steps:
+            sigma = st["sigma"]
+        elif scalar_sigma:
 
-        sigma = (
-            st["sigma"]
-            if "noise" in fixed_steps
-            else jnp.exp(b0.slice_vec(k2, jnp.log(st["sigma"]), logp_sigma, 0.02))
-        )
+            def logp_sigma_scalar(ls):
+                sig = jnp.exp(ls[0])
+                ll = jnp.sum(b0.t_logpdf(r, nu, scale(jnp.broadcast_to(sig, (4,)))))
+                return (ll - sig**2 / (2 * priors.sigma**2) + ls[0])[None]
+
+            sig_s = jnp.exp(
+                b0.slice_vec(k2, jnp.log(st["sigma"][:1]), logp_sigma_scalar, 0.02)[0]
+            )
+            sigma = jnp.broadcast_to(sig_s, (4,))
+        else:
+
+            def logp_sigma(ls):
+                sig = jnp.exp(ls)
+                ll = seg(b0.t_logpdf(r, nu, scale(sig)), group_all, num_segments=4)
+                return ll - sig**2 / (2 * priors.sigma**2) + ls
+
+            sigma = jnp.exp(b0.slice_vec(k2, jnp.log(st["sigma"]), logp_sigma, 0.02))
         factor = st.get("phase_scale")
-        if phase_collapsed:
+        if phase_collapsed and "noise" not in fixed_steps:
             # Its key is folded in, so nu, sigma and lam take the keys they had without
             # this step.
             k_ph = jax.random.fold_in(key, PHASE_KEY)
@@ -2185,8 +2243,8 @@ def make_sampler(
         return nu, sigma, lam, factor
 
     def update_tau(key, st, M, g):
-        z = jnp.diff(M) - g
-        ss, k = jnp.sum(z * z), z.shape[0]
+        z = jnp.diff(M) - float(walk_stride) * g
+        ss, k = jnp.sum(z * z) / float(walk_stride), z.shape[0]
 
         def logp(lt):
             t = jnp.exp(lt[0])
@@ -2239,13 +2297,18 @@ def make_sampler(
     def outputs(theta, lev, F):
         """The kept quantities building zones' NumPyro model reports, from one state."""
         M = theta[sl_M]
+        M_out = (
+            M
+            if full_wk_j is None
+            else (1 - full_fr_j) * M[full_wk_j] + full_fr_j * M[full_wk_j + 1]
+        )
         g = theta[i_g]
         beta = (
             jnp.zeros(len(d.names), theta.dtype)
             .at[jnp.asarray(others)]
             .set(theta[sl_b])
             .at[alpha]
-            .set(M[0])
+            .set(M_out[0])
         )
         pieces = [F[p] for p in parts]
         b = lev - F
@@ -2257,8 +2320,8 @@ def make_sampler(
         return dict(
             beta=beta,
             g=g,
-            L=M - M[0],
-            eta=jnp.diff(M) - g,
+            L=M_out - M_out[0],
+            eta=jnp.diff(M_out) - g,
             gp_w=theta[sl_w],
             zone_level=jnp.stack([zs @ v for zs, v in zip(zone_share, pieces)]),
             zone_sd=jnp.stack([v.std() for v in pieces]),
@@ -2347,6 +2410,64 @@ def make_sampler(
             u = draw_u(D, k7, hyp, c, w1, Wb, e)
         r, ar, ar_par = update_local(D, ks[9:], st, c, e - u, first)
         nu, sigma, lam, factor = update_noise(k4, st, r, D)
+        for p_idx in range(1, scale_passes):
+            kp = jax.random.fold_in(key, 500 + p_idx)
+            kp_s, kp_b, kp_l, kp_u, kp_n, kp_k, kp_ut = jax.random.split(kp, 7)
+            st_p = st | dict(
+                bld_sd=bsd,
+                nu=nu,
+                sigma=sigma,
+                lam=lam,
+                hyp=hyp[:3] if unit_slow else hyp,
+            )
+            if phased:
+                st_p["phase_scale"] = factor
+            if unit_t:
+                st_p |= dict(unit_dof=unit_dof, ukap=ukap, pred_ukap=pred_ukap)
+            if ars:
+                st_p["ar"], st_p["ar_par"] = tuple(ar), jnp.stack(ar_par)
+            y_eff_p = D["y"] - offsets(D, st_p)
+            e0_p = y_eff_p - all_means(D, theta)
+            tgt_p = (
+                e0_p if col is None else e0_p + st_p["ar"][0].ravel()[D["ar_cell"][0]]
+            )
+            if "noise" not in fixed_steps:
+                st_p = st_p | update_scales(D, kp_s, st_p, tgt_p, F)
+            hyp = unit_hyp(st_p)
+            c = weights(D, st_p)
+            w1, Wb = unit_W(D, hyp, c, st_p.get("ukap"))
+            om_d, om_off = pair_weights(D, w1, Wb)
+            if col is None:
+                ctil = om_d + seg(om_off, D["pi"], num_segments=n)
+                C = seg(ctil, D["site"], num_segments=S)
+                Rs = seg(apply_W(D, om_d, om_off, e0_p), D["site"], num_segments=S)
+                bsd = update_spread(kp_b, st_p, C, Rs, F)
+                b2 = site_var(bsd, st_p.get("kap"))
+                P = C + 1 / b2
+                lev = (Rs + F / b2) / P + jax.random.normal(kp_l, (S,)) / jnp.sqrt(P)
+                e = e0_p - lev[D["site"]]
+            else:
+                cell = D["ar_cell"][0]
+                sums = cell_sums(D, om_d, om_off, tgt_p)
+                bsd, lev, par, path = update_cells(D, kp_b, st_p, sums, F)
+                e = tgt_p - lev[D["site"]] - path.ravel()[cell]
+                ar = [path, *ar[1:]]
+                ar_par = [par, *ar_par[1:]]
+            if unit_t:
+                ukap = st_p["ukap"]
+                if unit_kap_collapsed:
+                    ukap = collapsed_kap(
+                        D, kp_k, hyp, st_p["unit_dof"], ukap, w1, Wb, e, c
+                    )
+                    w1, Wb = unit_W(D, hyp, c, ukap)
+                u, s_unit = draw_us(D, kp_u, hyp, c, w1, Wb, e, ukap)
+                unit_dof, ukap, hyp, pred_ukap = update_unit_t(
+                    kp_ut, st_p, s_unit, hyp, ukap if unit_kap_collapsed else None
+                )
+            else:
+                u = draw_u(D, kp_u, hyp, c, w1, Wb, e)
+            nu, sigma, lam, factor = update_noise(kp_n, st_p, e - u, D)
+            st = st_p
         tau = (
             st["tau"]
             if "tau" in fixed_steps
@@ -2470,7 +2591,11 @@ def make_sampler(
             lev=jnp.zeros(S),
             bld_sd=0.2 * jit(k[0], (nz,), 0.1),
             nu=5.0 * jit(k[1], (), 0.2) if nu_free else jnp.full((), row_dof_fixed),
-            sigma=0.15 * jit(k[2], (4,), 0.1),
+            sigma=(
+                jnp.broadcast_to(0.15 * jit(k[2], (1,), 0.1), (4,))
+                if scalar_sigma
+                else 0.15 * jit(k[2], (4,), 0.1)
+            ),
             lam=jnp.ones(n),
             tau=0.005 * jit(k[3], (), 0.2),
             amp=0.5 * jit(k[4], (nz,), 0.2),
@@ -2479,7 +2604,7 @@ def make_sampler(
             hyp_dirs=jnp.diag(
                 jnp.asarray(
                     [HYP_WIDTH] * 3
-                    + [SIGMA_WIDTH] * 4
+                    + [SIGMA_WIDTH] * n_sigma
                     + [NU_WIDTH] * nu_free
                     + [PHASE_WIDTH] * free
                     + [UNIT_DOF_WIDTH] * dof_free
@@ -2645,6 +2770,9 @@ def run(
     row_dof_fixed: float | None = None,
     unit_slow: bool = False,
     phase_collapsed: bool = False,
+    scalar_sigma: bool = False,
+    walk_stride: int = 1,
+    scale_passes: int = 1,
 ):
     """Sample the posterior of design `d` with the sweep above and the floor curves' Gaussian
     process priors. The kept arrays hold `building_zones_gibbs`'s, the unit scales `unit_sd`
@@ -2666,7 +2794,11 @@ def run(
     source and its values. The warmup sets no slice directions for a skipped step."""
     jax, jnp = b0._jax()
     gp = gp_spec(d.names) if gp == "spec" else gp
-    fixed = drift_scales.SETS[settings.scales_fixed] if settings.scales_fixed else None
+    fixed, fixed_source = (
+        drift_scales.resolve(settings.scales_fixed)
+        if settings.scales_fixed
+        else (None, None)
+    )
     t0 = time.perf_counter()
     sweep, init, predict, parts = make_sampler(
         d,
@@ -2681,12 +2813,15 @@ def run(
         unit_slow=unit_slow,
         phase_collapsed=phase_collapsed,
         scales_fixed=fixed,
+        scalar_sigma=scalar_sigma,
+        walk_stride=walk_stride,
+        scale_passes=scale_passes,
     )
     held = parts["held"]
     if held:
         log(
             f"scales held at the set {settings.scales_fixed!r} "
-            f"(from {drift_scales.SOURCES[settings.scales_fixed]}): {fixed}"
+            f"(from {fixed_source}): {fixed}"
         )
     local = tuple(g["name"] + s for g in groups or () for s in ("_ar_sd", "_ar_rho"))
     scale_names = ("nu", "sigma", "tau", "amp", "bld_sd") + (
@@ -2758,6 +2893,12 @@ def run(
                     "sweeps": settings.warmup + done,
                     "seconds_per_sweep": (now - t_first)
                     / max(1, settings.warmup + done),
+                    "G_dim": int(parts["G"]),
+                    "n_sigma": 1 if scalar_sigma else 4,
+                    "walk_stride": int(walk_stride),
+                    "scale_passes": int(scale_passes),
+                    "n_gp": len(gp or ()),
+                    "has_bld_ar": bool(groups),
                     "hyp_dirs": np.asarray(st["hyp_dirs"][0]).tolist(),
                 }
                 | (
@@ -2769,7 +2910,7 @@ def run(
                     {
                         "scales_fixed": {
                             "set": settings.scales_fixed,
-                            "source": drift_scales.SOURCES[settings.scales_fixed],
+                            "source": fixed_source,
                             "values": fixed,
                         }
                     }
@@ -2826,10 +2967,15 @@ def run(
             t_first = time.perf_counter()
             log(f"first sweep (compile) {compile_seconds:.1f}s")
         if i < settings.warmup:
+            sig_warm = (
+                np.log(np.asarray(st["sigma"])[:, :1])
+                if scalar_sigma
+                else np.log(np.asarray(st["sigma"]))
+            )
             warm_hyp[i] = np.concatenate(
                 [
                     np.asarray(st["hyp"]),
-                    np.log(np.asarray(st["sigma"])),
+                    sig_warm,
                 ]
                 + ([np.log(np.asarray(st["nu"]))[:, None]] if parts["nu_free"] else [])
                 + ([np.log(np.asarray(st["phase_scale"]))] if phase else [])
@@ -3054,9 +3200,8 @@ def run_parser(name=NAME, level_dof=None):
     )
     parser.add_argument(
         "--scales-fixed",
-        choices=sorted(drift_scales.SETS),
-        help="hold the scales of this set of rentfrontier.drift_scales at its values "
-        "(default: the sweep draws every scale)",
+        help="hold the scales of this set in rentfrontier.drift_scales or a converged run "
+        "directory at their posterior means (default: the sweep draws every scale)",
     )
     return parser
 

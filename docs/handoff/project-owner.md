@@ -27,6 +27,15 @@ subagent's model and effort to be picked by its task.
 - Until the TODO item on refresh tooling is fixed, avoid a scrape early on a Monday and
   set `REGISTRY` to the newest same-day `-extend*` snapshot by hand.
 
+## Milestone: 2026-11-23 — Parameter Simplification (`c1-compact`), Single-Fit Consolidation (`--split unified`), & Model Discovery Pareto Sprint (`$47.82 / $100.00`)
+
+- **Model Discovery Agent parsimony & Pareto upgrade:** Extended `rentfrontier.screen` + `ops/modal-screen` with `bayesian_simplify_verdict` (`SIMPLIFY_KEEP`/`KEEP_COMPLEX`/`ESCALATE`), `pareto` batch frontier tracking (`ELPD/removed-param`, `s/sweep` speedup, `bits/min`, `bits/$`), and `budget` live ledger tracking; benchmarked `k10` (`7.8 min / $0.33`, `0.36 bits/min`, `8.7 bits/$`) and `market k5` (`0.64 bits/min`, `15.0 bits/$`).
+- **41-run parameter pressure-test (Waves 1 & 2, `$21.83`):** Quantified every parameter block's value-add (`bld_ar +34,228`, `umean +2,417`, `seg +2,061`, `marks +817`, `phase_mean +485` vs pure fat: `scalar_sigma +53`, `ad_core -6`, `biweekly_walk -23`, `seg_add -30`, `floor_poly -32`). Winner **`c1-compact`** (`layrng,size,sv_gp_mo,marks,seg_add,floor_poly,ad_core,scalar_sigma,biweekly_walk`) cuts explicit parameters **`695 → 429 (-38.3%)`**, GPs **`9 → 4 (-56%)`**, dense global dims **`G: -39%`**, and deletes `u5-svgpmo-lat`'s `sigma[2]` mixing bottleneck.
+- **Single-fit consolidation (`--split unified` + `drift_today` `sv_gp*`/`seg_add` + `--scales-fixed RUN_DIR` for `unitkn`):** Added `splits.unified_split` (`open` + `2%` non-active `latest` closed holdout, preserving 100% of every active unit's own history and 98% of neighbor comps), upgraded all 4 site publishers (`drift_deals`, `drift_estimates`, `drift_diagnostics`, `drift_today`) to serve from ONE single `unified` run, and enabled `--scales-fixed RUN_DIR` on `unitkn`/`ablate` for `~$2` fast refreshes/backtests.
+- **Wave 3 full 1.9M-row production gates (`$25.99` across 4× H200 — BOTH PASS with ONLY 4 chains / 2× H200!):**
+  - **`c1-compact-lat`** (`$14.32` vs `$27.68`, `-48.3%`): **PASS** (`R-hat = 1.0073`, `ESS = 556`), ELPD **`243,210.6`** (`-79.7 ± 42.3` vs `u5-svgpmo-lat`, `+459.1` vs `u4s-lat`), MAE `0.03929`, RMSE `0.07846` (identical), 80% cov `80.09%`.
+  - **`c1-compact-uni`** (`$11.67` SINGLE FIT vs `$46.11` pair, **`-74.7%` / `4×` cheaper!**): **PASS** (`R-hat = 1.0096`, `ESS = 642`), `9,346` active backtest ads ELPD **`10,220.1`** (`-29.7 ± 32.2` vs `u5-svgpmo-mkt`, `+178.1` vs `range-j`), **new best MAE `0.04610`**, Deals backtest low-10th **27d DOM / 16.9% cut** vs high-10th **71d / 62.6% cut**, PLUS **`34,727` leak-free historical closed eval ads** (`1.2781/row`, `MAE 0.03894`, `80% cov 79.89%`) in the **same fit**. Self-contained HTML report: `docs/notes/simplify-model-discovery-2026-11-22.html`.
+
 ## Milestone: 2026-11-22 — Unified drift models, HTML lineage docs, and Modal Fast Screening Harness (#1529–#1533)
 
 - **Whole-dataset audit batch (#1529, `d61fd6d9`):** Imported 123 audited outlier ledger entries and added `same_bed_first` layer ordering to `sizefill.asof_size`.

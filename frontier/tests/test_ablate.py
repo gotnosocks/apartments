@@ -276,7 +276,7 @@ def test_segment_variant_reuses_unified_identifiable_paths_and_gp_priors(
 ):
     frame, held = screen_rows
     base = ablate.design(frame, held=held, variant="mark_baths")
-    assert ablate.gp_spec(base.names) is None
+    assert all(not g["name"].startswith("seg:") for g in ablate.gp_spec(base.names))
     monkeypatch.setattr(ablate, "ACTIVE_VARIANT", ("mark_baths", "seg"))
     d = ablate.design(frame, held=held)
     want = unified_seg.identifiable_segment_paths(base)
@@ -310,7 +310,9 @@ def test_segment_variant_reuses_unified_identifiable_paths_and_gp_priors(
     monkeypatch.setattr(ablate, "ACTIVE_VARIANT", ())
     assert [g["name"] for g in ablate.gp_spec(d.names)] == [g["name"] for g in gps]
     monkeypatch.setattr(drift, "run", lambda *args, **kw: kw["gp"])
-    assert ablate.run(base, ablate.Priors(), settings) == "spec"
+    assert [g["name"] for g in ablate.run(base, ablate.Priors(), settings)] == [
+        g["name"] for g in ablate.gp_spec(base.names)
+    ]
 
 
 def test_extract_variant_rejects_legacy_ablate_flag():
@@ -495,3 +497,104 @@ def test_vel_gp_weekly_is_strictly_leak_free_and_clamps_future():
     # Weekly resolution varies within 2020 (not flat within a quarter).
     q_mat, _ = ablate.vel_gp_features(frame, train, weekly=False)
     assert not np.array_equal(base, q_mat)
+
+
+def test_simplification_tokens_design_and_mcmc_smoke(screen_rows, monkeypatch):
+    """Test floor_poly, seg_add, seg_add_lr12, spatial_k40, scalar_sigma, biweekly_walk,
+    sv_gp_mo16, phase_compact, kitchen-sink pruning, and zero-GP diagnostics end-to-end."""
+    sframe, sheld = screen_rows
+    sframe = sframe.copy()
+    sframe["price_at"] = pd.date_range(
+        "2018-01-01", periods=len(sframe), freq="14D", tz="UTC"
+    )
+    # 1. Baseline vs pruned design counts
+    d_base = ablate.design(sframe, held=sheld, variant="layrng,size,sv_gp_mo,marks,seg")
+    d_simp = ablate.design(
+        sframe,
+        held=sheld,
+        variant=(
+            "layrng,size,sv_gp_mo16,marks,seg_add_lr12,floor_poly,"
+            "umean_core,ad_core,bld_core,phase_compact,no_season2,"
+            "spatial_k40,scalar_sigma,biweekly_walk"
+        ),
+    )
+    assert len(d_simp.names) < len(d_base.names)
+    assert not any(n.startswith("unit:elev_f2") for n in d_simp.names)
+    assert "unit:elev_f_lin" in d_simp.names
+    assert ablate.gp_spec(d_simp.names) == []  # zero GPs left!
+    assert sum(len(s["sd"]) for s in d_simp.surfaces) <= 40
+    assert d_simp.phase_map.shape[1] < d_base.phase_map.shape[1]
+    assert "phase:22-25" not in d_simp.names
+    assert "sin2" not in d_simp.names
+
+    # 2. End-to-end MCMC smoke test with zero GPs + scalar_sigma + biweekly_walk + scale_2x
+    monkeypatch.setattr(
+        ablate,
+        "ACTIVE_VARIANT",
+        (
+            "layrng",
+            "size",
+            "sv_gp_mo16",
+            "marks",
+            "seg_add_lr12",
+            "floor_poly",
+            "scalar_sigma",
+            "biweekly_walk",
+            "scale_2x",
+        ),
+    )
+    settings = ablate.Settings(
+        chains=2, warmup=4, draws=4, keep_every=2, budget_seconds=None
+    )
+    out = ablate.run(
+        ablate.subset(d_simp, ~sheld), ablate.Priors(), settings, log=lambda _: None
+    )
+    assert out["kept"]["sigma"].shape == (2, 2, 4)
+    # scalar_sigma broadcasts identical values across all 4 bedroom groups
+    np.testing.assert_array_equal(
+        out["kept"]["sigma"][..., 0], out["kept"]["sigma"][..., 3]
+    )
+    # biweekly_walk still interpolates kept/L back to exact weekly length d_simp.weeks + 1
+    assert out["kept"]["L"].shape == (2, 2, d_simp.weeks + 1)
+    assert out["result"]["gibbs"]["n_sigma"] == 1
+    assert out["result"]["gibbs"]["walk_stride"] == 2
+    assert out["result"]["gibbs"]["scale_passes"] == 2
+    assert out["result"]["gibbs"]["n_gp"] == 0
+    # Zero-GP diagnostics and summarize work without KeyError on gp_amp
+    diag = ablate.diagnostics(out["trace"], d_simp.names)
+    assert np.isfinite(diag["max_rhat"])
+    summ = ablate.summarize(out["kept"], d_simp.names)
+    assert "segment_gp" not in summ
+
+
+def test_seg_add_and_lowrank_covariance_exact(screen_rows):
+    """Verify seg_add produces additive GP specs and lowrank_segment_paths matches anchored
+    Matérn-3/2 covariance at 2024q1 = 0."""
+    sframe, sheld = screen_rows
+    sframe = sframe.copy()
+    sframe["price_at"] = pd.date_range(
+        "2018-01-01", periods=len(sframe), freq="45D", tz="UTC"
+    )
+    sframe["latest_day"] = sframe["price_at"].dt.tz_convert(None)
+    d_add = ablate.design(sframe, held=sheld, variant="seg_add")
+    specs = ablate.gp_spec(d_add.names)
+    seg_specs = [s for s in specs if s["name"].startswith("seg:")]
+    assert 1 <= len(seg_specs) <= 4
+    assert not any(c.endswith(":2024q1") for s in seg_specs for c in s["cols"])
+
+    # Verify semi-annual stride cuts knot count roughly in half on a multi-year grid
+    d_long = td._design(n=400, weeks=160)
+    d_q = ablate.additive_segment_paths(d_long, stride=1)
+    d_s = ablate.additive_segment_paths(d_long, stride=2)
+    q_cols = [n for n in d_q.names if n.startswith("seg:")]
+    s_cols = [n for n in d_s.names if n.startswith("seg:")]
+    assert len(s_cols) < len(q_cols)
+    assert not any(c.endswith(":2024q1") for c in s_cols)
+    d_semi = ablate.design(sframe, held=sheld, variant="seg_add_semi")
+    assert any(n.startswith("seg:") for n in d_semi.names)
+
+    d_lr = ablate.design(sframe, held=sheld, variant="seg_add_lr16")
+    assert any(n.startswith("seglr:") for n in d_lr.names)
+    assert not any(n.startswith("seg:") for n in d_lr.names)
+    # Floor GPs remain when floor_poly is not passed, while segment GPs are 0
+    assert all(not s["name"].startswith("seg:") for s in ablate.gp_spec(d_lr.names))

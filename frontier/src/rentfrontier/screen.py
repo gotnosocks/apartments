@@ -36,6 +36,8 @@ DEFAULT_STRATA = 10
 DEFAULT_PRIOR_SD = 1500.0
 DEFAULT_GATE_LATEST = 100.0
 DEFAULT_GATE_MARKET = 50.0
+DEFAULT_TOL_LATEST = 50.0
+DEFAULT_TOL_MARKET = 15.0
 DEFAULT_RHAT_LIMIT = 1.15
 MODAL_LEDGER = Path("/data1/apartments/modal/ledger.jsonl")
 # Modal list prices (GPU + 2 CPU + 40 GiB RAM), kept in sync with ops/modal/app.py.
@@ -281,10 +283,11 @@ def _gpu_short_name(gpu_string: str | None) -> str | None:
 
 
 def read_run_telemetry(run_dir: Path) -> dict:
-    """Extract timing, GPU, cost, convergence, and JAX cache stats from a run directory."""
+    """Extract timing, GPU, cost, convergence, model complexity, and JAX cache stats."""
     info: dict = {
         "run": run_dir.name,
         "model": None,
+        "variant": None,
         "split": None,
         "dataset": None,
         "max_rhat": None,
@@ -298,16 +301,31 @@ def read_run_telemetry(run_dir: Path) -> dict:
         "wall_seconds": None,
         "fit_seconds": None,
         "stage_seconds": None,
+        "prepare_seconds": None,
+        "warmup_seconds": None,
         "compile_seconds": None,
         "sampling_seconds": None,
         "seconds_per_sweep": None,
         "usd": None,
         "jax_cache": None,
+        "n_beta": None,
+        "n_weeks": None,
+        "n_phase_factors": None,
+        "n_sigma": None,
+        "n_gp": None,
+        "G_dim": None,
+        "K_scale": None,
+        "explicit_params": None,
+        "walk_stride": 1,
+        "scale_passes": 1,
+        "has_bld_ar": None,
+        "ess_per_min": None,
     }
     res_path = run_dir / "result.json"
     if res_path.exists():
         res = json.loads(res_path.read_text())
         info["model"] = (res.get("model") or {}).get("name")
+        info["variant"] = res.get("ablate_variant")
         info["split"] = res.get("split")
         info["dataset"] = res.get("dataset")
         diag = res.get("diagnostics") or {}
@@ -319,6 +337,47 @@ def read_run_telemetry(run_dir: Path) -> dict:
         info["chains"] = ss.get("chains")
         info["warmup"] = ss.get("warmup")
         info["draws"] = ss.get("draws")
+        secs = res.get("seconds") or {}
+        if isinstance(secs, dict):
+            info["prepare_seconds"] = secs.get("prepare")
+            info["warmup_seconds"] = secs.get("warmup")
+            if info["compile_seconds"] is None:
+                info["compile_seconds"] = secs.get("compile")
+            if info["sampling_seconds"] is None:
+                info["sampling_seconds"] = secs.get("sampling")
+        sizes = res.get("sizes") or {}
+        n_beta = sizes.get("coefficients")
+        n_weeks = sizes.get("weeks")
+        info["n_beta"] = int(n_beta) if n_beta is not None else None
+        info["n_weeks"] = int(n_weeks) if n_weeks is not None else None
+        ph = res.get("phase") or {}
+        n_pf = ph.get("n_free_factors")
+        if n_pf is None and isinstance(ph.get("free_factors"), list):
+            n_pf = len(ph["free_factors"])
+        info["n_phase_factors"] = int(n_pf) if n_pf is not None else 0
+        n_sigma = gibbs.get("n_sigma", 4)
+        info["n_sigma"] = int(n_sigma)
+        info["walk_stride"] = int(gibbs.get("walk_stride", 1))
+        info["scale_passes"] = int(gibbs.get("scale_passes", 1))
+        info["has_bld_ar"] = gibbs.get("has_bld_ar", True)
+        n_gp = gibbs.get("n_gp")
+        if n_gp is None:
+            # Fallback for older runs before gibbs.n_gp existed.
+            has_seg = isinstance(res.get("segments"), dict) or (
+                isinstance(info["variant"], list) and "seg" in info["variant"]
+            )
+            n_gp = 9 if has_seg else 2
+        info["n_gp"] = int(n_gp)
+        if gibbs.get("G_dim") is not None:
+            info["G_dim"] = int(gibbs["G_dim"])
+        # Scale-step slice dimension: 3 unit hyp + n_sigma + free phase factors (+1 if nu free).
+        nu_free = 0 if res.get("row_dof_fixed") is not None else 1
+        info["K_scale"] = int(3 + info["n_sigma"] + info["n_phase_factors"] + nu_free)
+        if info["n_beta"] is not None:
+            # Explicit global parameters: beta + scale-step dims + 2*n_gp hypers.
+            info["explicit_params"] = int(
+                info["n_beta"] + info["K_scale"] + 2 * info["n_gp"]
+            )
     modal_path = run_dir / "modal" / "modal.json"
     if modal_path.exists():
         m = json.loads(modal_path.read_text())
@@ -347,6 +406,10 @@ def read_run_telemetry(run_dir: Path) -> dict:
         if m_samp:
             info["sampling_seconds"] = float(m_samp.group(1))
             info["seconds_per_sweep"] = float(m_samp.group(2))
+    if info["min_ess"] is not None and info["wall_seconds"]:
+        info["ess_per_min"] = round(
+            float(info["min_ess"]) / (float(info["wall_seconds"]) / 60.0), 3
+        )
     return info
 
 
@@ -424,6 +487,84 @@ def bayesian_screen_verdict(
     }
 
 
+def bayesian_simplify_verdict(
+    delta_full_hat: float,
+    se_full_hat: float,
+    z_sub: float,
+    max_rhat: float | None = None,
+    cov80_shift: float = 0.0,
+    tail05_cand: float = 0.05,
+    prior_sd: float = DEFAULT_PRIOR_SD,
+    tol_elpd: float = DEFAULT_TOL_LATEST,
+    extra_noise_scale: float = 1.0,
+    rhat_limit: float = DEFAULT_RHAT_LIMIT,
+) -> dict:
+    """Bayesian non-inferiority & parsimony verdict for model-simplification ablations.
+
+    Tests whether removing or compressing parameters preserves predictive performance within
+    `tol_elpd` (`Δ_full > -tol_elpd`):
+    - `SIMPLIFY_KEEP`: high posterior probability `P(Δ_full > -tol_elpd) >= 0.90` (or
+      `delta_full_hat >= 0` with `P > 0.85`), clean mixing, and no severe coverage drop.
+    - `KEEP_COMPLEX`: `P(Δ_full < -tol_elpd) >= 0.90` (the ablated parameters earn their keep).
+    - `ESCALATE`: uncertain — needs more draws/chains or dual-split verification.
+    """
+    sigma_obs = max(1e-6, float(se_full_hat) * float(extra_noise_scale))
+    prior_var = float(prior_sd) ** 2
+    obs_var = sigma_obs**2
+    post_var = 1.0 / (1.0 / prior_var + 1.0 / obs_var)
+    post_sd = math.sqrt(post_var)
+    post_mean = (post_var / obs_var) * float(delta_full_hat)
+    p_positive = float(ndtr(post_mean / post_sd))
+    p_non_inferior = float(ndtr((post_mean + float(tol_elpd)) / post_sd))
+    p_worse_than_tol = 1.0 - p_non_inferior
+    ig_bits = 0.5 * math.log2(1.0 + prior_var / obs_var)
+    prior_p_ni = float(ndtr(float(tol_elpd) / float(prior_sd)))
+    decision_ig_bits = max(
+        0.0, _binary_entropy(prior_p_ni) - _binary_entropy(p_non_inferior)
+    )
+    mde_80 = 2.80 * sigma_obs
+
+    warnings: list[str] = []
+    if max_rhat is not None and max_rhat > rhat_limit:
+        warnings.append(f"high R-hat ({max_rhat:.3f} > {rhat_limit:.2f})")
+    elif max_rhat is not None and max_rhat > 1.05:
+        warnings.append(f"elevated R-hat ({max_rhat:.3f} > 1.05)")
+    if abs(cov80_shift) > 0.015:
+        warnings.append(f"80% coverage shift {cov80_shift * 100:+.2f} pp")
+    if tail05_cand < 0.035 or tail05_cand > 0.065:
+        warnings.append(f"<5% tail at {tail05_cand * 100:.2f}% (nominal 5.0%)")
+
+    rhat_ok = max_rhat is None or max_rhat <= rhat_limit
+    cov_ok = cov80_shift >= -0.015
+    if p_worse_than_tol >= 0.90 or (z_sub <= -2.5 and delta_full_hat < -tol_elpd):
+        verdict = "KEEP_COMPLEX"
+    elif (
+        rhat_ok
+        and cov_ok
+        and (
+            p_non_inferior >= 0.90 or (delta_full_hat >= 0.0 and p_non_inferior >= 0.85)
+        )
+    ):
+        verdict = "SIMPLIFY_KEEP"
+    else:
+        verdict = "ESCALATE"
+
+    return {
+        "verdict": verdict,
+        "post_mean": post_mean,
+        "post_sd": post_sd,
+        "p_positive": p_positive,
+        "p_gt_gate": p_non_inferior,
+        "p_non_inferior": p_non_inferior,
+        "tol_elpd": float(tol_elpd),
+        "ig_bits": ig_bits,
+        "decision_ig_bits": decision_ig_bits,
+        "mde_80": mde_80,
+        "sigma_obs": sigma_obs,
+        "warnings": warnings,
+    }
+
+
 def _dataset_screen_meta(run_dir: Path) -> dict | None:
     ds = drift_score.dataset_dir(run_dir)
     if ds is None:
@@ -441,8 +582,12 @@ def compare_runs(
     prior_sd: float = DEFAULT_PRIOR_SD,
     extra_noise_scale: float = 1.0,
     force_score: bool = False,
+    mode: str = "forward",
+    tol_elpd: float | None = None,
 ) -> dict:
     """Compare a candidate run against a baseline run on their paired held-out rows."""
+    if mode not in ("forward", "simplify"):
+        raise ValueError(f"mode must be 'forward' or 'simplify', got {mode!r}")
     base_dir = resolve_run_dir(baseline_ref)
     cand_dir = resolve_run_dir(candidate_ref)
     sb = score_or_load(base_dir, force=force_score)
@@ -494,29 +639,99 @@ def compare_runs(
         gate_elpd = (
             DEFAULT_GATE_MARKET if split_kind == "market" else DEFAULT_GATE_LATEST
         )
+    if tol_elpd is None:
+        tol_elpd = DEFAULT_TOL_MARKET if split_kind == "market" else DEFAULT_TOL_LATEST
 
     delta_full_hat = all_stats["delta"] * scale
     se_full_hat = all_stats["se"] * scale
 
     tb = read_run_telemetry(base_dir)
     tc = read_run_telemetry(cand_dir)
-    bayes = bayesian_screen_verdict(
-        delta_full_hat=delta_full_hat,
-        se_full_hat=se_full_hat,
-        z_sub=all_stats["z"],
-        half_a_delta=half_a["delta"],
-        half_b_delta=half_b["delta"],
-        max_rhat=tc["max_rhat"],
-        cov80_shift=cov80_cand - cov80_base,
-        tail05_cand=tail05_cand,
-        prior_sd=prior_sd,
-        gate_elpd=gate_elpd,
-        extra_noise_scale=extra_noise_scale,
-    )
+    if mode == "simplify":
+        bayes = bayesian_simplify_verdict(
+            delta_full_hat=delta_full_hat,
+            se_full_hat=se_full_hat,
+            z_sub=all_stats["z"],
+            max_rhat=tc["max_rhat"],
+            cov80_shift=cov80_cand - cov80_base,
+            tail05_cand=tail05_cand,
+            prior_sd=prior_sd,
+            tol_elpd=tol_elpd,
+            extra_noise_scale=extra_noise_scale,
+        )
+    else:
+        bayes = bayesian_screen_verdict(
+            delta_full_hat=delta_full_hat,
+            se_full_hat=se_full_hat,
+            z_sub=all_stats["z"],
+            half_a_delta=half_a["delta"],
+            half_b_delta=half_b["delta"],
+            max_rhat=tc["max_rhat"],
+            cov80_shift=cov80_cand - cov80_base,
+            tail05_cand=tail05_cand,
+            prior_sd=prior_sd,
+            gate_elpd=gate_elpd,
+            extra_noise_scale=extra_noise_scale,
+        )
 
-    # Efficiency metrics per marginal candidate screen (baseline is amortized across ideas).
+    # Efficiency & parsimony metrics per marginal candidate screen.
     wall_s = tc["wall_seconds"]
     usd = tc["usd"]
+    delta_beta = (
+        tc["n_beta"] - tb["n_beta"]
+        if tc["n_beta"] is not None and tb["n_beta"] is not None
+        else None
+    )
+    delta_pf = (
+        tc["n_phase_factors"] - tb["n_phase_factors"]
+        if tc["n_phase_factors"] is not None and tb["n_phase_factors"] is not None
+        else None
+    )
+    delta_kscale = (
+        tc["K_scale"] - tb["K_scale"]
+        if tc["K_scale"] is not None and tb["K_scale"] is not None
+        else None
+    )
+    delta_params = (
+        tc["explicit_params"] - tb["explicit_params"]
+        if tc["explicit_params"] is not None and tb["explicit_params"] is not None
+        else None
+    )
+    params_removed = (
+        -delta_params if delta_params is not None and delta_params < 0 else None
+    )
+    elpd_per_param_removed = (
+        (-delta_full_hat / params_removed) if params_removed else None
+    )
+    wall_speedup = (
+        (tb["wall_seconds"] / wall_s) if tb["wall_seconds"] and wall_s else None
+    )
+    sweep_speedup = (
+        (tb["seconds_per_sweep"] / tc["seconds_per_sweep"])
+        if tb["seconds_per_sweep"] and tc["seconds_per_sweep"]
+        else None
+    )
+    usd_savings_pct = (
+        100.0 * (1.0 - usd / tb["usd"]) if tb["usd"] and usd is not None else None
+    )
+    complexity = {
+        "base_beta": tb["n_beta"],
+        "cand_beta": tc["n_beta"],
+        "delta_beta": delta_beta,
+        "base_phase_factors": tb["n_phase_factors"],
+        "cand_phase_factors": tc["n_phase_factors"],
+        "delta_phase_factors": delta_pf,
+        "base_K_scale": tb["K_scale"],
+        "cand_K_scale": tc["K_scale"],
+        "delta_K_scale": delta_kscale,
+        "base_explicit_params": tb["explicit_params"],
+        "cand_explicit_params": tc["explicit_params"],
+        "delta_explicit_params": delta_params,
+        "elpd_value_per_removed_param": elpd_per_param_removed,
+        "wall_speedup": wall_speedup,
+        "sweep_speedup": sweep_speedup,
+        "usd_savings_pct": usd_savings_pct,
+    }
     efficiency = {
         "wall_seconds": wall_s,
         "usd": usd,
@@ -530,12 +745,14 @@ def compare_runs(
     }
 
     return {
+        "mode": mode,
         "baseline": tb,
         "candidate": tc,
         "screen": screen_meta,
         "fraction": fraction,
         "scale_factor": scale,
         "gate_elpd": float(gate_elpd),
+        "tol_elpd": float(tol_elpd),
         "all": all_stats,
         "recent_2022_plus": recent_stats,
         "half_a": half_a,
@@ -551,8 +768,98 @@ def compare_runs(
             "tail05_base": tail05_base,
             "tail05_cand": tail05_cand,
         },
+        "complexity": complexity,
         "bayesian": bayes,
         "efficiency": efficiency,
+    }
+
+
+def pareto_frontier(
+    baseline_ref: str | Path,
+    candidate_refs: list[str | Path],
+    *,
+    mode: str = "simplify",
+    tol_elpd: float | None = None,
+    prior_sd: float = DEFAULT_PRIOR_SD,
+    extra_noise_scale: float = 1.0,
+) -> dict:
+    """Batch-score candidates vs `baseline_ref` and identify the Pareto frontier over
+    `(projected ΔELPD high, explicit_params low, seconds_per_sweep low)`."""
+    reports = [
+        compare_runs(
+            baseline_ref=baseline_ref,
+            candidate_ref=c,
+            prior_sd=prior_sd,
+            extra_noise_scale=extra_noise_scale,
+            mode=mode,
+            tol_elpd=tol_elpd,
+        )
+        for c in candidate_refs
+    ]
+    rows = []
+    for r in reports:
+        tc = r["candidate"]
+        cx = r["complexity"]
+        eff = r["efficiency"]
+        b = r["bayesian"]
+        rows.append(
+            {
+                "run": tc["run"],
+                "variant": ",".join(tc["variant"]) if tc["variant"] else "",
+                "verdict": b["verdict"],
+                "proj_delta": r["projected_full"]["delta"],
+                "proj_se": r["projected_full"]["se"],
+                "z": r["all"]["z"],
+                "p_non_inferior": b.get("p_non_inferior", b["p_gt_gate"]),
+                "cov80": r["coverage"]["cov80_cand"],
+                "cov80_shift": r["coverage"]["cov80_shift"],
+                "n_beta": tc["n_beta"],
+                "n_pf": tc["n_phase_factors"],
+                "explicit_params": tc["explicit_params"],
+                "delta_params": cx["delta_explicit_params"],
+                "elpd_per_removed_param": cx["elpd_value_per_removed_param"],
+                "s_per_sweep": tc["seconds_per_sweep"],
+                "sweep_speedup": cx["sweep_speedup"],
+                "wall_s": eff["wall_seconds"],
+                "wall_speedup": cx["wall_speedup"],
+                "usd": eff["usd"],
+                "max_rhat": tc["max_rhat"],
+                "min_ess": tc["min_ess"],
+                "ess_per_min": tc["ess_per_min"],
+                "ig_bits": b["ig_bits"],
+                "ig_bits_per_min": eff["ig_bits_per_min"],
+                "ig_bits_per_usd": eff["ig_bits_per_usd"],
+            }
+        )
+    # Mark Pareto-optimal rows (non-dominated in maximizing proj_delta & minimizing explicit_params).
+    for i, a in enumerate(rows):
+        dom = False
+        ap = a["explicit_params"] if a["explicit_params"] is not None else 10**9
+        for j, b in enumerate(rows):
+            if i == j:
+                continue
+            bp = b["explicit_params"] if b["explicit_params"] is not None else 10**9
+            if (
+                b["proj_delta"] >= a["proj_delta"]
+                and bp <= ap
+                and (b["proj_delta"] > a["proj_delta"] or bp < ap)
+            ):
+                dom = True
+                break
+        a["pareto"] = not dom
+    tot_bits = sum(r["ig_bits"] for r in rows)
+    tot_wall = sum(r["wall_s"] or 0.0 for r in rows)
+    tot_usd = sum(r["usd"] or 0.0 for r in rows)
+    return {
+        "baseline": reports[0]["baseline"] if reports else None,
+        "mode": mode,
+        "count": len(rows),
+        "total_ig_bits": tot_bits,
+        "total_wall_seconds": tot_wall,
+        "total_usd": round(tot_usd, 4),
+        "aggregate_bits_per_min": (tot_bits / (tot_wall / 60.0)) if tot_wall else None,
+        "aggregate_bits_per_usd": (tot_bits / tot_usd) if tot_usd else None,
+        "rows": rows,
     }
 
 
@@ -566,6 +873,11 @@ def format_report(report: dict) -> str:
     b = report["bayesian"]
     eff = report["efficiency"]
     tc = report["candidate"]
+    prob_label = (
+        f"P(>-{report['tol_elpd']:.0f})={b['p_gt_gate']:.3f}"
+        if report.get("mode") == "simplify"
+        else f"P(>{report['gate_elpd']:.0f})={b['p_gt_gate']:.3f}"
+    )
     lines = [
         f"Screen verdict: {b['verdict']}  ({tc['run']} vs {report['baseline']['run']})",
         f"  subsample: f={report['fraction']:.3f} (scale x{report['scale_factor']:.2f}), "
@@ -576,7 +888,7 @@ def format_report(report: dict) -> str:
         f"  projected: {pf['delta']:+.0f} ± {pf['se']:.0f} full-data ΔELPD "
         f"(80% MDE = {b['mde_80']:.0f})",
         f"  posterior: mean {b['post_mean']:+.0f} ± {b['post_sd']:.0f} | "
-        f"P(>0)={b['p_positive']:.3f} | P(>{report['gate_elpd']:.0f})={b['p_gt_gate']:.3f} | "
+        f"P(>0)={b['p_positive']:.3f} | {prob_label} | "
         f"IG={b['ig_bits']:.2f} bits (decision {b['decision_ig_bits']:.2f} bits)",
         f"  coverage : 80% {cov['cov80_base'] * 100:.2f}% -> {cov['cov80_cand'] * 100:.2f}% "
         f"({cov['cov80_shift'] * 100:+.2f} pp) | <5% tail {cov['tail05_base'] * 100:.2f}% -> "
@@ -586,6 +898,25 @@ def format_report(report: dict) -> str:
         lines.append(
             f"  sampler  : max R-hat {tc['max_rhat']:.4f}, min ESS {tc['min_ess']}, "
             f"GPU {tc['gpu'] or 'local'}"
+        )
+    cx = report.get("complexity") or {}
+    if cx.get("cand_explicit_params") is not None:
+        dp = cx.get("delta_explicit_params")
+        dp_s = f"{dp:+d}" if dp is not None else "n/a"
+        sp_s = (
+            f"{cx['sweep_speedup']:.2f}x sweep"
+            if cx.get("sweep_speedup") is not None
+            else "n/a"
+        )
+        ep_s = (
+            f" | {cx['elpd_value_per_removed_param']:+.2f} ELPD/param"
+            if cx.get("elpd_value_per_removed_param") is not None
+            else ""
+        )
+        lines.append(
+            f"  parsimony: {cx['base_explicit_params']} -> {cx['cand_explicit_params']} "
+            f"params ({dp_s}; beta={cx['cand_beta']}, pf={cx['cand_phase_factors']}, "
+            f"K_scale={cx['cand_K_scale']}) | {sp_s}{ep_s}"
         )
     if eff["wall_seconds"] is not None:
         usd_s = f"${eff['usd']:.3f}" if eff["usd"] is not None else "n/a"
@@ -602,6 +933,93 @@ def format_report(report: dict) -> str:
     if b["warnings"]:
         lines.append("  WARNINGS : " + "; ".join(b["warnings"]))
     return "\n".join(lines)
+
+
+def format_pareto(summary: dict) -> str:
+    """Compact table of Pareto-frontier & parameter-value results."""
+    lines = [
+        f"Pareto / Discovery Summary ({summary['count']} candidates, mode={summary['mode']})",
+        f"  Total IG: {summary['total_ig_bits']:.1f} bits | "
+        f"Wall: {summary['total_wall_seconds'] / 60:.1f} min | "
+        f"USD: ${summary['total_usd']:.2f} | "
+        f"Rate: {summary['aggregate_bits_per_min'] or 0:.2f} bits/min, "
+        f"{summary['aggregate_bits_per_usd'] or 0:.1f} bits/$",
+        "",
+        f"{'Run':34s} {'Verdict':13s} {'ΔELPD±SE':14s} {'Params(Δ)':12s} {'s/sw':6s} {'R-hat':6s} {'bits/m':6s} {'P*'}",
+    ]
+    for r in sorted(summary["rows"], key=lambda x: -x["proj_delta"]):
+        dp = f"{r['delta_params']:+d}" if r["delta_params"] is not None else "n/a"
+        ep = (
+            f"{r['explicit_params']}({dp})"
+            if r["explicit_params"] is not None
+            else "n/a"
+        )
+        sw = f"{r['s_per_sweep']:.3f}" if r["s_per_sweep"] is not None else "  n/a"
+        rh = f"{r['max_rhat']:.3f}" if r["max_rhat"] is not None else "  n/a"
+        bm = (
+            f"{r['ig_bits_per_min']:.2f}"
+            if r["ig_bits_per_min"] is not None
+            else " n/a"
+        )
+        mark = "*" if r["pareto"] else ""
+        lines.append(
+            f"{r['run'][-34:]:34s} {r['verdict']:13s} "
+            f"{r['proj_delta']:+6.0f}±{r['proj_se']:<5.0f} "
+            f"{ep:12s} {sw:6s} {rh:6s} {bm:6s} {mark}"
+        )
+    return "\n".join(lines)
+
+
+def sprint_budget(
+    *,
+    filter_substring: str | None = None,
+    cap_usd: float | None = None,
+    ledger_path: Path = MODAL_LEDGER,
+) -> dict:
+    """Summarize settled Modal spend and open estimates from `ledger.jsonl`."""
+    if not ledger_path.exists():
+        return {
+            "settled_usd": 0.0,
+            "open_estimate_usd": 0.0,
+            "settled_runs": 0,
+            "open_runs": 0,
+            "remaining_usd": cap_usd,
+        }
+    settled_ids: set[str] = set()
+    settled_usd = 0.0
+    settled_runs = 0
+    open_entries: dict[str, float] = {}
+    for line in ledger_path.read_text().splitlines():
+        if not line.strip():
+            continue
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        name = str(rec.get("name", ""))
+        if filter_substring and filter_substring not in name:
+            continue
+        rid = str(rec.get("id", name))
+        if rec.get("kind") == "settle":
+            settled_ids.add(rid)
+            settled_usd += float(rec.get("usd", 0.0))
+            settled_runs += 1
+        elif rec.get("usd_estimate") is not None:
+            open_entries[rid] = float(rec["usd_estimate"])
+    open_usd = sum(v for k, v in open_entries.items() if k not in settled_ids)
+    open_runs = sum(1 for k in open_entries if k not in settled_ids)
+    out = {
+        "filter": filter_substring,
+        "settled_usd": round(settled_usd, 4),
+        "open_estimate_usd": round(open_usd, 4),
+        "settled_runs": settled_runs,
+        "open_runs": open_runs,
+        "projected_total_usd": round(settled_usd + open_usd, 4),
+    }
+    if cap_usd is not None:
+        out["cap_usd"] = float(cap_usd)
+        out["remaining_usd"] = round(float(cap_usd) - settled_usd - open_usd, 4)
+    return out
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -630,10 +1048,30 @@ def main(argv: list[str] | None = None) -> int:
     pc.add_argument("baseline")
     pc.add_argument("candidate")
     pc.add_argument("--gate", type=float, default=None)
+    pc.add_argument("--tol", type=float, default=None)
+    pc.add_argument("--mode", choices=("forward", "simplify"), default="forward")
     pc.add_argument("--prior-sd", type=float, default=DEFAULT_PRIOR_SD)
     pc.add_argument("--extra-noise-scale", type=float, default=1.0)
     pc.add_argument("--force-score", action="store_true")
     pc.add_argument("--json", action="store_true", dest="as_json")
+
+    pp = sub.add_parser(
+        "pareto", help="score a batch of candidates and report the Pareto frontier"
+    )
+    pp.add_argument("baseline")
+    pp.add_argument("candidates", nargs="+")
+    pp.add_argument("--tol", type=float, default=None)
+    pp.add_argument("--mode", choices=("forward", "simplify"), default="simplify")
+    pp.add_argument("--prior-sd", type=float, default=DEFAULT_PRIOR_SD)
+    pp.add_argument("--extra-noise-scale", type=float, default=1.0)
+    pp.add_argument("--json", action="store_true", dest="as_json")
+
+    pbud = sub.add_parser(
+        "budget", help="summarize Modal sprint spend and remaining budget"
+    )
+    pbud.add_argument("--filter", default=None, help="substring match on run name")
+    pbud.add_argument("--cap", type=float, default=None, help="budget ceiling in USD")
+    pbud.add_argument("--json", action="store_true", dest="as_json")
 
     args = parser.parse_args(argv)
     if args.cmd == "build":
@@ -651,6 +1089,38 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(meta, indent=2))
         return 0
 
+    if args.cmd == "budget":
+        b = sprint_budget(filter_substring=args.filter, cap_usd=args.cap)
+        if args.as_json:
+            print(json.dumps(b, indent=2))
+        else:
+            rem = (
+                f" | remaining: ${b['remaining_usd']:.2f} of ${b['cap_usd']:.2f}"
+                if "remaining_usd" in b
+                else ""
+            )
+            print(
+                f"Modal budget ({b['filter'] or 'all'}): "
+                f"${b['settled_usd']:.2f} settled ({b['settled_runs']} runs) + "
+                f"${b['open_estimate_usd']:.2f} open est ({b['open_runs']} runs){rem}"
+            )
+        return 0
+
+    if args.cmd == "pareto":
+        summary = pareto_frontier(
+            baseline_ref=args.baseline,
+            candidate_refs=args.candidates,
+            mode=args.mode,
+            tol_elpd=args.tol,
+            prior_sd=args.prior_sd,
+            extra_noise_scale=args.extra_noise_scale,
+        )
+        if args.as_json:
+            print(json.dumps(summary, indent=2))
+        else:
+            print(format_pareto(summary))
+        return 0
+
     report = compare_runs(
         baseline_ref=args.baseline,
         candidate_ref=args.candidate,
@@ -658,6 +1128,8 @@ def main(argv: list[str] | None = None) -> int:
         prior_sd=args.prior_sd,
         extra_noise_scale=args.extra_noise_scale,
         force_score=args.force_score,
+        mode=args.mode,
+        tol_elpd=args.tol,
     )
     if args.as_json:
         print(json.dumps(report, indent=2))

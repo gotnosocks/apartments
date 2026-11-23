@@ -551,7 +551,16 @@ def history(
     the market fit held out takes the market dataset's row, the row its estimate was made
     for. `heldout` says the fit behind the row held the ad out, and `market` says the ad
     was on the market on the scoring day."""
-    parts = [frame.assign(heldout=np.asarray(held, bool), market=False)]
+    parts = [
+        frame.assign(
+            heldout=np.asarray(held, bool),
+            market=(
+                frame["_unified_open"].to_numpy(bool)
+                if "_unified_open" in frame
+                else False
+            ),
+        )
+    ]
     if later is not None:
         rows, on = later
         rows = rows.assign(heldout=np.asarray(on, bool), market=np.asarray(on, bool))
@@ -719,28 +728,58 @@ def diagnostics(
     with no market run the build of the latest run's dataset does. `features` is the root
     of the snapshot folders, and `sources` maps a name of `SOURCES` to a table to read
     instead of the newest snapshot's."""
-    record = drift_estimates._result(latest, "latest")
+    raw = json.loads((latest / "result.json").read_text())
+    unified_single = raw.get("split") in ("unified", "onefit") and market is None
+    if unified_single:
+        record, about = drift_deals._checked(latest, backtest=False)
+        drift_estimates._result(latest, raw["split"])
+    else:
+        record = drift_estimates._result(latest, "latest")
     model = record["model"]["name"]
     reg = drift_estimates._registry(registry)
-    meta = {
-        "model": model,
-        "runs": {"latest": latest.name},
-        "datasets": {"latest": drift_estimates._provenance(record)},
-        "gate": {"latest": drift_deals._gate(record)},
-    }
-    manifest = json.loads((drift_deals._dataset(latest) / "manifest.json").read_text())
-    named = ((manifest.get("build") or {}).get("ads") or {}).get("path")
-    if market is not None:
-        other, about = drift_deals._checked(market, backtest=False, model=model)
-        drift_estimates._result(market, "market")
-        meta["runs"]["market"] = market.name
-        meta["datasets"]["market"] = drift_estimates._provenance(other)
-        meta["gate"]["market"] = drift_deals._gate(other)
-        meta["scoring_day"] = about.get("scoring_day")
+    if unified_single:
+        gate = drift_deals._gate(record)
+        prov = drift_estimates._provenance(record)
+        meta = {
+            "model": model,
+            "runs": {
+                "unified": latest.name,
+                "latest": latest.name,
+                "market": latest.name,
+            },
+            "datasets": {"unified": prov, "latest": prov, "market": prov},
+            "gate": {"unified": gate, "latest": gate, "market": gate},
+            "scoring_day": about.get("scoring_day"),
+        }
         named = about["ads"]
+    else:
+        meta = {
+            "model": model,
+            "runs": {"latest": latest.name},
+            "datasets": {"latest": drift_estimates._provenance(record)},
+            "gate": {"latest": drift_deals._gate(record)},
+        }
+        manifest = json.loads(
+            (drift_deals._dataset(latest) / "manifest.json").read_text()
+        )
+        named = ((manifest.get("build") or {}).get("ads") or {}).get("path")
+        if market is not None:
+            other, about = drift_deals._checked(market, backtest=False, model=model)
+            drift_estimates._result(market, "market")
+            meta["runs"]["market"] = market.name
+            meta["datasets"]["market"] = drift_estimates._provenance(other)
+            meta["gate"]["market"] = drift_deals._gate(other)
+            meta["scoring_day"] = about.get("scoring_day")
+            named = about["ads"]
     ads = ads or (Path(named) if named and Path(named).exists() else None)
 
     past, frame, held = run_ads(latest, "latest", reg)
+    if unified_single:
+        open_col = pd.read_parquet(
+            drift_deals._dataset(latest) / "rows.parquet", columns=["open"]
+        ).open.to_numpy(bool)
+        past["source"] = np.where(open_col[held], "market", "latest")
+        frame = frame.assign(_unified_open=open_col)
     parts, later = [past], None
     if market is not None:
         now, rows, on = run_ads(market, "market", reg)
