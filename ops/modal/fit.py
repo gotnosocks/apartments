@@ -41,8 +41,8 @@ on thelio after the fit's unit has exited.
 With --large (an A100-40GB, A100-80GB, H100 or H200), the container has 192 GiB of host memory and a 12 h
 timeout, the fit is capped at 9 h, the post-fit statistics only by that timeout, and the
 container builds the summary bundle and calibration itself; they download to
-FRONTIER_OUTPUT_ROOT/{summaries,calibration}/. With --large --lean, a fit that builds no summary
-bundle reserves 48 GiB in place of 192 (app.LEAN_FITS). The per-fit hour cap leaves large fits
+FRONTIER_OUTPUT_ROOT/{summaries,calibration}/. With --large --lean, a baseline's fit with no
+scoring in the container reserves 48 GiB in place of 192 (app.LEAN_FITS). The per-fit hour cap leaves large fits
 out (Ben, 2026-10-16 06:37Z). The Volume itself is deleted after 24 h without a
 launch (ops/modal/cleanup).
 """
@@ -127,8 +127,8 @@ def parse(argv):
     p.add_argument(
         "--lean",
         action="store_true",
-        help="with --large, for a fit that builds no summary bundle: a container with 48 GiB "
-        "of host memory in place of 192 (app.LEAN_FITS; H100 or H200)",
+        help="with --large, for a baseline's fit with no --score: a container with "
+        "48 GiB of host memory in place of 192 (app.LEAN_FITS; H100 or H200)",
     )
     p.add_argument(
         "--no-summary",
@@ -244,9 +244,16 @@ def plan(args, run_args, sha, short=None):
         args.model, args.large, args.score, args.no_loo, args.no_heldout
     )
     summary = not args.no_summary and args.model not in BASELINE_MODELS
-    if args.lean and not (args.large and not summary and not args.publish_only):
+    # The 48 GiB was measured on a drift baseline's fit alone (rentfrontier.run), with no
+    # in-container scoring, post steps or summary (docs/notes/large-container-memory-2026-11-23.md).
+    if args.lean and not (
+        args.large
+        and args.model in BASELINE_MODELS
+        and not (loo or heldout or args.publish_only)
+    ):
         sys.exit(
-            "--lean needs --large and a fit that builds no summary bundle (--no-summary)"
+            "--lean needs --large, a baseline model and no scoring in the container "
+            "(no --score or --publish-only)"
         )
     inputs = [
         str(Path(args.dataset).resolve()),

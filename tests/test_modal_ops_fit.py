@@ -838,7 +838,7 @@ def test_a_lean_large_fit_reserves_less_memory_and_builds_no_summary(monkeypatch
         assert saved == pytest.approx(
             (app.LARGE_MEMORY_MIB - app.LEAN_MEMORY_MIB) / 1024 * app.USD_PER_GIB_SECOND
         )
-    # A baseline (here the drift ablate model) builds no summary, so it may go lean.
+    # A drift baseline fitted with no scoring in the container (no --score) may go lean.
     argv = [
         "abc",
         "of",
@@ -849,17 +849,25 @@ def test_a_lean_large_fit_reserves_less_memory_and_builds_no_summary(monkeypatch
         "20",
         "1",
     ]
-    args, rest = fit.parse(["--large", "--lean", "--gpu", "H200", *argv])
+    lean = ["--large", "--lean", "--gpu", "H200"]
+    args, rest = fit.parse([*lean, *argv])
     assert args.lean and "--lean" not in rest
-    assert not fit.plan(args, rest, "9371a18")["summary"]
-    # A fit that builds its summary bundle in the container needs the large one.
+    spec = fit.plan(args, rest, "9371a18")
+    assert not (spec["summary"] or spec["loo"] or spec["heldout"])
+    # Anything the 14.8 GiB probe did not measure keeps the large container: scoring in the
+    # container, a publish, a frontier model (summary or not), or no --large at all.
     m7 = ["abc", "all", "m7", "all-scraped-v1", "2", "300", "4500", "9"]
-    for flags in (["--large", "--lean"], ["--lean"]):
-        args, rest = fit.parse([*flags, "--gpu", "H200", *m7])
+    for flags, rest_argv in (
+        ([*lean, "--score"], argv),
+        ([*lean, "--score", "--no-loo"], argv),
+        ([*lean, "--publish-only"], argv),
+        (lean, m7),
+        ([*lean, "--no-summary"], m7),
+        (["--lean", "--gpu", "H200"], argv),
+    ):
+        args, rest = fit.parse([*flags, *rest_argv])
         with pytest.raises(SystemExit):
             fit.plan(args, rest, "9371a18")
-    args, rest = fit.parse(["--large", "--lean", "--no-summary", "--gpu", "H200", *m7])
-    assert not fit.plan(args, rest, "9371a18")["summary"]
 
 
 def test_a_large_baseline_fit_runs_as_the_fit_alone():

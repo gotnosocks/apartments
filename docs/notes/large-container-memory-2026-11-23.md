@@ -40,9 +40,10 @@ A full fit holds more than the probe only in its kept draws and held-out predict
 probe, about 16 GiB, and I did not wait on a full fit's own record.
 
 Change (this PR): `ops/modal-fit --large --lean` reserves 48 GiB (`app.LEAN_MEMORY_MIB`), three
-times the measured peak, for a fit that builds no summary bundle in the container (every
-drift model in `cap.BASELINES`, which builds none). A container then lists at $5.30 an hour on
+times the measured peak, for a baseline's fit (every drift model in `cap.BASELINES`) with no
+scoring in the container: no `--score`, the default for fits. A container then lists at $5.30 an hour on
 an H200 in place of $6.45, which saves about $2.6 of a two-container onefit fit's $14.46 (18%).
-The summary bundle, `--publish-only` and every fit without `--lean` keep 192 GiB: their peaks
-are unmeasured. The launch pre-check still reserves at the large price, and the ledger settles
+The probe measured `rentfrontier.run` alone, so in-container LOO, held-out scoring, post
+steps, the summary bundle and `--publish-only` keep 192 GiB until their peaks are measured.
+The launch pre-check still reserves at the large price, and the ledger settles
 at the lean one.
