@@ -170,6 +170,51 @@ def _raised(frame, held, ads: Path, final: bool = False) -> np.ndarray:
     return marks[np.asarray(held, bool)[near]]
 
 
+def _raised_asof_first_day(frame, held, eval_mask, ads: Path) -> np.ndarray:
+    """Leak-free per-ad `cautions.raised` for closed held-out rows spanning multiple years:
+    each evaluated ad is marked if its building had a training ad (`~held`) with a known unit
+    opened in the prior `cautions.RAISE_DAYS` days that rose `cautions.RAISE` or more above
+    its first ask. No held-out row marks any building."""
+    held_b = np.asarray(held, bool)
+    eval_b = np.asarray(eval_mask, bool)
+    near_blds = set(frame.building[eval_b])
+    near = frame.building.isin(near_blds).to_numpy()
+    f = frame[near]
+    a = _ads(ads, f.listing_id)
+    first = a.first_ask.to_numpy(float)
+    ask = f.latest_ask.to_numpy(float)
+    days = (
+        pd.DatetimeIndex(pd.to_datetime(a.first_day, utc=True)).tz_localize(None).asi8
+    )
+    train_local = ~held_b[near]
+    up = (
+        train_local
+        & (first > 0)
+        & (ask >= first * (1 + cautions_module.RAISE) - 1e-9)
+        & pd.notna(f.unit_id.to_numpy(object))
+        & (days != pd.NaT.value)
+    )
+    by_bld: dict[str, np.ndarray] = {}
+    if up.any():
+        u_df = pd.DataFrame({"b": f.building.to_numpy()[up], "d": days[up]})
+        for b, grp in u_df.groupby("b", sort=False):
+            by_bld[b] = np.sort(grp["d"].to_numpy())
+    win_ns = int(pd.Timedelta(days=cautions_module.RAISE_DAYS).value)
+    eval_local = eval_b[near]
+    eval_blds = f.building.to_numpy()[eval_local]
+    eval_days = days[eval_local]
+    out = np.zeros(len(eval_blds), bool)
+    for idx, (b, d) in enumerate(zip(eval_blds, eval_days)):
+        arr = by_bld.get(b)
+        if arr is None or d == pd.NaT.value:
+            continue
+        lo = np.searchsorted(arr, d - win_ns, side="left")
+        hi = np.searchsorted(arr, d, side="right")
+        if hi > lo:
+            out[idx] = True
+    return out
+
+
 def _thin(run_dir: Path, frame, held, target: np.ndarray | None = None) -> np.ndarray:
     """`cautions.thin_level` for the held-out rows: the posterior mean of the level of
     each one's building (`drift_diagnostics.levels`) and the building's count of training
@@ -318,6 +363,7 @@ def _run_cautions(
     ads: Path,
     texts: Path | None,
     target: np.ndarray | None = None,
+    asof_first_day: bool = False,
 ) -> tuple[list, int | None, int | None]:
     """`_cautions` for the held-out rows `h` of the run at `run_dir`, with `a` their rows
     of the ads table `ads`. `deals` and `validate` both call this, so a backtest's ads
@@ -326,7 +372,10 @@ def _run_cautions(
     eval_mask = np.asarray(held if target is None else target, bool)
     # The model's unit is the pair of building and unit_id (`drift.unit_index`).
     unit_key = frame.building.astype(str) + "|" + frame.unit_id.astype(str)
-    raised = _raised(frame, eval_mask, ads, bool(market.get("backtest")))
+    if asof_first_day:
+        raised = _raised_asof_first_day(frame, held, eval_mask, ads)
+    else:
+        raised = _raised(frame, eval_mask, ads, bool(market.get("backtest")))
     return _cautions(
         frame,
         h,
@@ -466,13 +515,21 @@ def first_net(first, final, page, months_free) -> np.ndarray:
 
 
 def validate(
-    run_dir: Path, ads: Path, bins: int = 10, texts: Path | None = None
+    run_dir: Path,
+    ads: Path,
+    bins: int = 10,
+    texts: Path | None = None,
+    subset: str = "auto",
 ) -> dict:
     """By tenth of the first ask's place in the predictive distribution: the ads, their
     median days on the market, the shares whose ask was cut or raised before closing, and the
     median change from first to final ask. The first ask is `first_net`. Also the final asks'
     scores (`drift_score.summary`), and under `without_free_months` the same table over the
     ads with no free months, whose asks need no change of basis.
+
+    On a live market `onefit` run (`backtest` false), `subset="auto"` validates on the closed
+    held-out rows (≥1 year old, with complete outcomes) instead of the still-open ads; on a
+    backtest dataset or `market` split, it validates on the open ads.
 
     Under `uncautioned` the same table over the ads with no caution, the ads the Deals
     page lists unless asked for the rest. The cautions are the ones `deals` gives the run's
@@ -481,13 +538,35 @@ def validate(
     wrote for the run, the cautions read from an ad's text are not made and `texts_read`
     is false."""
     frame, h, held = _held_frame(run_dir)
-    target, keep_h = _market_mask(run_dir, frame, held)
+    record = json.loads((run_dir / "result.json").read_text())
+    market = _manifest(run_dir)
+    open_target, open_keep_h = _market_mask(run_dir, frame, held)
+    use_closed = subset == "closed" or (
+        subset == "auto"
+        and record.get("split") in ("onefit", "unified")
+        and not bool(market.get("backtest"))
+        and (~open_keep_h).any()
+    )
+    if use_closed:
+        keep_h = ~open_keep_h
+        target = np.asarray(held, bool) & ~open_target
+    else:
+        keep_h = open_keep_h
+        target = open_target
     h_all = h
     if not keep_h.all():
         h = h[keep_h].reset_index(drop=True)
     a = _ads(ads, h.listing_id)
     codes, with_text, _ = _run_cautions(
-        run_dir, frame, h, held, a, ads, texts, target=target
+        run_dir,
+        frame,
+        h,
+        held,
+        a,
+        ads,
+        texts,
+        target=target,
+        asof_first_day=use_closed,
     )
     plain = ~np.array([bool(c) for c in codes], bool)
     final = h.latest_ask.to_numpy(float)
@@ -540,7 +619,7 @@ def validate(
             )
         return rows
 
-    return {
+    out = {
         "run": run_dir.name,
         "ads_with_first_ask": int(ok.sum()),
         "first_ask_basis": "net of the ad's free months, as the model's asks are",
@@ -559,6 +638,9 @@ def validate(
             "by_first_ask_place": table(ok & plain),
         },
     }
+    if use_closed:
+        out["validation_basis"] = f"{record.get('split')}_closed_heldout"
+    return out
 
 
 def _manifest(run_dir: Path) -> dict:
@@ -663,6 +745,27 @@ def publish(
         },
         "published": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
+    check = None
+    if backtest is not None:
+        past_result, past = _checked(backtest, backtest=True, model=model)
+        gate["backtest"] = _gate(past_result)
+        check = validate(backtest, Path(past["ads"])) | {"as_of": past["scoring_day"]}
+        meta["backtest_run"] = backtest.name
+    elif result.get("split") in ("onefit", "unified"):
+        frame, _, held = _held_frame(run_dir)
+        _, keep_h = _market_mask(run_dir, frame, held)
+        if (~keep_h).any():
+            gate["backtest"] = gate["market"]
+            check = validate(run_dir, Path(market["ads"]), subset="closed") | {
+                "as_of": market["scoring_day"]
+            }
+            meta["backtest_run"] = run_dir.name
+            if heldout is None:
+                gate["heldout"] = gate["market"]
+                meta["heldout"] = check["final_ask_scores"] | {
+                    "run": run_dir.name,
+                    "split": result.get("split"),
+                }
     if heldout is not None:
         record = json.loads((heldout / "result.json").read_text())
         if record["model"]["name"] != model:
@@ -674,7 +777,7 @@ def publish(
         meta["heldout"] = drift_score.summary(
             {k: scores[k] for k in ("y", "q", "pred", "elpd")}
         ) | {"run": heldout.name, "split": record.get("split")}
-    elif result.get("split") in ("unified", "onefit"):
+    elif "heldout" not in meta and result.get("split") in ("onefit", "unified"):
         frame, _, held = _held_frame(run_dir)
         _, keep_h = _market_mask(run_dir, frame, held)
         scores = drift_score.score_run(run_dir, exact=False)
@@ -683,13 +786,7 @@ def publish(
             gate["heldout"] = gate["market"]
             meta["heldout"] = drift_score.summary(
                 {k: scores[k][closed] for k in ("y", "q", "pred", "elpd")}
-            ) | {"run": run_dir.name, "split": "unified"}
-    check = None
-    if backtest is not None:
-        past_result, past = _checked(backtest, backtest=True, model=model)
-        gate["backtest"] = _gate(past_result)
-        check = validate(backtest, Path(past["ads"])) | {"as_of": past["scoring_day"]}
-        meta["backtest_run"] = backtest.name
+            ) | {"run": run_dir.name, "split": result.get("split")}
     out.mkdir(parents=True, exist_ok=True)
     if check is None:
         (out / "validation.json").unlink(missing_ok=True)

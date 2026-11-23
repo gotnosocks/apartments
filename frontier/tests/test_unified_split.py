@@ -1,5 +1,5 @@
-"""Tests for the single-fit `unified` split and single-run publishing across Deals,
-Estimates, Diagnostics, and Today."""
+"""Tests for the consolidated single-fit `onefit` split and single-run publishing across
+Deals (including closed-heldout validation), Estimates, Diagnostics, and Today."""
 
 from __future__ import annotations
 
@@ -67,42 +67,49 @@ def _synthetic_market_frame(n_buildings: int = 8, n_units: int = 20) -> pd.DataF
     return pd.DataFrame(rows)
 
 
-def test_unified_split_preserves_active_unit_history_and_holds_closed_eval():
+def test_onefit_split_is_sole_registered_single_fit_split():
+    assert "onefit" in splits.SPLITS
+    assert "onefit" in splits.AFTER_RULES
+    assert "unified" not in splits.SPLITS
+    assert "unified" not in splits.AFTER_RULES
+
     df = _synthetic_market_frame()
-    held = splits.unified_split(df, fraction=0.10, seed=20260922)
+    held = splits.one_fit_split(df, fraction=0.25, seed=20260922)
     open_mask = df.open.to_numpy(bool)
 
     # Every open listing is held out
     assert held[open_mask].all()
 
-    # Closed eval rows are also held out
+    # Closed eval rows (>= 1 year old) are also held out
     closed_held = held & ~open_mask
     assert closed_held.sum() > 0
 
-    # Zero closed rows of any active unit are held out (100% of active unit history stays in training)
+    # Zero closed rows of any active unit are held out
     active_units = set(df.loc[open_mask, "unit_id"])
     assert not (closed_held & df.unit_id.isin(active_units).to_numpy()).any()
 
-    # Every held-out closed row is the latest listing of its unit (strictly leak-free)
+    # Every held-out closed row is the latest listing of its unit
     for idx in np.flatnonzero(closed_held):
         row = df.iloc[idx]
         same_unit = df[df.unit_id == row.unit_id]
         assert row.price_at == same_unit.price_at.max()
 
 
-def test_unified_split_registered_after_rules():
-    assert "unified" in splits.SPLITS
-    assert "unified" in splits.AFTER_RULES
-
-
-def test_unified_single_fit_estimates_and_deals_mask(tmp_path: Path, monkeypatch):
+def test_onefit_single_fit_publishers_and_closed_validation(
+    tmp_path: Path, monkeypatch
+):
     df = _synthetic_market_frame()
-    held = splits.unified_split(df, fraction=0.10, seed=20260922)
+    held = splits.one_fit_split(df, fraction=0.25, seed=20260922)
 
     ds_dir = tmp_path / "ds"
     ds_dir.mkdir()
     df.to_parquet(ds_dir / "rows.parquet", index=False)
     ads_path = tmp_path / "ads.parquet"
+    is_open = df.open.to_numpy(bool)
+    first_days = df.latest_day - pd.to_timedelta(14, unit="D")
+    off_days = pd.Series(
+        np.where(is_open, pd.NaT, df.latest_day.to_numpy()), dtype="datetime64[ns]"
+    )
     ads_df = pd.DataFrame(
         {
             "listing_id": df.listing_id.astype(str),
@@ -111,9 +118,10 @@ def test_unified_single_fit_estimates_and_deals_mask(tmp_path: Path, monkeypatch
             "months_free": 0.0,
             "first_ask": df.latest_ask,
             "page_price": df.latest_ask,
-            "first_day": df.latest_day,
-            "off_day": pd.NaT,
-            "days_on_market": 10.0,
+            "first_day": first_days,
+            "off_day": off_days,
+            "days_on_market": 14.0,
+            "status": df.status,
         }
     )
     ads_df.to_parquet(ads_path, index=False)
@@ -132,15 +140,23 @@ def test_unified_single_fit_estimates_and_deals_mask(tmp_path: Path, monkeypatch
         )
     )
 
-    run_dir = tmp_path / "run-unified"
+    run_dir = tmp_path / "run-onefit"
     run_dir.mkdir()
     n_h = int(held.sum())
+    y_h = np.log(df.loc[held, "latest_ask"].to_numpy(float))
     np.savez(
         run_dir / "posterior.npz",
         heldout=held,
         names=np.array(["alpha"]),
+        **{
+            "kept/pred_loc": np.broadcast_to(y_h[None, None, :], (2, 3, n_h)).copy(),
+            "kept/pred_unit_sd": np.full((2, 3, n_h), 0.05),
+            "kept/sigma": np.full((2, 3, 4), 0.03),
+            "kept/nu": np.full((2, 3), 2.0),
+            "kept/pred_y": y_h,
+            "kept/pred_group": np.zeros(n_h, dtype=np.int32),
+        },
     )
-    y_h = np.log(df.loc[held, "latest_ask"].to_numpy(float))
     q_h = np.tile(y_h[:, None], (1, 8)) + np.linspace(-0.2, 0.2, 8)[None, :]
     np.savez(
         run_dir / "pred_scores.npz",
@@ -155,7 +171,7 @@ def test_unified_single_fit_estimates_and_deals_mask(tmp_path: Path, monkeypatch
     (run_dir / "result.json").write_text(
         json.dumps(
             {
-                "split": "unified",
+                "split": "onefit",
                 "dataset": str(ds_dir),
                 "model": {"name": "drift-building-phase-unitkn-ablate"},
                 "diagnostics": {"passes": True, "max_rhat": 1.004, "min_ess": 800.0},
@@ -170,23 +186,38 @@ def test_unified_single_fit_estimates_and_deals_mask(tmp_path: Path, monkeypatch
     target, keep_h = drift_deals._market_mask(run_dir, frame, held_loaded)
     assert int(target.sum()) == int(df.open.sum()) == 4
     assert int(keep_h.sum()) == 4
-    assert len(h) > 4  # also includes closed latest-eval rows
+    assert len(h) > 4
 
-    # 2. drift_estimates accepts a single unified run with no --market second fit
+    # 2. drift_deals.validate on a live onefit run validates on closed held-out rows
+    val = drift_deals.validate(run_dir, ads_path)
+    assert val["validation_basis"] == "onefit_closed_heldout"
+    assert val["ads_with_first_ask"] == n_h - 4
+    assert val["final_ask_scores"]["rows"] == n_h - 4
+
+    # 3. drift_deals.publish writes validation.json automatically and labels split="onefit"
+    deals_out = tmp_path / "deals-out"
+    meta = drift_deals.publish(run_dir, deals_out, exact=False)
+    assert meta["ads"] == 4
+    assert meta["heldout"]["split"] == "onefit"
+    assert meta["heldout"]["rows"] == n_h - 4
+    assert meta["backtest_run"] == run_dir.name
+    assert (deals_out / "validation.json").exists()
+
+    # 4. drift_estimates accepts a single onefit run with no --market second fit
     est_df, est_meta = drift_estimates.estimates(run_dir)
-    assert est_meta["runs"]["unified"] == run_dir.name
+    assert est_meta["runs"]["onefit"] == run_dir.name
     assert est_meta["ads"]["market"] == 4
     assert est_meta["ads"]["latest"] == n_h - 4
     assert set(est_df["source"].unique()) == {"market", "latest"}
     assert "elpd" in est_meta["heldout"]
 
-    # 3. drift_today._on_market distinguishes open ads from closed held-out eval ads
+    # 5. drift_today._on_market distinguishes open ads from closed held-out eval ads
     fake_fit = type("FakeFit", (), {"frame": df, "held": held})()
     on_mkt = drift_today._on_market(fake_fit)
     assert int(on_mkt.sum()) == 4
     assert np.array_equal(on_mkt, df.open.to_numpy(bool))
 
-    # 4. drift_diagnostics accepts a single unified run cleanly
+    # 6. drift_diagnostics accepts a single onefit run cleanly
     assert drift_diagnostics.coverage(np.full(5, 0.5))["80"] == 1.0
 
 

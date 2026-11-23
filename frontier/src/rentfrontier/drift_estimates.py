@@ -190,12 +190,12 @@ def estimates(
         meta = {
             "model": model,
             "runs": {
-                "unified": latest.name,
+                split_name: latest.name,
                 "latest": latest.name,
                 "market": latest.name,
             },
-            "datasets": {"unified": prov, "latest": prov, "market": prov},
-            "gate": {"unified": gate, "latest": gate, "market": gate},
+            "datasets": {split_name: prov, "latest": prov, "market": prov},
+            "gate": {split_name: gate, "latest": gate, "market": gate},
             "scoring_day": manifest.get("scoring_day"),
             "heldout": drift_score.summary(past_res),
             "ads": {
