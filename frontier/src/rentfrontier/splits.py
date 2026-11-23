@@ -37,7 +37,7 @@ import pandas as pd
 
 SEED = 20260922
 FRACTION = 0.10
-UNIFIED_FRACTION = 0.05
+UNIFIED_FRACTION = 0.02
 
 
 def row_split(data: pd.DataFrame, fraction=FRACTION, seed=SEED) -> np.ndarray:

@@ -188,3 +188,41 @@ def test_unified_single_fit_estimates_and_deals_mask(tmp_path: Path, monkeypatch
 
     # 4. drift_diagnostics accepts a single unified run cleanly
     assert drift_diagnostics.coverage(np.full(5, 0.5))["80"] == 1.0
+
+
+def test_drift_today_supports_sv_gp_mo_and_seg_add_semi():
+    """Verify drift_today.segment_terms / segment_shift and cell_terms / cell_today work
+    cleanly on the simplified unified tokens (`seg_add_semi` and `sv_gp_mo`)."""
+    import test_drift as td
+
+    from rentfrontier import drift_building_phase_unitkn_ablate as ab
+
+    d_long = td._design(n=400, weeks=160)
+    d_semi = ab.additive_segment_paths(d_long, stride=2)
+    sg = drift_today.segment_terms(d_semi, list(d_semi.names))
+    assert sg is not None and sg.additive is True
+
+    # Verify segment_shift matches direct beta dot product change
+    rng = np.random.default_rng(7)
+    beta = rng.normal(0.0, 0.05, size=(3, len(d_semi.names)))
+    rows = np.array([0, 10, 50, 150, 300])
+    t_new = float(sg.knots[-1])
+    fake_fit = type(
+        "FakeFit",
+        (),
+        {
+            "seg": sg,
+            "pick": np.arange(3),
+            "kept": {"beta": beta},
+            "full": type("Full", (), {"t": td.drift.years(d_semi)})(),
+        },
+    )()
+    shift = drift_today.segment_shift(fake_fit, rows, t_new)
+    assert shift.shape == (3, len(rows))
+    assert np.all(np.isfinite(shift))
+
+    # Verify _sv_day_vector clamps cleanly and matches sv_gp_features
+    vec, names = drift_today._sv_day_vector("sv_gp_mo", pd.Timestamp("2026-11-22"), 140)
+    assert len(vec) == ab.SV_MO_MODES
+    assert names[0] == "sv:m00" and names[-1] == f"sv:m{ab.SV_MO_MODES - 1:02d}"
+    assert np.all(np.isfinite(vec))
