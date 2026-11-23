@@ -738,17 +738,18 @@ def diagnostics(
     model = record["model"]["name"]
     reg = drift_estimates._registry(registry)
     if unified_single:
+        split_name = raw["split"]
         gate = drift_deals._gate(record)
         prov = drift_estimates._provenance(record)
         meta = {
             "model": model,
             "runs": {
-                "unified": latest.name,
+                split_name: latest.name,
                 "latest": latest.name,
                 "market": latest.name,
             },
-            "datasets": {"unified": prov, "latest": prov, "market": prov},
-            "gate": {"unified": gate, "latest": gate, "market": gate},
+            "datasets": {split_name: prov, "latest": prov, "market": prov},
+            "gate": {split_name: gate, "latest": gate, "market": gate},
             "scoring_day": about.get("scoring_day"),
         }
         named = about["ads"]
