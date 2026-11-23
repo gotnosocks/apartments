@@ -24,8 +24,8 @@ subagent's model and effort to be picked by its task.
 - Budget: $82.71 of $100 by this file's count. The Modal ledger holds $386.57 of settled
   fits since Nov 14 ($279.65 on Nov 22 alone), most from other sessions. Reconcile it
   before the next paid fit.
-- Until the TODO item on refresh tooling is fixed, avoid a scrape early on a Monday and set `REGISTRY`
-  to the newest same-day `-extend*` snapshot by hand.
+- Until the TODO item on refresh tooling is fixed, avoid a scrape early on a Monday and
+  set `REGISTRY` to the newest same-day `-extend*` snapshot by hand.
 
 ## Milestone: 2026-11-22 — Unified drift models, HTML lineage docs, and Modal Fast Screening Harness (#1529–#1533)
 
