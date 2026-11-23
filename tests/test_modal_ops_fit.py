@@ -826,6 +826,50 @@ def test_a_large_fit_can_stop_before_its_summary():
     assert "--no-summary" not in rest and "--outside-budget" not in rest
 
 
+def test_a_lean_large_fit_reserves_less_memory_and_builds_no_summary(monkeypatch):
+    monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
+    app = load("app")
+    assert set(app.LEAN_FITS) <= set(app.LARGE_FITS)
+    assert app.LEAN_MEMORY_MIB < app.LARGE_MEMORY_MIB
+    for gpu in app.LEAN_FITS:
+        saved = app.usd_per_second(gpu, large=True) - app.usd_per_second(
+            gpu, large=True, lean=True
+        )
+        assert saved == pytest.approx(
+            (app.LARGE_MEMORY_MIB - app.LEAN_MEMORY_MIB) / 1024 * app.USD_PER_GIB_SECOND
+        )
+    # A drift baseline fitted with no scoring in the container (no --score) may go lean.
+    argv = [
+        "abc",
+        "of",
+        "drift-building-phase-unitkn-ablate",
+        "b0",
+        "2",
+        "20",
+        "20",
+        "1",
+    ]
+    lean = ["--large", "--lean", "--gpu", "H200"]
+    args, rest = fit.parse([*lean, *argv])
+    assert args.lean and "--lean" not in rest
+    spec = fit.plan(args, rest, "9371a18")
+    assert not (spec["summary"] or spec["loo"] or spec["heldout"])
+    # Anything the 14.8 GiB probe did not measure keeps the large container: scoring in the
+    # container, a publish, a frontier model (summary or not), or no --large at all.
+    m7 = ["abc", "all", "m7", "all-scraped-v1", "2", "300", "4500", "9"]
+    for flags, rest_argv in (
+        ([*lean, "--score"], argv),
+        ([*lean, "--score", "--no-loo"], argv),
+        ([*lean, "--publish-only"], argv),
+        (lean, m7),
+        ([*lean, "--no-summary"], m7),
+        (["--lean", "--gpu", "H200"], argv),
+    ):
+        args, rest = fit.parse([*flags, *rest_argv])
+        with pytest.raises(SystemExit):
+            fit.plan(args, rest, "9371a18")
+
+
 def test_a_large_baseline_fit_runs_as_the_fit_alone():
     argv = [
         "abc",
