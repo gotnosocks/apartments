@@ -15,6 +15,18 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
+## State at about 4 PM ET on Nov 23, Deals refreshed
+
+- Deals reads `range-m4` (6,200 ads, 1,577 cautioned, backtest `range-j`, build rows
+  `b157a29e19aa837a`). It cost $2.28 and passed the gate (R-hat 1.0062, ESS 829). Every
+  prediction but the cost held (`docs/notes/market-refresh-2026-11-23.md`). The Nov 20
+  files are in `/data1/apartments/tmp/po-deals-live-before-refresh-1123`.
+- Budget: $82.71 of $100 by this file's count. The Modal ledger holds $386.57 of settled
+  fits since Nov 14 ($279.65 on Nov 22 alone), most from other sessions. Reconcile it
+  before the next paid fit.
+- Until the TODO item on refresh tooling is fixed, avoid a scrape early on a Monday and set `REGISTRY`
+  to the newest same-day `-extend*` snapshot by hand.
+
 ## Milestone: 2026-11-22 — Unified drift models, HTML lineage docs, and Modal Fast Screening Harness (#1529–#1533)
 
 - **Whole-dataset audit batch (#1529, `d61fd6d9`):** Imported 123 audited outlier ledger entries and added `same_bed_first` layer ordering to `sizefill.asof_size`.
