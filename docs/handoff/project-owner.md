@@ -15,6 +15,18 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
+## State at about 4 PM ET on Nov 23, Deals refreshed
+
+- Deals reads `range-m4` (6,200 ads, 1,577 cautioned, backtest `range-j`, build rows
+  `b157a29e19aa837a`). It cost $2.28 and passed the gate (R-hat 1.0062, ESS 829). Every
+  prediction but the cost held (`docs/notes/market-refresh-2026-11-23.md`). The Nov 20
+  files are in `/data1/apartments/tmp/po-deals-live-before-refresh-1123`.
+- Budget: $82.71 of $100 by this file's count. The Modal ledger holds $386.57 of settled
+  fits since Nov 14 ($279.65 on Nov 22 alone), most from other sessions. Reconcile it
+  before the next paid fit.
+- Until the TODO item on refresh tooling is fixed, avoid a scrape early on a Monday and
+  set `REGISTRY` to the newest same-day `-extend*` snapshot by hand.
+
 ## Milestone: 2026-11-23 — Parameter Simplification (`c1-compact`), Single-Fit Consolidation (`--split unified`), & Model Discovery Pareto Sprint (`$47.82 / $100.00`)
 
 - **Model Discovery Agent parsimony & Pareto upgrade:** Extended `rentfrontier.screen` + `ops/modal-screen` with `bayesian_simplify_verdict` (`SIMPLIFY_KEEP`/`KEEP_COMPLEX`/`ESCALATE`), `pareto` batch frontier tracking (`ELPD/removed-param`, `s/sweep` speedup, `bits/min`, `bits/$`), and `budget` live ledger tracking; benchmarked `k10` (`7.8 min / $0.33`, `0.36 bits/min`, `8.7 bits/$`) and `market k5` (`0.64 bits/min`, `15.0 bits/$`).

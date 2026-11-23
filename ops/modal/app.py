@@ -14,6 +14,7 @@ thelio after the download (ops/modal/summarize), except for a large fit, which b
 
 import json
 import os
+import resource
 import shutil
 import subprocess
 import time
@@ -77,6 +78,11 @@ TODAY_CPU, TODAY_MEMORY_MIB, TODAY_TIMEOUT = 16, 65536, 3600
 # 266k, and the fit, PSIS-LOO, post-fit statistics and summary bundle each run for an hour or
 # more, so the container builds the bundle and its calibration itself (thelio has 15 GB).
 LARGE_CPU, LARGE_MEMORY_MIB = 8, 196608
+# A lean large fit (fit.py --large --lean) reserves a quarter of that: one that builds no summary
+# bundle in the container. The drift model's fit on all 1.62M training rows, design prep
+# included, peaked at 14.8 GiB (docs/notes/large-container-memory-2026-11-23.md), and its kept
+# draws and predictions add well under 1 GiB.
+LEAN_MEMORY_MIB = 49152
 LARGE_FIT_CAP, LARGE_TIMEOUT = 9 * 3600, 12 * 3600
 LARGE_POST_MARGIN = 45 * 60  # copying a 1.75M-row run, LOO and bundle to the Volume
 PUBLISH_MARGIN = 15 * 60  # copying a bundle, kit and rent map to the Volume
@@ -85,10 +91,13 @@ PUBLISH_MARGIN = 15 * 60  # copying a bundle, kit and rent map to the Volume
 SUMMARY_WORKERS = LARGE_CPU - 1
 
 
-def usd_per_second(gpu, large=False):
+def usd_per_second(gpu, large=False, lean=False):
     """List price of one container: the GPU plus its reserved cores and memory (about $0.42 an
-    hour, or $1.90 for a large fit)."""
-    cpu, memory = (LARGE_CPU, LARGE_MEMORY_MIB) if large else (CPU, MEMORY_MIB)
+    hour, $1.90 for a large fit or $0.76 for a lean one)."""
+    if large:
+        cpu, memory = LARGE_CPU, LEAN_MEMORY_MIB if lean else LARGE_MEMORY_MIB
+    else:
+        cpu, memory = CPU, MEMORY_MIB
     return (
         GPUS[gpu] / 3600
         + cpu * USD_PER_CORE_SECOND
@@ -537,11 +546,18 @@ def _fit(spec):
 
 
 def _memory_peak():
-    """cgroup v2's high-water mark of the container's memory, or None."""
+    """cgroup v2's high-water mark of the container's memory. Modal's gVisor sandbox has no
+    `memory.peak` (every fit so far recorded None), so failing that, the largest resident
+    set of any one finished child process (the fit, LOO and post steps run as children), or
+    None. That is one process's peak, not the container's: steps with worker processes
+    (`drift_today --workers`, parallel LOO) use more than it says, and a warm container
+    that served an earlier input reports the larger of the two."""
     try:
         return int(Path("/sys/fs/cgroup/memory.peak").read_text())
     except (OSError, ValueError):
-        return None
+        pass
+    rss = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss  # KiB on Linux
+    return rss * 1024 if rss > 0 else None
 
 
 def _save_fit(spec, out):
@@ -707,11 +723,7 @@ def _design(spec):
         record = json.loads((out / "design.log").read_text().splitlines()[-1])
     except (OSError, ValueError, IndexError):
         record = None
-    try:
-        # cgroup v2's high-water mark of the container's memory
-        peak = int(Path("/sys/fs/cgroup/memory.peak").read_text())
-    except (OSError, ValueError):
-        peak = None
+    peak = _memory_peak()
     wall = time.time() - started
     meta = {
         "name": name,
@@ -771,10 +783,7 @@ def _today(spec):
         for name in ("today.parquet", "meta.json"):
             shutil.copy2(table / name, out / name)
             files.append(name)
-    try:
-        peak = int(Path("/sys/fs/cgroup/memory.peak").read_text())
-    except (OSError, ValueError):
-        peak = None
+    peak = _memory_peak()
     wall = time.time() - started
     meta = {
         "name": spec["name"],
@@ -818,11 +827,11 @@ FITS = {
 }
 
 
-def _large_function(gpu):
+def _large_function(gpu, memory=LARGE_MEMORY_MIB):
     return app.function(
         gpu=gpu,
         cpu=LARGE_CPU,
-        memory=LARGE_MEMORY_MIB,
+        memory=memory,
         timeout=LARGE_TIMEOUT,
         volumes={"/vol": volume},
     )
@@ -858,3 +867,16 @@ LARGE_FITS = {
     "H100": fit_h100_large,
     "H200": fit_h200_large,
 }
+
+
+@_large_function("H100", LEAN_MEMORY_MIB)
+def fit_h100_lean(spec):
+    return _fit(spec)
+
+
+@_large_function("H200", LEAN_MEMORY_MIB)
+def fit_h200_lean(spec):
+    return _fit(spec)
+
+
+LEAN_FITS = {"H100": fit_h100_lean, "H200": fit_h200_lean}

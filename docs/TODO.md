@@ -19,6 +19,14 @@ the frontier line's items, is in [archive/TODO-2026-10.md](archive/TODO-2026-10.
   [frontier/README.md](../frontier/README.md) (195-module map), and the HTML-docs preference in
   `CLAUDE.md`; synced `README.md`, `docs/README.md`, `docs/research-record.md`, and
   `docs/handoff/project-owner.md`.
+- [ ] **Deals refresh tooling, two faults from the Nov 23 refresh**
+  (`docs/notes/market-refresh-2026-11-23.md`). (1) A scrape early on a Monday fails
+  `b0trim.dense_start`: the week that began that morning holds under 100 rows. Drop a thin
+  last week, or have `ops/deals-refresh` refuse to start before the week holds 100. (2) The
+  `*-extend` registry glob in `ops/market-dataset` and `ops/deals-refresh` picks
+  `YYYYMMDD-SHA-extend` over a later `-extend-HHMMSS` snapshot of the same day. Sort by
+  mtime or pass the snapshot along the chain. `registry-extend` also exits 134 after its NJ
+  step, with its file written.
 - [ ] **Move toward a single unified model** serving `/deals`, `/estimates`, `/price-now`, and
   `/diagnostics` (retiring the split between `range-m3`, Nov 10 `n9`/`b9`, and Oct 17 `m7`).
   *Progress (2026-11-22, #1531):* `unified` (`u3-mkt` PASS on `market` `+173.8`) and `unified-seg`

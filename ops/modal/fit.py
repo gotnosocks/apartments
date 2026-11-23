@@ -41,8 +41,9 @@ on thelio after the fit's unit has exited.
 With --large (an A100-40GB, A100-80GB, H100 or H200), the container has 192 GiB of host memory and a 12 h
 timeout, the fit is capped at 9 h, the post-fit statistics only by that timeout, and the
 container builds the summary bundle and calibration itself; they download to
-FRONTIER_OUTPUT_ROOT/{summaries,calibration}/. The per-fit hour cap leaves large fits out (Ben,
-2026-10-16 06:37Z). The Volume itself is deleted after 24 h without a
+FRONTIER_OUTPUT_ROOT/{summaries,calibration}/. With --large --lean, a baseline's fit with no
+scoring in the container reserves 48 GiB in place of 192 (app.LEAN_FITS). The per-fit hour cap leaves large fits
+out (Ben, 2026-10-16 06:37Z). The Volume itself is deleted after 24 h without a
 launch (ops/modal/cleanup).
 """
 
@@ -122,6 +123,12 @@ def parse(argv):
         "--outside-budget",
         action="store_true",
         help="record the fit outside the Modal budget (cap.py; Ben, 2026-10-16 14:55Z)",
+    )
+    p.add_argument(
+        "--lean",
+        action="store_true",
+        help="with --large, for a baseline's fit with no --score: a container with "
+        "48 GiB of host memory in place of 192 (app.LEAN_FITS; H100 or H200)",
     )
     p.add_argument(
         "--no-summary",
@@ -236,6 +243,18 @@ def plan(args, run_args, sha, short=None):
     loo, heldout = cap.scoring_steps(
         args.model, args.large, args.score, args.no_loo, args.no_heldout
     )
+    summary = not args.no_summary and args.model not in BASELINE_MODELS
+    # The 48 GiB was measured on a drift baseline's fit alone (rentfrontier.run), with no
+    # in-container scoring, post steps or summary (docs/notes/large-container-memory-2026-11-23.md).
+    if args.lean and not (
+        args.large
+        and args.model in BASELINE_MODELS
+        and not (loo or heldout or args.publish_only)
+    ):
+        sys.exit(
+            "--lean needs --large, a baseline model and no scoring in the container "
+            "(no --score or --publish-only)"
+        )
     inputs = [
         str(Path(args.dataset).resolve()),
         *INPUTS,
@@ -251,7 +270,7 @@ def plan(args, run_args, sha, short=None):
         "explain": list(args.explain),
         "large": args.large,
         # rentfrontier.summary reads no baseline run.
-        "summary": not args.no_summary and args.model not in BASELINE_MODELS,
+        "summary": summary,
         "publish_only": args.publish_only,
         "allow_failing": args.allow_failing,
         "range_sample": args.range_sample,
@@ -545,7 +564,13 @@ def main(argv):
     # The image installs this commit's uv.lock.
     os.environ["MODAL_FIT_STAGE"] = str(stage)
     modal_app = importlib.import_module("app")
-    fits = modal_app.LARGE_FITS if args.large else modal_app.FITS
+    fits = (
+        modal_app.LEAN_FITS
+        if args.lean
+        else modal_app.LARGE_FITS
+        if args.large
+        else modal_app.FITS
+    )
     if args.gpu not in fits:
         sys.exit(f"--gpu must be one of {', '.join(fits)}")
     touch()
@@ -618,7 +643,8 @@ def main(argv):
             ):
                 meta["newbuilding"] = score_new_buildings(modal_app, spec)
         meta["usd_estimate"] = round(
-            meta["wall_seconds"] * modal_app.usd_per_second(args.gpu, args.large)
+            meta["wall_seconds"]
+            * modal_app.usd_per_second(args.gpu, args.large, args.lean)
             + meta.get("newbuilding", {}).get("usd_estimate", 0)
             + meta.get("score", {}).get("usd_estimate", 0),
             2,
@@ -640,7 +666,7 @@ def main(argv):
         cost = (meta or {}).get("usd_estimate")
         if cost is None:
             cost = (time.monotonic() - started) * modal_app.usd_per_second(
-                args.gpu, args.large
+                args.gpu, args.large, args.lean
             )
         try:
             cap.settle(launch, cost)
