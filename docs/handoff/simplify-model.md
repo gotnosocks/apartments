@@ -1,4 +1,4 @@
-# Simplify-model thread (branch `t3/simplify-model-fit`)
+# Simplify-model thread (branch `t3/simplify-onefit-2`)
 
 Ben, 2026-11-22: make the drift model smaller, simpler and cheaper to fit while keeping held-out
 elpd, median error, coverage and the gate. Up to $50 on Modal. Mid-turn: the three fits a model
@@ -20,8 +20,22 @@ to need one. That is the top item.
 - Gate on fewer draws (u5-svgpmo-lat traces): pass at 6×2,000 and 4×2,600; fail at 6×1,600.
 - Container memory reservation (192 GiB, ~$1.90/h of $6.45/h) unmeasured: a candidate saving.
 
+- 2026-11-23: the competitor's one-fit full fit (`...-b0-unified-7c95e5b8-c1-compact-uni-{a,b}`,
+  compact model, open + 2% latest, 2 containers × 2 chains × 2,000 draws) passes the gate on
+  its 4 chains combined (`scratchpad/combine_gate.py`): max R-hat 1.0096, min ESS 642. Each
+  container took ~3,050 s, so about $11 for the fit, against ~$28 for one 3-container fit
+  before and three fits per model.
+
+- 2026-11-23 03:30 ET: the full onefit fit passes. `...-b0-onefit-b7f7036d-u5-of` (pooled
+  from `-a`, `-b`; u5-svgpmo model; 2 containers × 2 chains × 2,600): R-hat 1.0072, ESS 788,
+  open ads −24.9 ± 8.7 against the 3-container market fit, median error and coverage the
+  same, validity monotone on 133,774 old rows, $14.46. Note `docs/notes/onefit-full-2026-11-23.md`.
+  Each container's `variance` post step fails on ablate models (`model.MODELS` KeyError);
+  harmless, the fit is complete. Modal spend so far about $19 of $50.
+
 ## Next
 
-PR this branch. Then the plumbing so Deals, Today and Diagnostics read one onefit run's two
-subsets, and one full onefit fit that passes the gate, unless the competitor's unified
-plumbing lands first, in which case add the age filter to it.
+Pages read one run: PR #1538 (competitor, `feat/simplify-model-discovery`) wires Deals,
+Today and Diagnostics for `unified` and `onefit`. Watch it; if it stalls, build the onefit
+part here. Then candidates for less cost: the 192 GiB container reservation, and the
+`variance` post step's failure on ablate models.
