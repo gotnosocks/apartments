@@ -50,17 +50,20 @@ import pandas as pd
 
 from . import (
     building_attrs,
+    building_zones_floor,
     building_zones_floor_asof,
     building_zones_floor_asof3,
     drift,
     drift_building_bedtext_layout,
     drift_building_bedtext_layout_range,
+    drift_building_phase_segment,
     drift_building_phase_unitkn_level,
     drift_building_phase_unitkn_level_bedtext,
     drift_building_phase_unitkn_level_bedunit,
     drift_building_phase_unitkn_unified,
     drift_building_phase_unitkn_unified_seg,
     drift_building_phase_year,
+    two_zone,
 )
 from .building_zones_kitchen_sink import EXTERNAL_ROOT, append
 from .drift_building_phase_unitkn_level import (  # noqa: F401
@@ -92,7 +95,6 @@ from .drift_building_phase_unitkn_level import (  # noqa: F401
     wave_matrix,
     years,
 )
-from .drift_building_phase_unitkn_unified_seg import diagnostics  # noqa: F401
 
 NAME = "drift-building-phase-unitkn-ablate"
 COVID_CSV = EXTERNAL_ROOT / "covid" / "20261122-nychealth" / "data-by-day.csv"
@@ -105,6 +107,11 @@ MARK_TOKENS = {
     "mark_large01br": ("mark:large_01br",),
     "mark_thin": ("mark:thin_first_ad",),
 }
+SEG_TOKENS = ("seg", "seg_add", "seg_add_lr16", "seg_add_lr12", "seg_lr16")
+SV_TOKENS = ("sv_gp", "sv_gp_mo", "sv_gp_mo16", "sv_gp_mo12", "sv_gp_wk", "sv_gp_wk05")
+VEL_TOKENS = ("vel_gp", "vel_gp_wk")
+SPATIAL_TOKENS = ("spatial_k80", "spatial_k40")
+
 ALL_TOKENS = (
     "sbf",
     "bedunit",
@@ -115,19 +122,31 @@ ALL_TOKENS = (
     "marks",
     "marks_no_thin",
     *MARK_TOKENS,
-    "seg",
+    *SEG_TOKENS,
     "covid_mean",
     "covid_vol",
-    "sv_gp",
-    "sv_gp_mo",
-    "sv_gp_wk",
-    "sv_gp_wk05",
-    "vel_gp",
-    "vel_gp_wk",
+    *SV_TOKENS,
+    *VEL_TOKENS,
     "concess_gap",
     "stab_dhcr",
     "income_scale",
     "u4_bed",
+    # Model-simplification & parameter-pruning tokens
+    "floor_poly",
+    "no_umean",
+    "umean_core",
+    "no_ad_ks",
+    "ad_core",
+    "no_bld_ks",
+    "bld_core",
+    "scalar_sigma",
+    "phase_compact",
+    "no_phase_mean",
+    "no_season2",
+    *SPATIAL_TOKENS,
+    "biweekly_walk",
+    "no_bld_ar",
+    "scale_2x",
 )
 
 # Anchored Matérn-3/2 stochastic volatility GP constants (`sv_gp*`).
@@ -141,6 +160,8 @@ SV_MODES = 22  # orthogonal eigenmodes (>99% of Matérn-3/2 variance)
 SV_MONTHS = 156  # 2014-01 through 2026-12
 SV_REF_MONTH = 120  # 2024-01
 SV_MO_MODES = 24  # >99% of Matérn-3/2 variance at ls=1.0 yr
+SV_MO16_MODES = 16
+SV_MO12_MODES = 12
 
 SV_WEEK_START = pd.Timestamp("2013-12-02", tz="UTC")  # exact match to L(t) weekly grid
 SV_WEEKS = 672  # 672 weeks (~2013-12-02 through late 2026)
@@ -149,8 +170,68 @@ SV_WK_MODES = 28  # 99.27% of Matérn-3/2 variance at ls=1.0 yr
 SV_WK05_LS = 0.5  # sharper 6-month lengthscale
 SV_WK05_MODES = 36  # 97.68% of Matérn-3/2 variance at ls=0.5 yr
 
-SV_TOKENS = ("sv_gp", "sv_gp_mo", "sv_gp_wk", "sv_gp_wk05")
-VEL_TOKENS = ("vel_gp", "vel_gp_wk")
+# Low-rank anchored Matérn-3/2 segment-path GP constants (`seg_*_lr*`).
+SEG_LR_AMP = 0.05  # matches clean5-lat posterior segment GP amps (0.02-0.064)
+SEG_LR_LS = 1.0  # lengthscale in years (matches clean5-lat posterior 0.67-1.15 yr)
+SEG_LR_PRIOR_SD = 0.5  # drift.py default flag/general beta prior sd
+
+# Core subsets for kitchen-sink pruning screens (chosen from clean5-lat posterior norms).
+UMEAN_CORE_COLS = frozenset(
+    {
+        "umean:unit:log_size_rel",
+        "umean:ad:log_size_rel_sq",
+        "umean:unit:size_unknown",
+        "umean:ad:months_free",
+        "umean:ad:floorplan",
+    }
+)
+AD_CORE_COLS = frozenset(
+    {
+        "ad:months_free",
+        "ad:lease_short",
+        "ad:lease_long",
+        "ad:log_size_rel_sq",
+        "ad:floorplan",
+        "ad:log1p_photos",
+    }
+)
+AD_VARIANT_PREFIXES = (
+    "ad:beds_",
+    "ad:baths_",
+    "ad:bed_text",
+    "ad:size_imp_",
+    "ad:large_01br",
+    "ad:concess_",
+)
+BLD_CORE_COLS = frozenset(
+    {
+        "bld:condo",
+        "bld:class_D",
+        "bld:log_height",
+        "bld:height_unknown",
+        "bld:log_units",
+        "bld:units_unknown",
+        "bld:altered_2000_on",
+        "bld:doorman_full",
+        "bld:doorman_part",
+        "bld:gym",
+        "bld:retail",
+        "bld:retail_unknown",
+        "bld:log_lot_front",
+        "bld:log_area_per_unit",
+        "bld:built_pre1900",
+        "bld:built_2010_on",
+        "bld:lot_unknown",
+    }
+)
+SEASON2_DROP_COLS = frozenset(
+    {
+        "sin2",
+        "cos2",
+        "bed=1:full>=3",
+        "flag:shared_space",
+    }
+)
 
 # Causal market-velocity volatility constants (`vel_gp`).
 VEL_SCALE = 0.15  # 15%/yr annualized trend speed maps to 1.0
@@ -258,23 +339,41 @@ def _matern32_anchored_basis(
     return B
 
 
-def sv_gp_basis(resolution: str = "quarter", ls: float | None = None) -> np.ndarray:
+def sv_gp_basis(
+    resolution: str = "quarter",
+    ls: float | None = None,
+    max_modes: int | None = None,
+) -> np.ndarray:
     """Anchored whitened Matérn-3/2 eigenbasis for `quarter`, `month`, or `week` grids."""
     if resolution == "quarter":
         t = SV_FIRST_YEAR + 0.125 + 0.25 * np.arange(SV_QUARTERS, dtype=float)
         return _matern32_anchored_basis(
-            t, SV_REF_QUARTER, SV_AMP, SV_LS if ls is None else ls, SV_MODES
+            t,
+            SV_REF_QUARTER,
+            SV_AMP,
+            SV_LS if ls is None else ls,
+            SV_MODES if max_modes is None else max_modes,
         )
     if resolution == "month":
         t = SV_FIRST_YEAR + (np.arange(SV_MONTHS, dtype=float) + 0.5) / 12.0
         return _matern32_anchored_basis(
-            t, SV_REF_MONTH, SV_AMP, SV_LS if ls is None else ls, SV_MO_MODES
+            t,
+            SV_REF_MONTH,
+            SV_AMP,
+            SV_LS if ls is None else ls,
+            SV_MO_MODES if max_modes is None else max_modes,
         )
     if resolution == "week":
         t = np.arange(SV_WEEKS, dtype=float) * (7.0 / 365.25)
         eff_ls = SV_LS if ls is None else ls
-        modes = SV_WK05_MODES if eff_ls <= 0.6 else SV_WK_MODES
-        return _matern32_anchored_basis(t, SV_REF_WEEK, SV_AMP, eff_ls, modes)
+        default_modes = SV_WK05_MODES if eff_ls <= 0.6 else SV_WK_MODES
+        return _matern32_anchored_basis(
+            t,
+            SV_REF_WEEK,
+            SV_AMP,
+            eff_ls,
+            default_modes if max_modes is None else max_modes,
+        )
     raise ValueError(f"unknown sv_gp resolution: {resolution!r}")
 
 
@@ -283,6 +382,7 @@ def sv_gp_features(
     train: np.ndarray | None = None,
     resolution: str = "quarter",
     ls: float | None = None,
+    max_modes: int | None = None,
 ) -> tuple[np.ndarray, list[str]]:
     """Matérn-3/2 stochastic-volatility basis features for `frame`.
 
@@ -290,7 +390,7 @@ def sv_gp_features(
     training bucket are clamped to the last training bucket so unobserved future periods
     smoothly inherit the final observed regime rather than oscillating in the eigenbasis.
     """
-    B = sv_gp_basis(resolution=resolution, ls=ls)
+    B = sv_gp_basis(resolution=resolution, ls=ls, max_modes=max_modes)
     if resolution == "quarter":
         idx = _quarter_index(frame)
     elif resolution == "month":
@@ -305,6 +405,181 @@ def sv_gp_features(
             idx = np.minimum(idx, int(idx[tr].max()))
     names = [f"sv:m{j:02d}" for j in range(B.shape[1])]
     return B[idx], names
+
+
+def apply_floor_poly(d: Design) -> Design:
+    """Replace the 68 floor GP dummies (`unit:elev_f2..64`, `unit:walkup_f2..6`) and 2 RBF
+    GPs with 5 smooth strictly as-of basis columns (`elev_f_lin`, `elev_f_quad`, `elev_f_log`,
+    `walkup_f2_4`, `walkup_f5p`). Zero extra I/O, -63 beta cols and -4 GP hypers."""
+    elev_cols = [
+        (j, int(n.rsplit("_f", 1)[1]))
+        for j, n in enumerate(d.names)
+        if n.startswith("unit:elev_f") and n.rsplit("_f", 1)[1].isdigit()
+    ]
+    walk_cols = [
+        (j, int(n.rsplit("_f", 1)[1]))
+        for j, n in enumerate(d.names)
+        if n.startswith("unit:walkup_f") and n.rsplit("_f", 1)[1].isdigit()
+    ]
+    n = len(d.y)
+    elev_floor = np.zeros(n, dtype=float)
+    for j, k in elev_cols:
+        elev_floor += d.x[:, j] * float(k)
+    has_elev = elev_floor > 0.5
+    e_lin = np.where(has_elev, (elev_floor - 1.0) / 30.0, 0.0)
+    e_quad = e_lin * e_lin
+    e_log = np.where(has_elev, np.log(np.maximum(elev_floor, 1.0)) / np.log(64.0), 0.0)
+
+    walk_floor = np.zeros(n, dtype=float)
+    for j, k in walk_cols:
+        walk_floor += d.x[:, j] * float(k)
+    w_2_4 = ((walk_floor >= 2.0) & (walk_floor <= 4.0)).astype(float)
+    w_5p = (walk_floor >= 5.0).astype(float)
+
+    drop = {d.names[j] for j, _ in elev_cols + walk_cols}
+    d = drift.drop_columns(d, drop)
+    new_names = [
+        "unit:elev_f_lin",
+        "unit:elev_f_quad",
+        "unit:elev_f_log",
+        "unit:walkup_f2_4",
+        "unit:walkup_f5p",
+    ]
+    new_mat = np.column_stack([e_lin, e_quad, e_log, w_2_4, w_5p])
+    return append(d, new_names, new_mat)
+
+
+def apply_spatial_trunc(d: Design, per_zone: int) -> Design:
+    """Keep only the top `per_zone` highest-sd spatial wave modes in each surface zone."""
+    new_surfaces = []
+    for s in d.surfaces:
+        sd = np.asarray(s["sd"], float)
+        basis = np.asarray(s["basis"], float)
+        k = min(per_zone, len(sd))
+        top = np.argsort(sd)[::-1][:k]
+        top.sort()
+        new_surfaces.append(s | {"basis": basis[:, top], "sd": sd[top]})
+    return dataclasses.replace(d, surfaces=new_surfaces)
+
+
+def _additive_path_indicators(d: Design) -> list[tuple[str, np.ndarray]]:
+    """4 additive market-segment indicators (`zone:outer`, `bed:studio`, `bed:2br`,
+    `bed:3br+`) relative to reference `manhattan` and `1br`."""
+    zone_row = site_zone(d)[d.site]
+    grp = np.asarray(d.group, int)
+    cands = [
+        ("zone:outer", (zone_row == 1).astype(float)),
+        ("bed:studio", (grp == 0).astype(float)),
+        ("bed:2br", (grp == 2).astype(float)),
+        ("bed:3br+", (grp == 3).astype(float)),
+    ]
+    return [(name, ind) for name, ind in cands if ind.any() and not ind.all()]
+
+
+def additive_segment_paths(d: Design) -> Design:
+    """Additive identifiable quarterly Matérn-3/2 segment paths (4 paths instead of 7:
+    1 zone path + 3 bedroom paths, dropping `2024q1`, retaining the 3 static `level:outer:*`
+    columns). Cuts 371 -> 212 cols and 7 -> 4 segment GPs."""
+    q = drift_building_phase_segment.quarter_starts(d)
+    knots = np.asarray((q - pd.Timestamp(d.start)).days, float) / (
+        drift_building_phase_segment.YEAR_DAYS
+    )
+    labels = [f"{t.year}q{t.quarter}" for t in q]
+    H = drift_building_phase_segment.hat_weights(years(d), knots)
+    denom = np.maximum(H.sum(axis=0), 1.0)
+    ref_q = drift_building_phase_unitkn_unified_seg.REF_QUARTER
+
+    lead_names, lead_x = drift_building_phase_segment.level_columns(d)
+    cols: list[str] = list(lead_names)
+    blocks: list[np.ndarray] = [lead_x] if lead_x.shape[1] else []
+    keep_q = [j for j, lbl in enumerate(labels) if lbl != ref_q]
+    for pname, ind in _additive_path_indicators(d):
+        share = (ind[:, None] * H).sum(axis=0) / denom
+        mat = (ind[:, None] - share[None, :]) * H
+        blocks.append(mat[:, keep_q])
+        cols.extend(f"seg:{pname}:{labels[j]}" for j in keep_q)
+    if not cols:
+        return d
+    return append(d, cols, np.hstack(blocks))
+
+
+def lowrank_segment_paths(
+    d: Design,
+    *,
+    additive: bool = True,
+    max_modes: int = 16,
+    amp: float = SEG_LR_AMP,
+    ls: float = SEG_LR_LS,
+) -> Design:
+    """Low-rank whitened Matérn-3/2 eigenbasis for segment paths (anchored at `2024q1 = 0`).
+
+    Each eigenmode column is scaled by `sqrt(eval_j) * amp / SEG_LR_PRIOR_SD` so `drift.py`'s
+    `Normal(0, 0.5^2)` prior on `beta` induces the exact conditioned Matérn-3/2 GP prior on
+    every path with zero extra GP hyperparameters and no quarter-knot correlation ridge.
+    """
+    q = drift_building_phase_segment.quarter_starts(d)
+    knots = np.asarray((q - pd.Timestamp(d.start)).days, float) / (
+        drift_building_phase_segment.YEAR_DAYS
+    )
+    labels = [f"{t.year}q{t.quarter}" for t in q]
+    ref_q = drift_building_phase_unitkn_unified_seg.REF_QUARTER
+    ref_idx = (
+        labels.index(ref_q)
+        if ref_q in labels
+        else int(
+            np.argmin(
+                np.abs(
+                    (q - drift_building_phase_segment.REFERENCE).days.to_numpy(float)
+                )
+            )
+        )
+    )
+    t_yr = (q - drift_building_phase_segment.REFERENCE).days.to_numpy(float) / (
+        drift_building_phase_segment.YEAR_DAYS
+    )
+    # Build anchored Matérn-3/2 eigenbasis scaled for `Normal(0, SEG_LR_PRIOR_SD^2)` beta prior.
+    r = np.abs(t_yr[:, None] - t_yr[None, :])
+    u = np.sqrt(3.0) * r / ls
+    K = (amp**2) * (1.0 + u) * np.exp(-u)
+    k_ref = K[:, ref_idx]
+    K_cond = K - np.outer(k_ref, k_ref) / K[ref_idx, ref_idx]
+    K_cond = 0.5 * (K_cond + K_cond.T)
+    evals, evecs = np.linalg.eigh(K_cond)
+    order = np.argsort(evals)[::-1]
+    evals = np.maximum(evals[order], 0.0)
+    evecs = evecs[:, order]
+    m = min(max_modes, int((evals > 1e-12).sum()))
+    B = evecs[:, :m] * np.sqrt(evals[:m])[None, :] / SEG_LR_PRIOR_SD
+    B[ref_idx, :] = 0.0
+
+    H = drift_building_phase_segment.hat_weights(years(d), knots)
+    denom = np.maximum(H.sum(axis=0), 1.0)
+    lead_names, lead_x = drift_building_phase_segment.level_columns(d)
+    cols: list[str] = list(lead_names)
+    blocks: list[np.ndarray] = [lead_x] if lead_x.shape[1] else []
+
+    if additive:
+        paths = _additive_path_indicators(d)
+    else:
+        seg = drift_building_phase_segment.segment_index(d)
+        snames = drift_building_phase_segment.segment_names(d)
+        present = [k for k in range(len(snames)) if (seg == k).any()]
+        ref_seg = drift_building_phase_unitkn_unified_seg.REF_SEGMENT
+        ref_k = (
+            snames.index(ref_seg)
+            if ref_seg in snames and snames.index(ref_seg) in present
+            else present[0]
+        )
+        paths = [(snames[k], (seg == k).astype(float)) for k in present if k != ref_k]
+
+    for pname, ind in paths:
+        share = (ind[:, None] * H).sum(axis=0) / denom
+        centered_H = (ind[:, None] - share[None, :]) * H
+        blocks.append(centered_H @ B)
+        cols.extend(f"seglr:{pname}:m{j:02d}" for j in range(m))
+    if not cols:
+        return d
+    return append(d, cols, np.hstack(blocks))
 
 
 def vel_gp_features(
@@ -765,6 +1040,9 @@ def design(
         d = append(d, st_names, st_mat)
 
     # 4. Additive noise-scale upgrades (only when any scale token is active)
+    seg_active = [t for t in SEG_TOKENS if t in tok]
+    if len(seg_active) > 1:
+        raise ValueError(f"at most one segment token allowed, got {seg_active}")
     sv_active = [t for t in SV_TOKENS if t in tok]
     if len(sv_active) > 1:
         raise ValueError(f"at most one sv_gp resolution token allowed, got {sv_active}")
@@ -773,6 +1051,10 @@ def design(
         raise ValueError(
             f"at most one vel_gp resolution token allowed, got {vel_active}"
         )
+    spatial_active = [t for t in SPATIAL_TOKENS if t in tok]
+    if len(spatial_active) > 1:
+        raise ValueError(f"at most one spatial token allowed, got {spatial_active}")
+
     scale_tokens = tok & {
         "y1",
         "y1_pre2024",
@@ -781,14 +1063,17 @@ def design(
         *VEL_TOKENS,
         "income_scale",
         "u4_bed",
+        "phase_compact",
     }
     global _ACTIVE_SCALE_FACTORS
     _ACTIVE_SCALE_FACTORS = ()
     if scale_tokens or marks:
-        ph_names = [f"phase:{p}" for p in PHASES[1:]]
-        ph_mat = (base_phase[:, None] == np.arange(1, len(PHASES))[None, :]).astype(
-            float
-        )
+        ph_skip = {"22-25"} if "phase_compact" in tok else set()
+        ph_keep = [(j, p) for j, p in enumerate(PHASES[1:], 1) if p not in ph_skip]
+        ph_names = [f"phase:{p}" for _, p in ph_keep]
+        ph_mat = (
+            base_phase[:, None] == np.array([j for j, _ in ph_keep])[None, :]
+        ).astype(float)
         factor_names = list(ph_names)
         mats = [ph_mat]
 
@@ -847,6 +1132,14 @@ def design(
                 sv_mat, sv_names = sv_gp_features(
                     frame, train=train, resolution="month"
                 )
+            elif sv_tok == "sv_gp_mo16":
+                sv_mat, sv_names = sv_gp_features(
+                    frame, train=train, resolution="month", max_modes=SV_MO16_MODES
+                )
+            elif sv_tok == "sv_gp_mo12":
+                sv_mat, sv_names = sv_gp_features(
+                    frame, train=train, resolution="month", max_modes=SV_MO12_MODES
+                )
             elif sv_tok == "sv_gp_wk":
                 sv_mat, sv_names = sv_gp_features(frame, train=train, resolution="week")
             else:  # sv_gp_wk05
@@ -894,42 +1187,140 @@ def design(
         _ACTIVE_SCALE_FACTORS = tuple(kept_fnames)
         d = dataclasses.replace(d, phase=cell_idx, phases=cell_names, phase_map=pmap)
 
-    return (
-        drift_building_phase_unitkn_unified_seg.identifiable_segment_paths(d)
-        if "seg" in tok
-        else d
-    )
+    # 5. Model-simplification & pruning transforms (applied AFTER `mark:floor_1` / `size` reads!)
+    if "floor_poly" in tok:
+        d = apply_floor_poly(d)
+
+    drop_cols: set[str] = set()
+    if "no_umean" in tok:
+        drop_cols.update(n for n in d.names if n.startswith("umean:"))
+    elif "umean_core" in tok:
+        drop_cols.update(
+            n for n in d.names if n.startswith("umean:") and n not in UMEAN_CORE_COLS
+        )
+    if "no_ad_ks" in tok:
+        drop_cols.update(
+            n
+            for n in d.names
+            if n.startswith("ad:") and not n.startswith(AD_VARIANT_PREFIXES)
+        )
+    elif "ad_core" in tok:
+        drop_cols.update(
+            n
+            for n in d.names
+            if n.startswith("ad:")
+            and not n.startswith(AD_VARIANT_PREFIXES)
+            and n not in AD_CORE_COLS
+        )
+    if "no_bld_ks" in tok:
+        drop_cols.update(n for n in d.names if n.startswith("bld:"))
+    elif "bld_core" in tok:
+        drop_cols.update(
+            n for n in d.names if n.startswith("bld:") and n not in BLD_CORE_COLS
+        )
+    if "no_phase_mean" in tok:
+        drop_cols.update(n for n in d.names if n.startswith("phase:"))
+    elif "phase_compact" in tok:
+        drop_cols.update({"phase:22-25", "phase:none"})
+    if "no_season2" in tok:
+        drop_cols.update(SEASON2_DROP_COLS)
+    if drop_cols:
+        d = drift.drop_columns(d, drop_cols)
+
+    if spatial_active:
+        per_zone = 40 if spatial_active[0] == "spatial_k80" else 20
+        d = apply_spatial_trunc(d, per_zone=per_zone)
+
+    # 6. Segment paths (full GP, additive GP, or low-rank whitened Matérn-3/2)
+    if "seg" in tok:
+        d = drift_building_phase_unitkn_unified_seg.identifiable_segment_paths(d)
+    elif "seg_add" in tok:
+        d = additive_segment_paths(d)
+    elif "seg_add_lr16" in tok:
+        d = lowrank_segment_paths(d, additive=True, max_modes=16)
+    elif "seg_add_lr12" in tok:
+        d = lowrank_segment_paths(d, additive=True, max_modes=12)
+    elif "seg_lr16" in tok:
+        d = lowrank_segment_paths(d, additive=False, max_modes=16)
+    return d
 
 
-def gp_spec(names: list[str]) -> list[dict] | None:
-    """The unified segment GP spec when enabled, including the existing floor GPs."""
-    if "seg" in ACTIVE_VARIANT or any(n.startswith("seg:") for n in names):
-        return drift_building_phase_unitkn_unified_seg.gp_spec(names)
-    return None
+def gp_spec(names: list[str]) -> list[dict]:
+    """Active floor GPs (if present) plus active segment GPs (if `seg:*` present)."""
+    floor_gps = building_zones_floor.gp_spec(names)
+    segs = [
+        spec
+        | {
+            "kernel": drift_building_phase_unitkn_unified_seg.SEG_KERNEL,
+            "nugget": drift_building_phase_unitkn_unified_seg.SEG_NUGGET,
+        }
+        for spec in drift_building_phase_segment.segment_spec(names)
+    ]
+    return floor_gps + segs
+
+
+def _ablate_gp_extras(arrs: dict, names: list[str]) -> dict:
+    """Named GP amplitude & lengthscale draws matching `gp_spec(names)`."""
+    specs = gp_spec(names)
+    if not specs or "gp_amp" not in arrs:
+        return {}
+    out = {}
+    for k, spec in enumerate(specs):
+        for q in ("gp_amp", "gp_ls"):
+            out[f"{q}[{spec['name']}]"] = np.asarray(arrs[q])[..., k]
+    return out
+
+
+def diagnostics(trace: dict, names: list[str]) -> dict:
+    """Convergence diagnostics adapting to active floor/segment GPs (including zero GPs)."""
+    from .run import ESS_GATE, RHAT_GATE, ess, split_rhat
+
+    out = drift.diagnostics(trace, names)
+    extras = _ablate_gp_extras(trace, names)
+    if not extras:
+        return out
+    rows = out["per_quantity"]
+    for n, x in extras.items():
+        rows[n] = {"rhat": split_rhat(x), "ess": ess(x)}
+    worst = max(rows, key=lambda n: rows[n]["rhat"])
+    least = min(rows, key=lambda n: rows[n]["ess"])
+    return out | {
+        "max_rhat": rows[worst]["rhat"],
+        "max_rhat_name": worst,
+        "min_ess": rows[least]["ess"],
+        "min_ess_name": least,
+        "passes": rows[worst]["rhat"] <= RHAT_GATE and rows[least]["ess"] > ESS_GATE,
+    }
 
 
 def summarize(kept: dict, names: list[str]) -> dict:
-    """Summarize the noise factors and any fitted segment GP scales."""
-    if any(n.startswith("seg:") for n in names):
-        return drift_building_phase_unitkn_unified_seg.summarize(kept, names)
-    return drift.summarize(kept, names)
+    """Summarize the noise factors and any active floor/segment GP scales."""
+    out = drift.summarize(kept, names)
+    extras = _ablate_gp_extras(kept, names)
+    if extras:
+        out["segment_gp"] = {n: two_zone._q(x) for n, x in extras.items()}
+    return out
 
 
 def run(d: Design, priors: Priors, settings: Settings, log=print, checkpoint=None):
-    """Run the L2-unitkn sweep, collapsing the noise step for free mapped factors."""
+    """Run the L2-unitkn sweep with active simplification tokens."""
+    tok = set(ACTIVE_VARIANT)
     return drift.run(
         d,
         priors,
         settings,
         log,
         checkpoint,
-        gp=gp_spec(d.names) or "spec",
-        groups=drift.groups_of(d, GROUPS),
+        gp=gp_spec(d.names),
+        groups=None if "no_bld_ar" in tok else drift.groups_of(d, GROUPS),
         unit_t=True,
         unit_dof_fixed=UNIT_DOF,
         unit_kap_collapsed=True,
         row_dof_fixed=ROW_DOF,
         phase_collapsed=d.phase_map is not None and d.phase_map.shape[1] > 0,
+        scalar_sigma=("scalar_sigma" in tok),
+        walk_stride=2 if "biweekly_walk" in tok else 1,
+        scale_passes=2 if "scale_2x" in tok else 1,
     )
 
 

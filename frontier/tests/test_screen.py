@@ -256,3 +256,90 @@ def test_compare_runs_end_to_end_with_cached_scores(tmp_path):
     assert math.isfinite(rep["efficiency"]["ig_bits_per_min"])
     txt = screen.format_report(rep)
     assert "Screen verdict: GO" in txt
+
+
+def test_simplify_verdict_and_pareto_frontier(tmp_path):
+    # High probability of non-inferiority -> SIMPLIFY_KEEP
+    v_keep = screen.bayesian_simplify_verdict(
+        delta_full_hat=-5.0,
+        se_full_hat=18.0,
+        z_sub=-0.28,
+        max_rhat=1.02,
+        tol_elpd=50.0,
+    )
+    assert v_keep["verdict"] == "SIMPLIFY_KEEP"
+    assert v_keep["p_non_inferior"] > 0.95
+    assert v_keep["ig_bits"] > 0.0
+
+    # Large significant loss -> KEEP_COMPLEX
+    v_complex = screen.bayesian_simplify_verdict(
+        delta_full_hat=-320.0,
+        se_full_hat=40.0,
+        z_sub=-8.0,
+        max_rhat=1.02,
+        tol_elpd=50.0,
+    )
+    assert v_complex["verdict"] == "KEEP_COMPLEX"
+
+    # End-to-end pareto_frontier on synthetic runs
+    ds = tmp_path / "ds"
+    ds.mkdir()
+    (ds / "rows.parquet").write_bytes(b"")
+    (ds / "manifest.json").write_text(
+        json.dumps(
+            {
+                "rows": 2000,
+                "rows_sha256": "abc",
+                "screen": {"source_heldout": 2000, "fraction": 0.2, "split": "latest"},
+            }
+        )
+    )
+    n = 400
+    listings = np.array([f"L{i:04d}" for i in range(n)])
+    buildings = np.array([f"B{i // 4:03d}" for i in range(n)])
+    days = np.full(n, "2024-06-01")
+    rng = np.random.default_rng(7)
+    base_e = rng.normal(0.0, 0.5, size=n)
+    cdf = np.linspace(0.01, 0.99, n)
+
+    def mk(name: str, elpd: np.ndarray, n_beta: int, wall: float) -> Path:
+        r = tmp_path / name
+        (r / "modal").mkdir(parents=True)
+        (r / "result.json").write_text(
+            json.dumps(
+                {
+                    "dataset": str(ds),
+                    "dataset_observations_sha256": "abc",
+                    "split": "carried",
+                    "model": {"name": name},
+                    "sizes": {"coefficients": n_beta, "weeks": 672},
+                    "phase": {"n_free_factors": 20},
+                    "diagnostics": {"max_rhat": 1.02, "min_ess": 200},
+                    "gibbs": {"sweeps": 650, "n_sigma": 4, "n_gp": 2},
+                    "sampler_settings": {"chains": 2, "warmup": 250, "draws": 400},
+                }
+            )
+        )
+        (r / "modal" / "modal.json").write_text(
+            json.dumps({"gpu": "A100-40GB", "wall_seconds": wall})
+        )
+        np.savez_compressed(
+            r / "pred_scores.npz",
+            elpd=elpd,
+            cdf=cdf,
+            listing=listings,
+            building=buildings,
+            day=days,
+        )
+        return r
+
+    r_base = mk("base", base_e, 634, 600.0)
+    r_win = mk("lean", base_e + rng.normal(0.002, 0.005, size=n), 250, 360.0)
+    r_dom = mk("bloated_worse", base_e - 0.15, 500, 500.0)
+    pf = screen.pareto_frontier(r_base, [r_win, r_dom], mode="simplify")
+    by_name = {row["run"]: row for row in pf["rows"]}
+    assert by_name["lean"]["pareto"] is True
+    assert by_name["bloated_worse"]["pareto"] is False
+    assert by_name["lean"]["verdict"] == "SIMPLIFY_KEEP"
+    assert by_name["bloated_worse"]["verdict"] == "KEEP_COMPLEX"
+    assert "Pareto / Discovery Summary" in screen.format_pareto(pf)
