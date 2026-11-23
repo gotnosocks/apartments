@@ -226,3 +226,104 @@ def test_drift_today_supports_sv_gp_mo_and_seg_add_semi():
     assert len(vec) == ab.SV_MO_MODES
     assert names[0] == "sv:m00" and names[-1] == f"sv:m{ab.SV_MO_MODES - 1:02d}"
     assert np.all(np.isfinite(vec))
+
+
+def test_scales_fixed_resolves_run_dir_and_runs_unitkn_ablate(tmp_path: Path):
+    """Verify `--scales-fixed RUN_DIR` extracts posterior-mean scales (including
+    phase_factor) from any converged run and runs cleanly under unitkn + phase_map."""
+    import test_drift as td
+
+    from rentfrontier import drift_building_phase_unitkn_ablate as ab
+    from rentfrontier import drift_scales, screen
+
+    # 1. Build a small mock converged run directory
+    run_dir = tmp_path / "base-unified-run"
+    run_dir.mkdir()
+    np.savez(
+        run_dir / "posterior.npz",
+        **{
+            "kept/sigma": np.full((2, 4, 4), 0.015),
+            "kept/unit_sd": np.full((2, 4), 0.06),
+            "kept/drift_sd": np.full((2, 4), 0.045),
+            "kept/drift_tau": np.full((2, 4), 6.0),
+            "kept/bld_sd": np.tile(np.array([0.11, 0.07]), (2, 4, 1)),
+            "kept/building_ar_sd": np.full((2, 4), 0.075),
+            "kept/building_ar_rho": np.full((2, 4), 0.89),
+            "kept/tau": np.full((2, 4), 0.0034),
+            "kept/phase_factor": np.full((2, 4, 3), 1.05),
+        },
+    )
+    (run_dir / "result.json").write_text(
+        json.dumps({"split": "unified", "row_dof_fixed": 2.0})
+    )
+    scales, src = drift_scales.resolve(str(run_dir))
+    assert scales["nu"] == 2.0
+    assert len(scales["sigma"]) == 4
+    assert len(scales["phase_scale"]) == 3
+    assert "base-unified-run" in src
+
+    # 2. Verify make_sampler accepts scales_fixed with unit_t=True, unit_dof_fixed=3.0
+    d = td._design(n=120, weeks=20)
+    pmap = np.vstack([np.zeros((1, 3)), np.eye(3)])
+    d = ab.dataclasses.replace(
+        d,
+        phase=np.arange(len(d.y)) % 4,
+        phases=("ref", "a", "b", "c"),
+        phase_map=pmap,
+    )
+    settings = ab.Settings(
+        chains=2,
+        warmup=2,
+        draws=2,
+        keep_every=1,
+        scales_fixed=str(run_dir),
+    )
+    out = ab.drift.run(
+        d,
+        ab.Priors(),
+        settings,
+        groups=ab.drift.groups_of(d, ab.GROUPS),
+        unit_t=True,
+        unit_dof_fixed=3.0,
+        unit_kap_collapsed=True,
+        row_dof_fixed=2.0,
+        scalar_sigma=True,
+        log=lambda _: None,
+    )
+    assert out["result"]["gibbs"]["scales_fixed"]["set"] == str(run_dir)
+    assert np.allclose(out["kept"]["unit_sd"], 0.06)
+    assert np.allclose(out["kept"]["sigma"], 0.015)
+
+    # 3. Verify screen.sprint_budget parses ledger cleanly
+    ledger = tmp_path / "ledger.jsonl"
+    ledger.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "id": "r1@1",
+                        "name": "tag-a",
+                        "kind": "outside",
+                        "usd_estimate": 1.5,
+                    }
+                ),
+                json.dumps(
+                    {"id": "r1@1", "name": "tag-a", "kind": "settle", "usd": 0.55}
+                ),
+                json.dumps(
+                    {
+                        "id": "r2@2",
+                        "name": "tag-b",
+                        "kind": "outside",
+                        "usd_estimate": 2.0,
+                    }
+                ),
+            ]
+        )
+    )
+    bud = screen.sprint_budget(
+        filter_substring="tag-", cap_usd=10.0, ledger_path=ledger
+    )
+    assert bud["settled_usd"] == 0.55
+    assert bud["open_estimate_usd"] == 2.0
+    assert bud["remaining_usd"] == 7.45

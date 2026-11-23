@@ -21,7 +21,7 @@ fi
 shift
 
 case "$cmd" in
-  build|compare|pareto)
+  build|compare|pareto|budget)
     exec env PYTHONPATH="$repo/frontier/src${PYTHONPATH:+:$PYTHONPATH}" "$py" -m rentfrontier.screen "$cmd" "$@"
     ;;
   run)

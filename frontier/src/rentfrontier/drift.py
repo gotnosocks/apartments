@@ -683,7 +683,9 @@ def held_steps(scales: dict | None, groups) -> frozenset:
                 "bld_sd is held with a collapsed term's scales"
             )
             steps.add(step)
-    assert set(scales) <= known, f"not scales to hold: {sorted(set(scales) - known)}"
+    assert set(scales) <= (known | {"phase_scale"}), (
+        f"not scales to hold: {sorted(set(scales) - (known | {'phase_scale'}))}"
+    )
     return frozenset(steps)
 
 
@@ -698,6 +700,8 @@ def held_state(scales: dict | None, held: frozenset) -> dict:
             "sigma": scales["sigma"],
             "hyp": np.log([scales[k] for k in HYP]),
         }
+        if "phase_scale" in scales:
+            out["phase_scale"] = scales["phase_scale"]
     if "cells" in held:
         sd = next(v for k, v in scales.items() if k.endswith("_ar_sd"))
         rho = next(v for k, v in scales.items() if k.endswith("_ar_rho"))
@@ -768,12 +772,12 @@ def make_sampler(
     assert unit_dof_fixed is None or unit_t, "unit_dof_fixed needs unit_t"
     assert unit_kap_collapsed or not unit_slow, "unit_slow needs unit_kap_collapsed"
     fixed_steps = held_steps(scales_fixed, groups)
-    assert not (fixed_steps and (unit_t or unit_slow)), (
-        "scales_fixed needs normal unit levels"
-    )
-    assert unit_t or not unit_kap_collapsed, "unit_kap_collapsed needs unit_t"
     # Whether the sweep moves nu_u.
     dof_free = unit_t and unit_dof_fixed is None
+    assert not (fixed_steps and (dof_free or unit_slow)), (
+        "scales_fixed needs fixed or normal unit dof (not free unit_dof or unit_slow)"
+    )
+    assert unit_t or not unit_kap_collapsed, "unit_kap_collapsed needs unit_t"
     # Whether the sweep moves the rows' nu, and where the phases' factors start in the
     # scale step's coordinates.
     assert walk_stride >= 1, "walk_stride must be at least 1"
@@ -859,9 +863,14 @@ def make_sampler(
         free = len(d.phases) - 1
     phased = free > 0
     assert not phase_collapsed or phased, "phase_collapsed needs phases"
-    assert not ("noise" in fixed_steps and phased), (
-        "a held noise step leaves the lease phases' factors undrawn"
-    )
+    if "noise" in fixed_steps and phased:
+        assert scales_fixed is not None and "phase_scale" in scales_fixed, (
+            "a held noise step leaves the lease phases' factors undrawn"
+        )
+        assert len(scales_fixed["phase_scale"]) == free, (
+            f"scales_fixed phase_scale has {len(scales_fixed['phase_scale'])} "
+            f"values, expected {free}"
+        )
     pmap_j = None if pmap is None else jnp.asarray(pmap)
     pmap_binary = pmap is not None and bool(np.all((pmap == 0.0) | (pmap == 1.0)))
 
@@ -1411,10 +1420,12 @@ def make_sampler(
             nu = st["unit_dof"]
         if kap is None:
             kap = jax.random.gamma(k2, (nu + 1) / 2, (U,)) / ((nu + (s / ss) ** 2) / 2)
+        pred_kap = jax.random.gamma(k4, nu / 2, (n_pred,)) / (nu / 2)
+        if "noise" in fixed_steps:
+            return nu, kap, hyp, pred_kap
         g2 = jax.random.gamma(k3, (1 + nu * U) / 2) / (
             ss**2 / (2 * UNIT_SD_PRIOR**2) + nu * jnp.sum(kap) / 2
         )
-        pred_kap = jax.random.gamma(k4, nu / 2, (n_pred,)) / (nu / 2)
         return nu, kap * g2, hyp.at[0].add(0.5 * jnp.log(g2)), pred_kap
 
     def collapsed_kap(D, key, hyp, nu, ukap, w1, Wb, e, c=None):
@@ -2140,7 +2151,7 @@ def make_sampler(
 
             sigma = jnp.exp(b0.slice_vec(k2, jnp.log(st["sigma"]), logp_sigma, 0.02))
         factor = st.get("phase_scale")
-        if phase_collapsed:
+        if phase_collapsed and "noise" not in fixed_steps:
             # Its key is folded in, so nu, sigma and lam take the keys they had without
             # this step.
             k_ph = jax.random.fold_in(key, PHASE_KEY)
@@ -2783,7 +2794,11 @@ def run(
     source and its values. The warmup sets no slice directions for a skipped step."""
     jax, jnp = b0._jax()
     gp = gp_spec(d.names) if gp == "spec" else gp
-    fixed = drift_scales.SETS[settings.scales_fixed] if settings.scales_fixed else None
+    fixed, fixed_source = (
+        drift_scales.resolve(settings.scales_fixed)
+        if settings.scales_fixed
+        else (None, None)
+    )
     t0 = time.perf_counter()
     sweep, init, predict, parts = make_sampler(
         d,
@@ -2806,7 +2821,7 @@ def run(
     if held:
         log(
             f"scales held at the set {settings.scales_fixed!r} "
-            f"(from {drift_scales.SOURCES[settings.scales_fixed]}): {fixed}"
+            f"(from {fixed_source}): {fixed}"
         )
     local = tuple(g["name"] + s for g in groups or () for s in ("_ar_sd", "_ar_rho"))
     scale_names = ("nu", "sigma", "tau", "amp", "bld_sd") + (
@@ -2895,7 +2910,7 @@ def run(
                     {
                         "scales_fixed": {
                             "set": settings.scales_fixed,
-                            "source": drift_scales.SOURCES[settings.scales_fixed],
+                            "source": fixed_source,
                             "values": fixed,
                         }
                     }
@@ -3185,9 +3200,8 @@ def run_parser(name=NAME, level_dof=None):
     )
     parser.add_argument(
         "--scales-fixed",
-        choices=sorted(drift_scales.SETS),
-        help="hold the scales of this set of rentfrontier.drift_scales at its values "
-        "(default: the sweep draws every scale)",
+        help="hold the scales of this set in rentfrontier.drift_scales or a converged run "
+        "directory at their posterior means (default: the sweep draws every scale)",
     )
     return parser
 

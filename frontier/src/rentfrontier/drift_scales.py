@@ -26,6 +26,13 @@ values.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
+import numpy as np
+
+from . import run as run_module
+
 SETS = {
     # The market split: every ad to date.
     "base-n9": {
@@ -68,3 +75,59 @@ SOURCES = {
     "base-j9": "the pool drift-building-b0-market-67d14e17-j9 "
     "(dataset b0-ddd2fe8f5da041b8-alldata-dense-nyc-asof-20251110, 19,840 draws)",
 }
+
+
+def resolve(spec: str) -> tuple[dict, str]:
+    """Load a held-scale set from either `SETS[spec]` or a converged run directory.
+
+    When `spec` names an existing run directory (or a run under `run.RUNS`), extracts the
+    posterior means of the scale parameters (`nu`, `sigma`, `unit_sd`, `drift_sd`,
+    `drift_tau`, `bld_sd`, `building_ar_sd`, `building_ar_rho`, `tau`, and optional
+    `phase_scale`) directly from `posterior.npz` and `result.json` so any converged
+    unified base fit can power fast held-scales refreshes or backtests."""
+    if spec in SETS:
+        return dict(SETS[spec]), SOURCES[spec]
+    cand = Path(spec)
+    if not cand.exists():
+        cand = run_module.RUNS / spec
+    npz_path = cand / "posterior.npz"
+    res_path = cand / "result.json"
+    if not npz_path.exists() or not res_path.exists():
+        raise KeyError(
+            f"unknown scales_fixed set {spec!r}: not in drift_scales.SETS and no "
+            f"posterior.npz/result.json at {cand}"
+        )
+    rec = json.loads(res_path.read_text())
+    scales: dict = {}
+    with np.load(npz_path) as z:
+        for key in (
+            "nu",
+            "unit_sd",
+            "drift_sd",
+            "drift_tau",
+            "building_ar_sd",
+            "building_ar_rho",
+            "tau",
+        ):
+            if f"kept/{key}" in z:
+                scales[key] = float(np.mean(z[f"kept/{key}"]))
+        if "nu" not in scales and rec.get("row_dof_fixed") is not None:
+            scales["nu"] = float(rec["row_dof_fixed"])
+        for key in ("sigma", "bld_sd"):
+            if f"kept/{key}" in z:
+                arr = np.asarray(z[f"kept/{key}"], float)
+                scales[key] = np.mean(arr, axis=tuple(range(arr.ndim - 1))).tolist()
+        if "kept/phase_factor" in z:
+            arr = np.asarray(z["kept/phase_factor"], float)
+            scales["phase_scale"] = np.mean(
+                arr, axis=tuple(range(arr.ndim - 1))
+            ).tolist()
+        elif "kept/phase_scale" in z:
+            arr = np.asarray(z["kept/phase_scale"], float)
+            # Drop the fixed reference slot 0 when phase_scale stores full (1 + free) cells
+            if arr.shape[-1] > 1 and np.allclose(arr[..., 0], 1.0):
+                scales["phase_scale"] = np.mean(
+                    arr[..., 1:], axis=tuple(range(arr.ndim - 1))
+                ).tolist()
+    source = f"run {cand.name} (split={rec.get('split')})"
+    return scales, source

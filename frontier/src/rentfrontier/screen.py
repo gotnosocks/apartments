@@ -970,6 +970,58 @@ def format_pareto(summary: dict) -> str:
     return "\n".join(lines)
 
 
+def sprint_budget(
+    *,
+    filter_substring: str | None = None,
+    cap_usd: float | None = None,
+    ledger_path: Path = MODAL_LEDGER,
+) -> dict:
+    """Summarize settled Modal spend and open estimates from `ledger.jsonl`."""
+    if not ledger_path.exists():
+        return {
+            "settled_usd": 0.0,
+            "open_estimate_usd": 0.0,
+            "settled_runs": 0,
+            "open_runs": 0,
+            "remaining_usd": cap_usd,
+        }
+    settled_ids: set[str] = set()
+    settled_usd = 0.0
+    settled_runs = 0
+    open_entries: dict[str, float] = {}
+    for line in ledger_path.read_text().splitlines():
+        if not line.strip():
+            continue
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        name = str(rec.get("name", ""))
+        if filter_substring and filter_substring not in name:
+            continue
+        rid = str(rec.get("id", name))
+        if rec.get("kind") == "settle":
+            settled_ids.add(rid)
+            settled_usd += float(rec.get("usd", 0.0))
+            settled_runs += 1
+        elif rec.get("usd_estimate") is not None:
+            open_entries[rid] = float(rec["usd_estimate"])
+    open_usd = sum(v for k, v in open_entries.items() if k not in settled_ids)
+    open_runs = sum(1 for k in open_entries if k not in settled_ids)
+    out = {
+        "filter": filter_substring,
+        "settled_usd": round(settled_usd, 4),
+        "open_estimate_usd": round(open_usd, 4),
+        "settled_runs": settled_runs,
+        "open_runs": open_runs,
+        "projected_total_usd": round(settled_usd + open_usd, 4),
+    }
+    if cap_usd is not None:
+        out["cap_usd"] = float(cap_usd)
+        out["remaining_usd"] = round(float(cap_usd) - settled_usd - open_usd, 4)
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m rentfrontier.screen")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -1014,6 +1066,13 @@ def main(argv: list[str] | None = None) -> int:
     pp.add_argument("--extra-noise-scale", type=float, default=1.0)
     pp.add_argument("--json", action="store_true", dest="as_json")
 
+    pbud = sub.add_parser(
+        "budget", help="summarize Modal sprint spend and remaining budget"
+    )
+    pbud.add_argument("--filter", default=None, help="substring match on run name")
+    pbud.add_argument("--cap", type=float, default=None, help="budget ceiling in USD")
+    pbud.add_argument("--json", action="store_true", dest="as_json")
+
     args = parser.parse_args(argv)
     if args.cmd == "build":
         frac = args.fraction if args.fraction is not None else 1.0 / args.divisor
@@ -1028,6 +1087,23 @@ def main(argv: list[str] | None = None) -> int:
             overwrite=args.overwrite,
         )
         print(json.dumps(meta, indent=2))
+        return 0
+
+    if args.cmd == "budget":
+        b = sprint_budget(filter_substring=args.filter, cap_usd=args.cap)
+        if args.as_json:
+            print(json.dumps(b, indent=2))
+        else:
+            rem = (
+                f" | remaining: ${b['remaining_usd']:.2f} of ${b['cap_usd']:.2f}"
+                if "remaining_usd" in b
+                else ""
+            )
+            print(
+                f"Modal budget ({b['filter'] or 'all'}): "
+                f"${b['settled_usd']:.2f} settled ({b['settled_runs']} runs) + "
+                f"${b['open_estimate_usd']:.2f} open est ({b['open_runs']} runs){rem}"
+            )
         return 0
 
     if args.cmd == "pareto":
