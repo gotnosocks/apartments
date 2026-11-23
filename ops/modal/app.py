@@ -14,6 +14,7 @@ thelio after the download (ops/modal/summarize), except for a large fit, which b
 
 import json
 import os
+import resource
 import shutil
 import subprocess
 import time
@@ -537,11 +538,18 @@ def _fit(spec):
 
 
 def _memory_peak():
-    """cgroup v2's high-water mark of the container's memory, or None."""
+    """cgroup v2's high-water mark of the container's memory. Modal's gVisor sandbox has no
+    `memory.peak` (every fit so far recorded None), so failing that, the largest resident
+    set of any one finished child process (the fit, LOO and post steps run as children), or
+    None. That is one process's peak, not the container's: steps with worker processes
+    (`drift_today --workers`, parallel LOO) use more than it says, and a warm container
+    that served an earlier input reports the larger of the two."""
     try:
         return int(Path("/sys/fs/cgroup/memory.peak").read_text())
     except (OSError, ValueError):
-        return None
+        pass
+    rss = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss  # KiB on Linux
+    return rss * 1024 if rss > 0 else None
 
 
 def _save_fit(spec, out):
@@ -707,11 +715,7 @@ def _design(spec):
         record = json.loads((out / "design.log").read_text().splitlines()[-1])
     except (OSError, ValueError, IndexError):
         record = None
-    try:
-        # cgroup v2's high-water mark of the container's memory
-        peak = int(Path("/sys/fs/cgroup/memory.peak").read_text())
-    except (OSError, ValueError):
-        peak = None
+    peak = _memory_peak()
     wall = time.time() - started
     meta = {
         "name": name,
@@ -771,10 +775,7 @@ def _today(spec):
         for name in ("today.parquet", "meta.json"):
             shutil.copy2(table / name, out / name)
             files.append(name)
-    try:
-        peak = int(Path("/sys/fs/cgroup/memory.peak").read_text())
-    except (OSError, ValueError):
-        peak = None
+    peak = _memory_peak()
     wall = time.time() - started
     meta = {
         "name": spec["name"],

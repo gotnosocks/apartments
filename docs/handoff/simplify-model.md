@@ -33,9 +33,22 @@ to need one. That is the top item.
   Each container's `variance` post step fails on ablate models (`model.MODELS` KeyError);
   harmless, the fit is complete. Modal spend so far about $19 of $50.
 
+- Fewer draws on the u5-of traces (4 chains): 2,600 pass (1.0072/788), 2,300 pass, 2,000
+  pass (1.0087/576), 1,800 FAIL (R-hat 1.0123 unit_sd), 1,600 pass (1.0085/427). R-hat near
+  1.01 is noisy in the draw count, so keep 2,600: a failed fit costs more than the ~$2.5 saved.
+- serve/master had stopped following master (all `apartments-*` timers disabled since about
+  the Nov 15 cutover). Moved it to origin/master by hand 2026-11-23 03:40 ET; check it before
+  each launch (`git -C /data1/apartments/serve/master log -1`).
+
 ## Next
 
 Pages read one run: PR #1538 (competitor, `feat/simplify-model-discovery`) wires Deals,
 Today and Diagnostics for `unified` and `onefit`. Watch it; if it stalls, build the onefit
-part here. Then candidates for less cost: the 192 GiB container reservation, and the
+part here. Read-only check of #1538 for onefit (2026-11-23 03:40 ET): subsets right, master's split
+untouched, no leak. But its `drift_deals.validate` still reads the open ads, which have
+outcomes only on a backtest dataset, so a onefit run on today's market data gets no validity
+table. Once #1538 merges: make validate read a onefit run's closed held-out rows (first ask,
+days on market and cuts from the ads table, as `scratchpad/onefit_score.py` did; 0.99/1.00
+on u5-of). Also `drift_deals.py:686` labels a onefit summary "unified", and
+`test_unified_split.py` never tests onefit. Then candidates for less cost: the 192 GiB container reservation, and the
 `variance` post step's failure on ablate models.
