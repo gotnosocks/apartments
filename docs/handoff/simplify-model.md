@@ -33,6 +33,13 @@ to need one. That is the top item.
   Each container's `variance` post step fails on ablate models (`model.MODELS` KeyError);
   harmless, the fit is complete. Modal spend so far about $19 of $50.
 
+- Fewer draws on the u5-of traces (4 chains): 2,600 pass (1.0072/788), 2,300 pass, 2,000
+  pass (1.0087/576), 1,800 FAIL (R-hat 1.0123 unit_sd), 1,600 pass (1.0085/427). R-hat near
+  1.01 is noisy in the draw count, so keep 2,600: a failed fit costs more than the ~$2.5 saved.
+- serve/master had stopped following master (all `apartments-*` timers disabled since about
+  the Nov 15 cutover). Moved it to origin/master by hand 2026-11-23 03:40 ET; check it before
+  each launch (`git -C /data1/apartments/serve/master log -1`).
+
 ## Next
 
 Pages read one run: PR #1538 (competitor, `feat/simplify-model-discovery`) wires Deals,
