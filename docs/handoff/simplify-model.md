@@ -44,5 +44,11 @@ to need one. That is the top item.
 
 Pages read one run: PR #1538 (competitor, `feat/simplify-model-discovery`) wires Deals,
 Today and Diagnostics for `unified` and `onefit`. Watch it; if it stalls, build the onefit
-part here. Then candidates for less cost: the 192 GiB container reservation, and the
+part here. Read-only check of #1538 for onefit (2026-11-23 03:40 ET): subsets right, master's split
+untouched, no leak. But its `drift_deals.validate` still reads the open ads, which have
+outcomes only on a backtest dataset, so a onefit run on today's market data gets no validity
+table. Once #1538 merges: make validate read a onefit run's closed held-out rows (first ask,
+days on market and cuts from the ads table, as `scratchpad/onefit_score.py` did; 0.99/1.00
+on u5-of). Also `drift_deals.py:686` labels a onefit summary "unified", and
+`test_unified_split.py` never tests onefit. Then candidates for less cost: the 192 GiB container reservation, and the
 `variance` post step's failure on ablate models.
