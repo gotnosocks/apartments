@@ -91,3 +91,46 @@ training; selection and validity read older ads.
 1. Open-ad elpd D − A between −20 and 0 (most of C's cost came from the recent rows).
 2. Open RMSE within 0.002 of A; 80% and 95% coverage within 1.5 points.
 3. Latest-row validity monotone, Spearman ≥ 0.95 for median days and share cut.
+
+## Variant D results
+
+`of-d-old` (1d62c667, same settings; gate not passed at screen length: max R-hat 1.062,
+sigma[0]; min ESS 27, sigma[1]).
+
+| | A (market only) | D (one fit) |
+|---|---|---|
+| open elpd (1,891 ads) | 1963.6 | 1952.0, Δ −11.6 ± 5.8 |
+| open RMSE / MAE | 0.1132 / 0.0485 | 0.1138 / 0.0495 |
+| open coverage 50/80/90/95 | 0.481 / 0.755 / 0.879 / 0.938 | 0.481 / 0.761 / 0.880 / 0.942 |
+| latest rows | — | 26,407: elpd 32,544.3, RMSE 0.0812, coverage 80% 0.792, 95% 0.946 |
+| validity Spearman (days, cut) | open 0.97, 0.99 | latest 0.98, 1.00 |
+
+Latest-row validity by tenth of first-ask place: median days 12, 13, 13, 13, 15, 15, 17, 19,
+22, 28; share cut 0.07, 0.11, 0.14, 0.16, 0.20, 0.21, 0.26, 0.30, 0.39, 0.53; 2,267 to 3,467
+ads a tenth.
+
+1. Held: −11.6 is inside [−20, 0]. It is 0.006 nats an open ad, about 2 SE, a third of C's.
+2. Held: RMSE +0.0006, coverage within 0.6 points.
+3. Held: monotone in both, Spearman 0.98 and 1.00.
+
+Does selection on rows a year old still tell models apart? Re-scoring the cost arms against C
+(`docs/notes/cost-arms-2026-11-22.md`) on C's latest rows split by age:
+
+| arm − C | all 34,518 | 365+ days old (D's rows), 26,407 | last year, 8,111 |
+|---|---|---|---|
+| `bld_semi` | −518 ± 48 (z −10.8) | −459 ± 43 (z −10.6) | −59 ± 21 (z −2.8) |
+| `bld_annual` | −1,429 ± 71 (z −20.2) | −1,182 ± 64 (z −18.6) | −248 ± 31 (z −8.0) |
+| `no_slow` | −4.3 ± 5.8 | −1.1 ± 5.1 | −3.3 ± 2.9 |
+
+The old rows keep nearly all the z of the full latest set. A change that matters only in the
+last year would show only on the open ads, which the one fit also scores.
+
+## Recommendation
+
+Replace the three fits of a model (latest, market, as-of backtest) with one fit on the market
+dataset holding out the open ads and the latest-split rows a year or more old from apartments
+with no open ad (D). Selection and Diagnostics read the latest rows, Deals the open ads, and
+validity the latest rows. Deals pays about 0.006 nats an open ad at k5 for a third of the cost.
+A strict as-of backtest stays as an occasional check, not a fit per model. Not yet done: the
+split as code in `splits.py` with `drift_deals` and Diagnostics reading the two subsets, and a
+full-length fit that passes the gate.
