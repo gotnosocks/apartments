@@ -403,6 +403,8 @@ Rows are in date order. Where a source gives no date for an entry, the date colu
 - **Mundlak building means.** -25 elpd (SE 24 to 29) vs floor on held-out ads. `docs/notes/conference-followups-2026-10-22.md`
 - **Splitting the stabilized discount as predicted.** 3 hits and 5 misses. `docs/notes/stabilized-split-2026-10-23.md`
 - **The park placebo.** 3 hits and 8 misses; expressway and rail buildings asked more, not less. `docs/notes/park-placebo-2026-10-23.md`
+- **Coarser building paths (2026-11-22).** Half-year AR(1) building paths cost −518 ± 48 latest-row elpd at k5 and saved 12% of sampling; annual paths cost −1,429 ± 71 and saved 22%. Dropping the slow `bld:` step changed elpd by −4 ± 6 but saved only 5%. `docs/notes/cost-arms-2026-11-22.md`
+- **One fit holding out every latest row (2026-11-22).** Holding out the open ads plus the full 10% latest split cost the open ads −36 to −53 nats at k5, because the latest split takes about 27% of the last year's closed ads. Keeping only latest rows a year or more old (the `onefit` split) cut that to −11.6 ± 5.8. `docs/notes/one-fit-protocol-2026-11-22.md`
 
 ## 5. Recurring lessons
 

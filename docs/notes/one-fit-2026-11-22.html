@@ -1,0 +1,169 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>One Fit Instead of Three</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1d1b;--muted:#6b6a64;--bar:#3b6ea5;--err:#1d1d1b;--rule:#d9d6cc;--card:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#161614;--fg:#ecebe6;--muted:#a3a198;--bar:#7aa7d8;--err:#ecebe6;--rule:#3a3934;--card:#1f1f1c}}
+body{background:var(--bg);color:var(--fg);font:16px/1.55 -apple-system,system-ui,Segoe UI,sans-serif;margin:0;padding:0 16px}
+main{max-width:720px;margin:24px auto 64px} h1{font-size:1.6em;line-height:1.2;margin:.2em 0} h2{font-size:1.15em;margin-top:2em}
+p,li{overflow-wrap:anywhere} .muted{color:var(--muted)} .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;min-width:480px;font-size:.92em} td,th{padding:6px 10px;border-bottom:1px solid var(--rule);text-align:left;white-space:nowrap}
+.card{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:12px 14px;margin:14px 0}
+svg .bar{fill:var(--bar)} svg .err{stroke:var(--err);stroke-width:1.5} svg .axis{stroke:var(--muted)}
+svg text{fill:var(--fg);font-size:12px} svg .tick{fill:var(--muted);font-size:11px} svg .lab{font-size:12.5px}
+code{font-size:.9em}
+</style></head><body><main>
+<p class="muted">Simplify-model thread · 2026-11-22</p>
+<h1>One fit instead of three</h1>
+<p><b>Yes, one fit can do the work of three.</b> Hold out the open ads plus the newest ad of 10% of relisted apartments, using only ads a year or more old. That single fit serves Deals, selection and Diagnostics, and the deal-score validity check. At screen size it costs Deals about 0.006 nats an open ad, roughly 2 SE. A model's cost drops to about a third.</p>
+
+<h2>The problem</h2>
+<p>Today a model needs a latest-split fit (selection, Diagnostics), a market fit (Deals) and an as-of backtest (validity of the deal score). At full length that is about $28 each.</p>
+
+<h2>What I tried</h2>
+<p>Each arm is one k5 screen on the backtest market dataset as of 2025-11-10, with the same model (<code>layrng,size,sv_gp_mo,marks</code>). The bars show the change in elpd on its 1,891 open ads against the market-only fit, with ±2 SE.</p>
+<div class="card scroll"><svg viewBox="0 0 560 142" role="img" style="min-width:420px;width:100%;max-width:560px">
+<line x1="501.0" y1="8" x2="501.0" y2="114" class="axis"/>
+<text x="142" y="27" text-anchor="end" class="lab">B: all latest rows</text>
+<rect x="294.69" y="15" width="206.31" height="18" rx="2" class="bar"/>
+<line x1="180.81000000000003" y1="24" x2="408.57" y2="24" class="err"/>
+<text x="174.81000000000003" y="28" text-anchor="end" class="val">−52.9 ± 14.6</text>
+<text x="142" y="61" text-anchor="end" class="lab">C: no open-ad units</text>
+<rect x="360.6" y="49" width="140.39999999999998" height="18" rx="2" class="bar"/>
+<line x1="277.14" y1="58" x2="444.06" y2="58" class="err"/>
+<text x="271.14" y="62" text-anchor="end" class="val">−36.0 ± 10.7</text>
+<text x="142" y="95" text-anchor="end" class="lab">D: year-old rows only</text>
+<rect x="455.76" y="83" width="45.24000000000001" height="18" rx="2" class="bar"/>
+<line x1="410.52" y1="92" x2="501.0" y2="92" class="err"/>
+<text x="404.52" y="96" text-anchor="end" class="val">−11.6 ± 5.8</text>
+<text x="150.0" y="132" text-anchor="middle" class="tick">-90</text>
+<text x="228.0" y="132" text-anchor="middle" class="tick">-70</text>
+<text x="306.0" y="132" text-anchor="middle" class="tick">-50</text>
+<text x="384.0" y="132" text-anchor="middle" class="tick">-30</text>
+<text x="462.0" y="132" text-anchor="middle" class="tick">-10</text>
+<text x="540.0" y="132" text-anchor="middle" class="tick">10</text>
+<text x="540" y="118" text-anchor="end" class="tick">nats vs market-only fit</text></svg></div>
+<ul>
+<li><b>B</b>: every latest row held out. Costs 53 nats.</li>
+<li><b>C</b>: the same, but no latest rows from apartments with an open ad. Costs 36.</li>
+<li><b>D</b>: C, keeping only latest rows a year or more old. Costs 12.</li>
+</ul>
+<p>The reason: the latest split holds each relisted apartment's newest ad, so it takes about 27% of the last year's closed ads, against 10% overall. Holding those out starves the Deals fit of the recent market. The age filter fixes most of that.</p>
+<p>D's median error and coverage match the market fit: RMSE 0.1138 against 0.1132, and 80% coverage 0.761 against 0.755.</p>
+
+<h2>Validity from the same fit</h2>
+<p>Its 26,407 year-old latest rows have known final asks, so the deal-score check runs on them. Below, by tenth of where the first ask sits in the predictive distribution, from cheap to dear:</p>
+<p class="muted">Median days on the market</p>
+<div class="card scroll"><svg viewBox="0 0 560 200" role="img" style="min-width:420px;width:100%;max-width:560px">
+<rect x="40.0" y="112.0" width="43.4" height="60.0" rx="2" class="bar"/>
+<text x="61.7" y="108.0" text-anchor="middle" class="val">12</text>
+<text x="61.7" y="188" text-anchor="middle" class="tick">0.0</text>
+<rect x="91.4" y="107.0" width="43.4" height="65.0" rx="2" class="bar"/>
+<text x="113.10000000000001" y="103.0" text-anchor="middle" class="val">13</text>
+<text x="113.10000000000001" y="188" text-anchor="middle" class="tick">0.1</text>
+<rect x="142.8" y="107.0" width="43.4" height="65.0" rx="2" class="bar"/>
+<text x="164.5" y="103.0" text-anchor="middle" class="val">13</text>
+<text x="164.5" y="188" text-anchor="middle" class="tick">0.2</text>
+<rect x="194.2" y="107.0" width="43.4" height="65.0" rx="2" class="bar"/>
+<text x="215.89999999999998" y="103.0" text-anchor="middle" class="val">13</text>
+<text x="215.89999999999998" y="188" text-anchor="middle" class="tick">0.3</text>
+<rect x="245.6" y="97.0" width="43.4" height="75.0" rx="2" class="bar"/>
+<text x="267.3" y="93.0" text-anchor="middle" class="val">15</text>
+<text x="267.3" y="188" text-anchor="middle" class="tick">0.4</text>
+<rect x="297.0" y="97.0" width="43.4" height="75.0" rx="2" class="bar"/>
+<text x="318.7" y="93.0" text-anchor="middle" class="val">15</text>
+<text x="318.7" y="188" text-anchor="middle" class="tick">0.5</text>
+<rect x="348.4" y="87.0" width="43.4" height="85.0" rx="2" class="bar"/>
+<text x="370.09999999999997" y="83.0" text-anchor="middle" class="val">17</text>
+<text x="370.09999999999997" y="188" text-anchor="middle" class="tick">0.6</text>
+<rect x="399.8" y="77.0" width="43.4" height="95.0" rx="2" class="bar"/>
+<text x="421.5" y="73.0" text-anchor="middle" class="val">19</text>
+<text x="421.5" y="188" text-anchor="middle" class="tick">0.7</text>
+<rect x="451.2" y="62.000000000000014" width="43.4" height="109.99999999999999" rx="2" class="bar"/>
+<text x="472.9" y="58.000000000000014" text-anchor="middle" class="val">22</text>
+<text x="472.9" y="188" text-anchor="middle" class="tick">0.8</text>
+<rect x="502.59999999999997" y="32.0" width="43.4" height="140.0" rx="2" class="bar"/>
+<text x="524.3" y="28.0" text-anchor="middle" class="val">28</text>
+<text x="524.3" y="188" text-anchor="middle" class="tick">0.9</text>
+<line x1="36" y1="172" x2="550" y2="172" class="axis"/></svg></div>
+<p class="muted">Share whose ask was cut</p>
+<div class="card scroll"><svg viewBox="0 0 560 200" role="img" style="min-width:420px;width:100%;max-width:560px">
+<rect x="40.0" y="154.5" width="43.4" height="17.500000000000004" rx="2" class="bar"/>
+<text x="61.7" y="150.5" text-anchor="middle" class="val">7%</text>
+<text x="61.7" y="188" text-anchor="middle" class="tick">0.0</text>
+<rect x="91.4" y="144.5" width="43.4" height="27.500000000000004" rx="2" class="bar"/>
+<text x="113.10000000000001" y="140.5" text-anchor="middle" class="val">11%</text>
+<text x="113.10000000000001" y="188" text-anchor="middle" class="tick">0.1</text>
+<rect x="142.8" y="137.0" width="43.4" height="35.00000000000001" rx="2" class="bar"/>
+<text x="164.5" y="133.0" text-anchor="middle" class="val">14%</text>
+<text x="164.5" y="188" text-anchor="middle" class="tick">0.2</text>
+<rect x="194.2" y="132.0" width="43.4" height="40.0" rx="2" class="bar"/>
+<text x="215.89999999999998" y="128.0" text-anchor="middle" class="val">16%</text>
+<text x="215.89999999999998" y="188" text-anchor="middle" class="tick">0.3</text>
+<rect x="245.6" y="122.0" width="43.4" height="50.00000000000001" rx="2" class="bar"/>
+<text x="267.3" y="118.0" text-anchor="middle" class="val">20%</text>
+<text x="267.3" y="188" text-anchor="middle" class="tick">0.4</text>
+<rect x="297.0" y="119.5" width="43.4" height="52.5" rx="2" class="bar"/>
+<text x="318.7" y="115.5" text-anchor="middle" class="val">21%</text>
+<text x="318.7" y="188" text-anchor="middle" class="tick">0.5</text>
+<rect x="348.4" y="107.0" width="43.4" height="65.0" rx="2" class="bar"/>
+<text x="370.09999999999997" y="103.0" text-anchor="middle" class="val">26%</text>
+<text x="370.09999999999997" y="188" text-anchor="middle" class="tick">0.6</text>
+<rect x="399.8" y="97.0" width="43.4" height="75.0" rx="2" class="bar"/>
+<text x="421.5" y="93.0" text-anchor="middle" class="val">30%</text>
+<text x="421.5" y="188" text-anchor="middle" class="tick">0.7</text>
+<rect x="451.2" y="74.5" width="43.4" height="97.5" rx="2" class="bar"/>
+<text x="472.9" y="70.5" text-anchor="middle" class="val">39%</text>
+<text x="472.9" y="188" text-anchor="middle" class="tick">0.8</text>
+<rect x="502.59999999999997" y="39.5" width="43.4" height="132.5" rx="2" class="bar"/>
+<text x="524.3" y="35.5" text-anchor="middle" class="val">53%</text>
+<text x="524.3" y="188" text-anchor="middle" class="tick">0.9</text>
+<line x1="36" y1="172" x2="550" y2="172" class="axis"/></svg></div>
+<p>Both rise steadily, as on the open ads of a strict backtest (Spearman 0.98 and 1.00 across tenths). There are 14 times as many ads per tenth, so the table is far tighter.</p>
+
+<h2>Selection still works on old rows</h2>
+<p>Re-scoring the cost arms below on only the year-old rows keeps nearly all of their power. For half-year paths, z is −10.6 on the old rows against −10.8 on all latest rows. A change that matters only in the last year would show only on the open ads, which the one fit also scores.</p>
+
+<h2>Cheaper sweeps: mostly no</h2>
+<div class="card scroll"><svg viewBox="0 0 560 142" role="img" style="min-width:420px;width:100%;max-width:560px">
+<line x1="481.5" y1="8" x2="481.5" y2="114" class="axis"/>
+<text x="142" y="27" text-anchor="end" class="lab">Half-year paths</text>
+<rect x="380.49" y="15" width="101.00999999999999" height="18" rx="2" class="bar"/>
+<line x1="361.77" y1="24" x2="399.21000000000004" y2="24" class="err"/>
+<text x="355.77" y="28" text-anchor="end" class="val">−518 ± 48 · 12% faster</text>
+<text x="142" y="61" text-anchor="end" class="lab">Annual paths</text>
+<rect x="202.845" y="49" width="278.655" height="18" rx="2" class="bar"/>
+<line x1="175.155" y1="58" x2="230.535" y2="58" class="err"/>
+<text x="169.155" y="62" text-anchor="end" class="val">−1,429 ± 71 · 22% faster</text>
+<text x="142" y="95" text-anchor="end" class="lab">No slow step</text>
+<rect x="480.6615" y="83" width="1" height="18" rx="2" class="bar"/>
+<line x1="478.3995" y1="92" x2="482.9235" y2="92" class="err"/>
+<text x="472.3995" y="96" text-anchor="end" class="val">−4 ± 6 · 5% faster</text>
+<text x="150.0" y="132" text-anchor="middle" class="tick">-1700</text>
+<text x="228.0" y="132" text-anchor="middle" class="tick">-1300</text>
+<text x="306.0" y="132" text-anchor="middle" class="tick">-900</text>
+<text x="384.0" y="132" text-anchor="middle" class="tick">-500</text>
+<text x="462.0" y="132" text-anchor="middle" class="tick">-100</text>
+<text x="540.0" y="132" text-anchor="middle" class="tick">300</text>
+<text x="540" y="118" text-anchor="end" class="tick">latest-row nats vs C</text></svg></div>
+<p>Coarser building paths are faster but much worse; the quarterly path carries a lot. Dropping the slow step leaves the model the same but saves only 5%. None gets a full fit.</p>
+
+<h2>Fewer draws or chains</h2>
+<p>I recomputed the gate on the last full candidate fit's traces (6 chains of 2,600 draws):</p>
+<div class="scroll"><table>
+<tr><th>chains × draws</th><th>max R-hat</th><th>min ESS</th><th>gate</th></tr>
+<tr><td>6 × 2,600 (as run)</td><td>1.0087</td><td>1,077</td><td>pass</td></tr>
+<tr><td>6 × 2,000</td><td>1.0091</td><td>777</td><td>pass</td></tr>
+<tr><td>6 × 1,600</td><td>1.0129</td><td>630</td><td>fail</td></tr>
+<tr><td>4 × 2,600 (2 containers)</td><td>1.0076</td><td>680</td><td>pass</td></tr>
+<tr><td>2 × 2,600</td><td>1.0107</td><td>337</td><td>fail</td></tr>
+</table></div>
+<p>Two containers in place of three would cut a full fit by a third, with a thin margin. The other thread's full fits now running use two containers and will test that.</p>
+
+<h2>What's next</h2>
+<ul>
+<li>The <code>onefit</code> split is now in <code>splits.py</code>, and it matches D row for row. The other thread's <code>unified</code> split, open ads plus 2% of the latest rows with no age filter, overlaps it. The two should become one, and the age filter is the part to keep.</li>
+<li>Still to build: Deals, Today and Diagnostics need to read the two subsets of one run, and the split needs one full fit that passes the gate.</li>
+<li>Large H200 containers reserve 192 GiB and 8 CPUs, about $1.90 of their $6.45 an hour, and peak memory is not recorded. Measuring it might allow a smaller reservation.</li>
+</ul>
+<p class="muted">Notes: docs/notes/one-fit-protocol-2026-11-22.md, docs/notes/cost-arms-2026-11-22.md. The screens cost under $5 on Modal.</p>
+</main></body></html>

@@ -159,9 +159,10 @@ def estimates(
     Accepts either a paired (`latest`, `market`) run or a single `unified` run (with
     `market=None`), which already holds out both open market ads and non-active latest ads."""
     raw = json.loads((latest / "result.json").read_text())
-    if raw.get("split") == "unified" and market is None:
+    if raw.get("split") in ("unified", "onefit") and market is None:
+        split_name = raw["split"]
         record, manifest = drift_deals._checked(latest, backtest=False)
-        _result(latest, "unified")
+        _result(latest, split_name)
         model = record["model"]["name"]
         reg = _registry(registry)
         out, res = table(latest, "latest", reg)

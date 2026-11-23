@@ -729,10 +729,10 @@ def diagnostics(
     of the snapshot folders, and `sources` maps a name of `SOURCES` to a table to read
     instead of the newest snapshot's."""
     raw = json.loads((latest / "result.json").read_text())
-    unified_single = raw.get("split") == "unified" and market is None
+    unified_single = raw.get("split") in ("unified", "onefit") and market is None
     if unified_single:
         record, about = drift_deals._checked(latest, backtest=False)
-        drift_estimates._result(latest, "unified")
+        drift_estimates._result(latest, raw["split"])
     else:
         record = drift_estimates._result(latest, "latest")
     model = record["model"]["name"]

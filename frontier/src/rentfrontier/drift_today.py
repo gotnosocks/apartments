@@ -1207,7 +1207,7 @@ def load(run_dir: Path, draws: int = DRAWS, log=print) -> Fit:
         raise SystemExit(
             f"{run_dir.name} is a {name} fit, not one of {', '.join(MODELS)}"
         )
-    if record.get("split") not in ("market", "unified"):
+    if record.get("split") not in ("market", "unified", "onefit"):
         raise SystemExit(f"{run_dir.name} is not a fit on the market or unified split")
     if not drift_deals._gate(record)["passes"]:
         raise SystemExit(f"{run_dir.name} did not pass the convergence gate")

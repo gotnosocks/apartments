@@ -123,7 +123,7 @@ def _market_mask(
     held-out row is an open ad so `target_mask_in_held` is all True."""
     record = json.loads((run_dir / "result.json").read_text())
     held_b = np.asarray(held, bool)
-    if record.get("split") == "unified" and "open" in frame:
+    if record.get("split") in ("unified", "onefit") and "open" in frame:
         is_open = frame.open.to_numpy(bool)
         return held_b & is_open, is_open[held_b]
     return held_b, np.ones(int(held_b.sum()), bool)
@@ -586,7 +586,7 @@ def _checked(
     market = _manifest(run_dir)
     kind = "a backtest" if backtest else "the market"
     if (
-        result.get("split") not in ("market", "unified")
+        result.get("split") not in ("market", "unified", "onefit")
         or bool(market.get("backtest")) != backtest
     ):
         raise SystemExit(
@@ -674,7 +674,7 @@ def publish(
         meta["heldout"] = drift_score.summary(
             {k: scores[k] for k in ("y", "q", "pred", "elpd")}
         ) | {"run": heldout.name, "split": record.get("split")}
-    elif result.get("split") == "unified":
+    elif result.get("split") in ("unified", "onefit"):
         frame, _, held = _held_frame(run_dir)
         _, keep_h = _market_mask(run_dir, frame, held)
         scores = drift_score.score_run(run_dir, exact=False)

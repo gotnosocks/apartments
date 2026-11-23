@@ -24,6 +24,13 @@ the promoted model's held-out rows by audit_id:
   held-out row that is no longer the single latest row of a unit with two or more rows.
   A fit on the collapsed dataset is then scored on ads the source dataset's fit also held
   out.
+- onefit: on a market dataset, the open ads together with the latest split of the closed ads
+  of apartments with no open ad, keeping only latest rows a year or more older than the
+  newest ad. One fit then serves Deals (the open ads), selection and Diagnostics (the latest
+  rows) and deal-score validity (the latest rows, whose final asks are known), in place of
+  three. The age filter keeps the last year whole in training: the latest split takes about
+  27% of the last year's closed ads, and holding those out cost the open ads 36 nats at k5
+  against 12 with the filter (docs/notes/one-fit-protocol-2026-11-22.md).
 
 The promoted model's runs additionally dropped a few held-out rows outside its
 training floor range or time horizon. Paired comparisons use the intersection
@@ -128,7 +135,7 @@ def unified_split(
     """Single-fit production split combining `market` and non-active `latest`.
 
     Holds out every currently open (`open == True`) ad PLUS a leak-free `fraction`
-    (default 5%) draw of latest closed listings strictly from units that have no open
+    (default 2%) draw of latest closed listings strictly from units that have no open
     ad on the market. Every active apartment keeps 100% of its closed history in
     training while the same single fit serves Deals, Today, Estimates, and Diagnostics."""
     if "open" not in data:
@@ -151,6 +158,29 @@ def unified_split(
     return out
 
 
+ONE_FIT_MIN_AGE_DAYS = 365
+
+
+def one_fit_split(
+    data: pd.DataFrame, fraction=FRACTION, seed=SEED, min_age_days=ONE_FIT_MIN_AGE_DAYS
+) -> np.ndarray:
+    """Boolean held-out mask for the one-fit split (see the module docstring)."""
+    if "open" not in data:
+        raise ValueError("the one-fit split needs a dataset from rentfrontier.market")
+    open_mask = data.open.to_numpy(bool)
+    key = data.building.astype(str) + "|" + data.unit_id.astype(str)
+    closed = ~open_mask & ~key.isin(set(key[open_mask])).to_numpy()
+    idx = np.flatnonzero(closed)
+    held = open_mask.copy()
+    if len(idx) == 0:
+        return held
+    latest = latest_split(data.iloc[idx], fraction=fraction, seed=seed)
+    at = pd.to_datetime(data.price_at, utc=True)
+    old = ((at.max() - at).dt.days >= min_age_days).to_numpy()
+    held[idx[latest]] = True
+    return held & (open_mask | old)
+
+
 SPLITS = {
     "rows": row_split,
     "units": unit_split,
@@ -160,6 +190,9 @@ SPLITS = {
     "market": market_split,
     "unified": unified_split,
     "carried": carried_split,
+    "onefit": one_fit_split,
 }
 # Splits drawn after the data rules (on merged units and kept rows).
-AFTER_RULES = {"latest", "buildings", "unified"}
+AFTER_RULES = {"latest", "buildings", "unified", "onefit"}
+# Single-fit splits holding out both open market ads and closed historical eval ads.
+SINGLE_FIT_SPLITS = ("unified", "onefit")

@@ -216,6 +216,7 @@ BASELINES = (
     ("--model", "drift-building-phase-unitkn-level-phase"),
     ("--model", "drift-building-phase-unitkn-segment"),
     ("--model", "drift-building-phase-unitkn-ablate"),
+    ("--model", "drift-building-phase-unitkn-cost"),
     ("--model", "drift-building-phase-unitkn-unified"),
     ("--model", "drift-building-phase-unitkn-unified-seg"),
     ("--model", "drift-building-phase-unitt"),
