@@ -593,6 +593,10 @@ def main(argv=None):
             "drift_building_phase_unitkn_ablate",
         ),
         (
+            "drift-building-phase-unitkn-cost",
+            "drift_building_phase_unitkn_cost",
+        ),
+        (
             "drift-building-phase-unitkn-unified",
             "drift_building_phase_unitkn_unified",
         ),
