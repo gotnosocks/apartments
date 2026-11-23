@@ -24,4 +24,25 @@ model test: its draws are not scored.
 
 ## Result
 
-(after the probe lands)
+Run `drift-building-phase-unitkn-ablate-b0-onefit-fe4930e7-mem-probe`, 04:25 ET: exit 0,
+608 s wall (fit stage 543 s: design prep about 345 s, first sweep 138 s, 40 sweeps 40 s),
+$1.09 at the large rate, not $0.65: I priced the stage and the prep too low.
+
+| Prediction | Outcome |
+|---|---|
+| 1. `memory_peak_bytes` filled in | Right: 15,881,175,040 bytes. gVisor has no `memory.peak`, so this is the fit process's `ru_maxrss`. |
+| 2. Peak 20–80 GiB, central 40 | Wrong, low: **14.8 GiB**. Same as the served NB9 design's 15 GB on a sixth of the rows; the drift design is leaner than I assumed. |
+| 3. Under 64 GiB, so a smaller reservation pays | Right, and by more: see below. |
+
+A full fit holds more than the probe only in its kept draws and held-out predictions
+(`trace`, `kept`, `pred_loc`, `pred_unit_sd` in `drift.run`). The full `u5-of-a` run's
+`posterior.npz`, which holds all of them, is 236 MB. So a full fit peaks within 1 GiB of the
+probe, about 16 GiB, and I did not wait on a full fit's own record.
+
+Change (this PR): `ops/modal-fit --large --lean` reserves 48 GiB (`app.LEAN_MEMORY_MIB`), three
+times the measured peak, for a fit that builds no summary bundle in the container (every
+drift model in `cap.BASELINES`, which builds none). A container then lists at $5.30 an hour on
+an H200 in place of $6.45, which saves about $2.6 of a two-container onefit fit's $14.46 (18%).
+The summary bundle, `--publish-only` and every fit without `--lean` keep 192 GiB: their peaks
+are unmeasured. The launch pre-check still reserves at the large price, and the ledger settles
+at the lean one.

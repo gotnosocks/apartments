@@ -826,6 +826,42 @@ def test_a_large_fit_can_stop_before_its_summary():
     assert "--no-summary" not in rest and "--outside-budget" not in rest
 
 
+def test_a_lean_large_fit_reserves_less_memory_and_builds_no_summary(monkeypatch):
+    monkeypatch.setitem(sys.modules, "modal", mock.MagicMock())
+    app = load("app")
+    assert set(app.LEAN_FITS) <= set(app.LARGE_FITS)
+    assert app.LEAN_MEMORY_MIB < app.LARGE_MEMORY_MIB
+    for gpu in app.LEAN_FITS:
+        saved = app.usd_per_second(gpu, large=True) - app.usd_per_second(
+            gpu, large=True, lean=True
+        )
+        assert saved == pytest.approx(
+            (app.LARGE_MEMORY_MIB - app.LEAN_MEMORY_MIB) / 1024 * app.USD_PER_GIB_SECOND
+        )
+    # A baseline (here the drift ablate model) builds no summary, so it may go lean.
+    argv = [
+        "abc",
+        "of",
+        "drift-building-phase-unitkn-ablate",
+        "b0",
+        "2",
+        "20",
+        "20",
+        "1",
+    ]
+    args, rest = fit.parse(["--large", "--lean", "--gpu", "H200", *argv])
+    assert args.lean and "--lean" not in rest
+    assert not fit.plan(args, rest, "9371a18")["summary"]
+    # A fit that builds its summary bundle in the container needs the large one.
+    m7 = ["abc", "all", "m7", "all-scraped-v1", "2", "300", "4500", "9"]
+    for flags in (["--large", "--lean"], ["--lean"]):
+        args, rest = fit.parse([*flags, "--gpu", "H200", *m7])
+        with pytest.raises(SystemExit):
+            fit.plan(args, rest, "9371a18")
+    args, rest = fit.parse(["--large", "--lean", "--no-summary", "--gpu", "H200", *m7])
+    assert not fit.plan(args, rest, "9371a18")["summary"]
+
+
 def test_a_large_baseline_fit_runs_as_the_fit_alone():
     argv = [
         "abc",
