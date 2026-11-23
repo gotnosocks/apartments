@@ -52,7 +52,7 @@ to need one. That is the top item.
 
 - 05:25 ET: H100 lean probe: h = 1.117 against the H200 (`docs/notes/h100-lean-2026-11-23.md`);
   same cost a sweep within noise, so stay on H200s (H100 as a fallback). Modal spend about
-  $24 of $50. Cost levers left: design prep (about 350 s a container, paid twice), warmup.
+  $23 of $50. Cost levers left: design prep (about 350 s a container, paid twice), warmup.
 
 ## Next
 
