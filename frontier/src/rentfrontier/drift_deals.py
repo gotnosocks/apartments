@@ -359,7 +359,16 @@ def deals(
     res = drift_score.score_run(run_dir, exact=exact)
     if not keep_h.all():
         h = h[keep_h].reset_index(drop=True)
-        res = {k: v[keep_h] for k, v in res.items()}
+        res = {
+            k: (
+                v[keep_h]
+                if isinstance(v, np.ndarray)
+                and v.ndim >= 1
+                and v.shape[0] == len(keep_h)
+                else v
+            )
+            for k, v in res.items()
+        }
     a = _ads(ads, h.listing_id)
     q = np.exp(res["q"].astype(float))
     ask = h.latest_ask.to_numpy(float)
@@ -491,7 +500,16 @@ def validate(
     at_vals[keep_h] = np.log(np.where(ok, first, final))
     res = drift_score.score_run(run_dir, at=at_vals)
     if not keep_h.all():
-        res = {k: v[keep_h] for k, v in res.items()}
+        res = {
+            k: (
+                v[keep_h]
+                if isinstance(v, np.ndarray)
+                and v.ndim >= 1
+                and v.shape[0] == len(keep_h)
+                else v
+            )
+            for k, v in res.items()
+        }
     place = res["cdf_at"]
     day = pd.to_datetime(h.final_day if "final_day" in h else h.latest_day)
     off = pd.to_datetime(a.off_day).to_numpy()

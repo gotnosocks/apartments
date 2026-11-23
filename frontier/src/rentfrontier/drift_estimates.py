@@ -174,7 +174,16 @@ def estimates(
         out = out.sort_values(["day", "listing_id"], kind="stable").reset_index(
             drop=True
         )
-        past_res = {k: v[~is_open] for k, v in res.items()}
+        past_res = {
+            k: (
+                v[~is_open]
+                if isinstance(v, np.ndarray)
+                and v.ndim >= 1
+                and v.shape[0] == len(is_open)
+                else v
+            )
+            for k, v in res.items()
+        }
         gate = drift_deals._gate(record)
         prov = _provenance(record)
         meta = {

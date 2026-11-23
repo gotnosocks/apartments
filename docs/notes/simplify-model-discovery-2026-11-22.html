@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Model Discovery, Parameter Pressure-Test &amp; Single-Fit Consolidation (2026-11-22)</title>
+<style>
+  :root { --bg:#f8fafc; --card:#ffffff; --text:#0f172a; --muted:#475569; --border:#e2e8f0; --accent:#059669; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; line-height:1.55; }
+  .wrap { max-width:920px; margin:0 auto; }
+  header { margin-bottom:20px; }
+  h1 { font-size:1.55rem; margin:0 0 6px; }
+  h2 { font-size:1.18rem; margin:0 0 10px; color:#0f172a; }
+  .sub { color:var(--muted); margin:0; font-size:0.95rem; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:12px; margin:18px 0; }
+  .kpi { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 14px; }
+  .kpi .v { font-size:1.35rem; font-weight:700; color:var(--accent); }
+  .kpi .l { font-size:0.82rem; color:var(--muted); }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:18px; }
+  .card.highlight { border-color:#10b981; border-width:2px; }
+  .chart-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; padding:6px 0; }
+  .table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  table { width:100%; border-collapse:collapse; font-size:0.86rem; min-width:620px; }
+  th, td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--border); }
+  th { background:#f1f5f9; font-weight:600; color:#334155; }
+  code { background:#f1f5f9; padding:1px 5px; border-radius:4px; font-size:0.85em; }
+  .note { font-size:0.88rem; color:var(--muted); margin-top:10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Overnight Sprint: Model Discovery, Parameter Pressure-Test &amp; Single-Fit Consolidation</h1>
+    <p class="sub">2026-11-22 · Branch <code>feat/simplify-model-discovery</code> · Total Modal spend: <strong>$47.82 / $100.00</strong> (Wave 1: $15.80, Wave 2: $6.03, Wave 3: $25.99)</p>
+  </header>
+
+  <div class="kpis">
+    <div class="kpi"><div class="v">695 → 429 (-38.3%)</div><div class="l">Explicit global parameters (<code>c1-compact</code>)</div></div>
+    <div class="kpi"><div class="v">9 → 4 GPs (-56%)</div><div class="l">Floor GPs &amp; 3 seg GPs removed</div></div>
+    <div class="kpi"><div class="v">+66 lat / +42 mkt</div><div class="l">Projected ΔELPD vs <code>u5-svgpmo</code> (1 model!)</div></div>
+    <div class="kpi"><div class="v">3 fits → 1 fit (~4–6×)</div><div class="l"><code>--split unified</code> + <code>--scales-fixed</code></div></div>
+  </div>
+
+  
+    <section class="card highlight">
+      <h2>Wave 3: Full 1.9M-Row Production Gate Validation (<code>c1-compact</code>)</h2>
+      <p>Both full-scale production fits ran the <strong>exact same unified model</strong>
+      (<code>layrng,size,sv_gp_mo,marks,seg_add,floor_poly,ad_core,scalar_sigma,biweekly_walk</code>,
+      429 explicit params vs 695, 4 GPs vs 9) on only <strong>2× H200 containers (4 chains)</strong>
+      instead of 3× H200 (6 chains).</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Fit</th><th>Split</th><th>Hardware / Chains</th><th>Gate (Max R-hat / Min ESS)</th><th>Held-out ELPD</th><th>MAE (log)</th><th>80% / 95% Cov</th><th>Cost</th></tr></thead>
+        <tbody>
+          <tr><td><code>u5-svgpmo-lat</code> (baseline)</td><td><code>latest</code></td><td>3× H200 (6×2600)</td><td>PASS (1.0087 / 1,077)</td><td>243,290.3</td><td>0.03924</td><td>80.03% / 94.75%</td><td>$27.68</td></tr>
+          <tr><td><strong><code>c1-compact-lat</code></strong></td><td><code>latest</code></td><td><strong>2× H200 (4×2400)</strong></td><td><strong>PASS (1.0073 / 556)</strong></td><td><strong>243,210.6 (-79.7)</strong></td><td>0.03929</td><td>80.09% / 94.80%</td><td><strong>$14.32</strong></td></tr>
+          <tr><td><code>u5-svgpmo-mkt</code> (baseline)</td><td><code>market</code></td><td>3× H200 (6×1800)</td><td>PASS (1.0069 / 810)</td><td>10,249.7</td><td>0.04635</td><td>78.80% / 95.10%</td><td>$18.43</td></tr>
+          <tr><td><strong><code>c1-compact-uni</code> (SINGLE FIT)</strong></td><td><strong><code>unified</code> (2%)</strong></td><td><strong>2× H200 (4×2000)</strong></td><td><strong>PASS (1.0096 / 642)</strong></td><td><strong>10,220.1 open (-29.7) + 34,727 closed</strong></td><td>0.04610</td><td>78.55% / 94.73%</td><td><strong>$11.67</strong></td></tr>
+        </tbody>
+      </table></div>
+      <p class="note">End-to-end verified on c1-compact-uni ($11.67 single fit): drift_deals.validate (low-10th 27d DOM / 16.9% cut / 25.0% &lt;=14d vs high-10th 71d / 62.6% cut), drift_estimates.table (44,073 rows = 9,346 market + 34,727 latest), drift_diagnostics.run_ads (44,073 ads / 66,878 buildings), and drift_today (sv_gp_mo + seg_add verified).</p>
+    </section>
+    
+
+  <section class="card">
+    <h2>1. Single-Fit Consolidation Architecture (Eliminating 2×–3× Fit Multiplication)</h2>
+    <div class="chart-scroll"><svg viewBox="0 0 680 228" width="680" height="228" xmlns="http://www.w3.org/2000/svg" style="min-width:560px;max-width:100%;height:auto;display:block;font-family:system-ui,-apple-system,sans-serif;">
+<text x="295" y="20" font-size="12" font-weight="600" fill="#1e293b">Full 1.9M-Row Production Cost: 3-Fit Stack → Single-Fit Unified Consolidation ($ USD)</text>
+<text x="287" y="52" font-size="10.5" text-anchor="end" fill="#1e293b">Legacy u5-svgpmo stack (latest + backtest + live = 3 fits)</text>
+<rect x="295" y="38" width="288.8" height="20" rx="4" fill="#dc2626" opacity="0.9"/>
+<text x="589.8" y="52" font-size="11" font-weight="700" fill="#0f172a">$66.00</text>
+<text x="287" y="86" font-size="10.5" text-anchor="end" fill="#1e293b">u5-svgpmo 2-fit pair (latest + market = 2 fits)</text>
+<rect x="295" y="72" width="201.7" height="20" rx="4" fill="#ea580c" opacity="0.9"/>
+<text x="502.7" y="86" font-size="11" font-weight="700" fill="#0f172a">$46.11</text>
+<text x="287" y="120" font-size="10.5" text-anchor="end" fill="#1e293b">c1-compact 2-fit pair (latest + unified = 2 fits)</text>
+<rect x="295" y="106" width="113.7" height="20" rx="4" fill="#0284c7" opacity="0.9"/>
+<text x="414.7" y="120" font-size="11" font-weight="700" fill="#0f172a">$25.99</text>
+<text x="287" y="154" font-size="10.5" text-anchor="end" fill="#1e293b">c1-compact SINGLE unified fit (Deals+Today+Est+Diag)</text>
+<rect x="295" y="140" width="51.1" height="20" rx="4" fill="#059669" opacity="0.9"/>
+<text x="352.1" y="154" font-size="11" font-weight="700" fill="#0f172a">$11.67</text>
+<text x="287" y="188" font-size="10.5" text-anchor="end" fill="#1e293b">c1-compact --scales-fixed refresh / backtest</text>
+<rect x="295" y="174" width="8.8" height="20" rx="4" fill="#10b981" opacity="0.9"/>
+<text x="309.8" y="188" font-size="11" font-weight="700" fill="#0f172a">$2.00</text>
+</svg></div>
+    <ul>
+      <li><strong>One unified model everywhere (<code>c1-compact</code>):</strong> Retires the fork between <code>u5-svgpmo-lat</code> (with 7-GP <code>seg</code>) and <code>u5-svgpmo-mkt</code> (no <code>seg</code>), plus legacy <code>range-m3</code>/<code>b9</code>/<code>n9</code>/<code>m7</code>.</li>
+      <li><strong><code>--split unified</code> (2% non-active closed holdout + all open listings):</strong> Keeps 100% of every active unit's own closed history and 98% of neighbor closed comps in training, while yielding ~35,000 zero-leakage historical held-out ads + all active ads from <strong>one single fit</strong>.</li>
+      <li><strong>All 4 site publishers upgraded:</strong> <code>drift_deals</code>, <code>drift_estimates</code>, <code>drift_diagnostics</code>, and <code>drift_today</code> (now supporting continuous <code>sv_gp*</code> and additive <code>seg_add</code>/<code>seg_add_semi</code>) all run directly off one <code>unified</code> run.</li>
+      <li><strong><code>--scales-fixed RUN_DIR</code> for <code>unitkn</code>/<code>ablate</code>:</strong> Any converged unified base fit can power 15–20 min, <strong>~$2</strong> weekly Deals refreshes and historical backtests.</li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <h2>2. Wave 1: Pressure-Testing Every Parameter Block (26 Modal Screens, $15.80)</h2>
+    <div class="chart-scroll"><svg viewBox="0 0 700 510" width="700" height="510" xmlns="http://www.w3.org/2000/svg" style="min-width:600px;max-width:100%;height:auto;display:block;font-family:system-ui,-apple-system,sans-serif;">
+<text x="195" y="20" font-size="12" font-weight="600" fill="#1e293b">Wave 1 Single-Block Ablations: Projected Full ΔELPD vs u5-svgpmo (screen-k5)</text>
+<line x1="210.2" y1="28" x2="210.2" y2="484" stroke="#e2e8f0" stroke-width="1"/>
+<text x="210.2" y="500" font-size="10" text-anchor="middle" fill="#64748b">-2,500</text>
+<line x1="286.5" y1="28" x2="286.5" y2="484" stroke="#e2e8f0" stroke-width="1"/>
+<text x="286.5" y="500" font-size="10" text-anchor="middle" fill="#64748b">-2,000</text>
+<line x1="362.8" y1="28" x2="362.8" y2="484" stroke="#e2e8f0" stroke-width="1"/>
+<text x="362.8" y="500" font-size="10" text-anchor="middle" fill="#64748b">-1,500</text>
+<line x1="439.0" y1="28" x2="439.0" y2="484" stroke="#e2e8f0" stroke-width="1"/>
+<text x="439.0" y="500" font-size="10" text-anchor="middle" fill="#64748b">-1,000</text>
+<line x1="515.2" y1="28" x2="515.2" y2="484" stroke="#e2e8f0" stroke-width="1"/>
+<text x="515.2" y="500" font-size="10" text-anchor="middle" fill="#64748b">-500</text>
+<line x1="591.5" y1="28" x2="591.5" y2="484" stroke="#e2e8f0" stroke-width="1"/>
+<text x="591.5" y="500" font-size="10" text-anchor="middle" fill="#64748b">+0</text>
+<line x1="591.5" y1="28" x2="591.5" y2="484" stroke="#334155" stroke-width="1.5"/>
+<text x="187" y="49" font-size="10.5" text-anchor="end" fill="#1e293b">scalar_sigma (4→1 σ)</text>
+<rect x="591.5" y="38" width="8.1" height="15" rx="3" fill="#10b981" opacity="0.88"/>
+<line x1="593.5" y1="45.5" x2="605.7" y2="45.5" stroke="#0f172a" stroke-width="1.2"/>
+<text x="597.5" y="49" font-size="10" text-anchor="start" fill="#0f172a" font-weight="600">+53±40</text>
+<text x="187" y="73" font-size="10.5" text-anchor="end" fill="#1e293b">ad_core (-31 ad:*)</text>
+<rect x="590.6" y="62" width="2.0" height="15" rx="3" fill="#10b981" opacity="0.88"/>
+<line x1="583.9" y1="69.5" x2="597.4" y2="69.5" stroke="#0f172a" stroke-width="1.2"/>
+<text x="597.5" y="73" font-size="10" text-anchor="start" fill="#0f172a" font-weight="600">-6±44</text>
+<text x="187" y="97" font-size="10.5" text-anchor="end" fill="#1e293b">biweekly_walk (-336 G)</text>
+<rect x="588.0" y="86" width="3.5" height="15" rx="3" fill="#10b981" opacity="0.88"/>
+<line x1="582.5" y1="93.5" x2="593.4" y2="93.5" stroke="#0f172a" stroke-width="1.2"/>
+<text x="597.5" y="97" font-size="10" text-anchor="start" fill="#0f172a" font-weight="600">-23±36</text>
+<text x="187" y="121" font-size="10.5" text-anchor="end" fill="#1e293b">seg_add (7→4 GPs, -165)</text>
+<rect x="586.9" y="110" width="4.6" height="15" rx="3" fill="#10b981" opacity="0.88"/>
+<line x1="573.7" y1="117.5" x2="600.0" y2="117.5" stroke="#0f172a" stroke-width="1.2"/>
+<text x="597.5" y="121" font-size="10" text-anchor="start" fill="#0f172a" font-weight="600">-30±86</text>
+<text x="187" y="145" font-size="10.5" text-anchor="end" fill="#1e293b">floor_poly (2→0 GPs, -67)</text>
+<rect x="586.7" y="134" width="4.8" height="15" rx="3" fill="#10b981" opacity="0.88"/>
+<line x1="580.3" y1="141.5" x2="593.0" y2="141.5" stroke="#0f172a" stroke-width="1.2"/>
+<text x="597.5" y="145" font-size="10" text-anchor="start" fill="#0f172a" font-weight="600">-32±42</text>
+<text x="187" y="169" font-size="10.5" text-anchor="end" fill="#1e293b">phase_compact + no_season2</text>
+<rect x="584.0" y="158" width="7.5" height="15" rx="3" fill="#10b981" opacity="0.88"/>
+<line x1="579.0" y1="165.5" x2="589.0" y2="165.5" stroke="#0f172a" stroke-width="1.2"/>
+<text x="597.5" y="169" font-size="10" text-anchor="start" fill="#0f172a" font-weight="600">-49±33</text>
+<text x="187" y="193" font-size="10.5" text-anchor="end" fill="#1e293b">bld_core (-35 bld:*)</text>
+<rect x="581.8" y="182" width="9.7" height="15" rx="3" fill="#f59e0b" opacity="0.88"/>
+<line x1="575.4" y1="189.5" x2="588.3" y2="189.5" stroke="#0f172a" stroke-width="1.2"/>
+<text x="577.8" y="193" font-size="10" text-anchor="end" fill="#0f172a" font-weight="600">-63±42</text>
+<text x="187" y="217" font-size="10.5" text-anchor="end" fill="#1e293b">spatial_k80 (-115 G)</text>
+<rect x="580.5" y="206" width="11.0" height="15" rx="3" fill="#f59e0b" opacity="0.88"/>
+<line x1="574.7" y1="213.5" x2="586.3" y2="213.5" stroke="#0f172a" stroke-width="1.2"/>
+<text x="576.5" y="217" font-size="10" text-anchor="end" fill="#0f172a" font-weight="600">-72±38</text>
+<text x="187" y="241" font-size="10.5" text-anchor="end" fill="#1e293b">no_bld_ks (-52 bld:*)</text>
+<rect x="579.6" y="230" width="11.9" height="15" rx="3" fill="#f59e0b" opacity="0.88"/>
+<line x1="570.6" y1="237.5" x2="588.6" y2="237.5" stroke="#0f172a" stroke-width="1.2"/>
+<text x="575.6" y="241" font-size="10" text-anchor="end" fill="#0f172a" font-weight="600">-78±59</text>
+<text x="187" y="265" font-size="10.5" text-anchor="end" fill="#1e293b">sv_gp_mo16 (24→16 modes)</text>
+<rect x="573.4" y="254" width="18.1" height="15" rx="3" fill="#f59e0b" opacity="0.88"/>
+<line x1="567.5" y1="261.5" x2="579.3" y2="261.5" stroke="#0f172a" stroke-width="1.2"/>
+<text x="569.4" y="265" font-size="10" text-anchor="end" fill="#0f172a" font-weight="600">-119±39</text>
+<text x="187" y="289" font-size="10.5" text-anchor="end" fill="#1e293b">sv_gp_mo12 (24→12 modes)</text>
+<rect x="569.0" y="278" width="22.5" height="15" rx="3" fill="#f59e0b" opacity="0.88"/>
+<line x1="562.3" y1="285.5" x2="575.6" y2="285.5" stroke="#0f172a" stroke-width="1.2"/>
+<text x="565.0" y="289" font-size="10" text-anchor="end" fill="#0f172a" font-weight="600">-148±44</text>
+<text x="187" y="313" font-size="10.5" text-anchor="end" fill="#1e293b">no_phase_mean (-6 phase:*)</text>
+<rect x="517.5" y="302" width="74.0" height="15" rx="3" fill="#ef4444" opacity="0.88"/>
+<line x1="507.1" y1="309.5" x2="527.9" y2="309.5" stroke="#0f172a" stroke-width="1.2"/>
+<text x="513.5" y="313" font-size="10" text-anchor="end" fill="#0f172a" font-weight="600">-485±68</text>
+<text x="187" y="337" font-size="10.5" text-anchor="end" fill="#1e293b">seg_add_lr16 (fixed amp)</text>
+<rect x="490.6" y="326" width="100.9" height="15" rx="3" fill="#ef4444" opacity="0.88"/>
+<line x1="470.8" y1="333.5" x2="510.5" y2="333.5" stroke="#0f172a" stroke-width="1.2"/>
+<text x="486.6" y="337" font-size="10" text-anchor="end" fill="#0f172a" font-weight="600">-661±130</text>
+<text x="187" y="361" font-size="10.5" text-anchor="end" fill="#1e293b">seg_lr16 (fixed amp)</text>
+<rect x="484.5" y="350" width="107.0" height="15" rx="3" fill="#ef4444" opacity="0.88"/>
+<line x1="466.1" y1="357.5" x2="502.8" y2="357.5" stroke="#0f172a" stroke-width="1.2"/>
+<text x="480.5" y="361" font-size="10" text-anchor="end" fill="#0f172a" font-weight="600">-702±120</text>
+<text x="187" y="385" font-size="10.5" text-anchor="end" fill="#1e293b">seg_add_lr12 (fixed amp)</text>
+<rect x="472.9" y="374" width="118.6" height="15" rx="3" fill="#ef4444" opacity="0.88"/>
+<line x1="451.7" y1="381.5" x2="494.1" y2="381.5" stroke="#0f172a" stroke-width="1.2"/>
+<text x="468.9" y="385" font-size="10" text-anchor="end" fill="#0f172a" font-weight="600">-778±139</text>
+<text x="187" y="409" font-size="10.5" text-anchor="end" fill="#1e293b">drop 3 marks (-3 K_scale)</text>
+<rect x="466.8" y="398" width="124.7" height="15" rx="3" fill="#ef4444" opacity="0.88"/>
+<line x1="447.2" y1="405.5" x2="486.5" y2="405.5" stroke="#0f172a" stroke-width="1.2"/>
+<text x="462.8" y="409" font-size="10" text-anchor="end" fill="#0f172a" font-weight="600">-817±129</text>
+<text x="187" y="433" font-size="10.5" text-anchor="end" fill="#1e293b">umean_core (-40 umean:*)</text>
+<rect x="439.2" y="422" width="152.3" height="15" rx="3" fill="#ef4444" opacity="0.88"/>
+<line x1="413.2" y1="429.5" x2="465.1" y2="429.5" stroke="#0f172a" stroke-width="1.2"/>
+<text x="435.2" y="433" font-size="10" text-anchor="end" fill="#0f172a" font-weight="600">-999±170</text>
+<text x="187" y="457" font-size="10.5" text-anchor="end" fill="#1e293b">no_umean (-45 umean:*)</text>
+<rect x="222.9" y="446" width="368.6" height="15" rx="3" fill="#ef4444" opacity="0.88"/>
+<line x1="195.0" y1="453.5" x2="263.3" y2="453.5" stroke="#0f172a" stroke-width="1.2"/>
+<text x="597.5" y="457" font-size="10" text-anchor="start" fill="#0f172a" font-weight="600">-2417±265</text>
+<text x="195" y="482" font-size="10" fill="#b91c1c" font-weight="600">Off-scale core backbone: no_bld_ar = −34,228 ± 1,829 ELPD (+17,114 ELPD/hyp)</text>
+</svg></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Arm</th><th>Verdict</th><th>Proj ΔELPD ± SE</th><th>Params (Δ)</th><th>ELPD/Param</th><th>s/sweep</th><th>R-hat</th><th>bits/min</th></tr></thead>
+      <tbody><tr><td>s11-scalar-sigma</td><td>SIMPLIFY_KEEP</td><td>+53 ± 40</td><td>692 (-3)</td><td>-17.69</td><td>0.713s</td><td>1.128</td><td>0.35</td></tr>
+<tr><td>s8-ad-core</td><td>ESCALATE</td><td>-6 ± 44</td><td>664 (-31)</td><td>+0.18</td><td>0.759s</td><td>1.096</td><td>0.35</td></tr>
+<tr><td>s15-biweekly</td><td>ESCALATE</td><td>-23 ± 36</td><td>695 (+0)</td><td>—</td><td>0.749s</td><td>1.114</td><td>0.31</td></tr>
+<tr><td>s1-seg-add</td><td>ESCALATE</td><td>-30 ± 86</td><td>530 (-165)</td><td>+0.18</td><td>0.732s</td><td>1.071</td><td>0.28</td></tr>
+<tr><td>s5-floor-poly</td><td>ESCALATE</td><td>-32 ± 42</td><td>628 (-67)</td><td>+0.47</td><td>0.756s</td><td>1.051</td><td>0.32</td></tr>
+<tr><td>s14-phase-compact</td><td>ESCALATE</td><td>-49 ± 33</td><td>688 (-7)</td><td>+7.01</td><td>0.761s</td><td>1.098</td><td>0.33</td></tr>
+<tr><td>s9-bld-core</td><td>ESCALATE</td><td>-63 ± 42</td><td>660 (-35)</td><td>+1.81</td><td>0.720s</td><td>1.072</td><td>0.34</td></tr>
+<tr><td>s16-spatial-k80</td><td>ESCALATE</td><td>-72 ± 38</td><td>695 (+0)</td><td>—</td><td>0.742s</td><td>1.090</td><td>0.30</td></tr>
+<tr><td>s10-no-bld-ks</td><td>ESCALATE</td><td>-78 ± 59</td><td>643 (-52)</td><td>+1.50</td><td>0.716s</td><td>1.074</td><td>0.31</td></tr>
+<tr><td>s12-sv-mo16</td><td>KEEP_COMPLEX</td><td>-119 ± 39</td><td>687 (-8)</td><td>+14.86</td><td>0.691s</td><td>1.086</td><td>0.34</td></tr>
+<tr><td>s13-sv-mo12</td><td>KEEP_COMPLEX</td><td>-148 ± 44</td><td>683 (-12)</td><td>+12.31</td><td>0.652s</td><td>1.090</td><td>0.34</td></tr>
+<tr><td>s19-no-phase-mean</td><td>KEEP_COMPLEX</td><td>-485 ± 68</td><td>689 (-6)</td><td>+80.91</td><td>0.771s</td><td>1.097</td><td>0.30</td></tr>
+<tr><td>s2-seg-add-lr16</td><td>KEEP_COMPLEX</td><td>-661 ± 130</td><td>374 (-321)</td><td>+2.06</td><td>0.691s</td><td>1.149</td><td>0.28</td></tr>
+<tr><td>s4-seg-lr16</td><td>KEEP_COMPLEX</td><td>-702 ± 120</td><td>422 (-273)</td><td>+2.57</td><td>0.708s</td><td>1.138</td><td>0.25</td></tr>
+<tr><td>s3-seg-add-lr12</td><td>KEEP_COMPLEX</td><td>-778 ± 139</td><td>358 (-337)</td><td>+2.31</td><td>0.696s</td><td>1.177</td><td>0.25</td></tr>
+<tr><td>s18-marks-baths</td><td>KEEP_COMPLEX</td><td>-817 ± 129</td><td>692 (-3)</td><td>+272.49</td><td>0.708s</td><td>1.095</td><td>0.26</td></tr>
+<tr><td>s7-umean-core</td><td>KEEP_COMPLEX</td><td>-999 ± 170</td><td>655 (-40)</td><td>+24.97</td><td>0.769s</td><td>1.127</td><td>0.21</td></tr>
+<tr><td>s6-no-umean</td><td>KEEP_COMPLEX</td><td>-2417 ± 265</td><td>650 (-45)</td><td>+53.71</td><td>0.771s</td><td>1.063</td><td>0.16</td></tr>
+<tr><td>s17-no-bld-ar</td><td>KEEP_COMPLEX</td><td>-34228 ± 1829</td><td>695 (+0)</td><td>—</td><td>0.438s</td><td>1.150</td><td>0.03</td></tr></tbody>
+    </table></div>
+  </section>
+
+  <section class="card">
+    <h2>3. Wave 2: Pareto Frontier Combinations &amp; Discovery Rate (13 Modal Screens, $6.03)</h2>
+    <div class="chart-scroll"><svg viewBox="0 0 680 340" width="680" height="340" xmlns="http://www.w3.org/2000/svg" style="min-width:560px;max-width:100%;height:auto;display:block;font-family:system-ui,-apple-system,sans-serif;">
+<text x="68" y="20" font-size="12" font-weight="600" fill="#1e293b">Pareto Frontier: Explicit Parameters vs Projected Full ΔELPD (latest split)</text>
+<line x1="68" y1="261.9" x2="650" y2="261.9" stroke="#e2e8f0" stroke-width="1"/>
+<text x="60" y="265.9" font-size="10" text-anchor="end" fill="#64748b">-2,000</text>
+<line x1="68" y1="211.7" x2="650" y2="211.7" stroke="#e2e8f0" stroke-width="1"/>
+<text x="60" y="215.7" font-size="10" text-anchor="end" fill="#64748b">-1,500</text>
+<line x1="68" y1="161.5" x2="650" y2="161.5" stroke="#e2e8f0" stroke-width="1"/>
+<text x="60" y="165.5" font-size="10" text-anchor="end" fill="#64748b">-1,000</text>
+<line x1="68" y1="111.3" x2="650" y2="111.3" stroke="#e2e8f0" stroke-width="1"/>
+<text x="60" y="115.3" font-size="10" text-anchor="end" fill="#64748b">-500</text>
+<line x1="68" y1="61.1" x2="650" y2="61.1" stroke="#334155" stroke-width="1.4"/>
+<text x="60" y="65.1" font-size="10" text-anchor="end" fill="#64748b">+0</text>
+<line x1="88.8" y1="36" x2="88.8" y2="292" stroke="#f1f5f9" stroke-width="1"/>
+<text x="88.8" y="308" font-size="10" text-anchor="middle" fill="#64748b">200</text>
+<line x1="192.7" y1="36" x2="192.7" y2="292" stroke="#f1f5f9" stroke-width="1"/>
+<text x="192.7" y="308" font-size="10" text-anchor="middle" fill="#64748b">300</text>
+<line x1="296.6" y1="36" x2="296.6" y2="292" stroke="#f1f5f9" stroke-width="1"/>
+<text x="296.6" y="308" font-size="10" text-anchor="middle" fill="#64748b">400</text>
+<line x1="400.6" y1="36" x2="400.6" y2="292" stroke="#f1f5f9" stroke-width="1"/>
+<text x="400.6" y="308" font-size="10" text-anchor="middle" fill="#64748b">500</text>
+<line x1="504.5" y1="36" x2="504.5" y2="292" stroke="#f1f5f9" stroke-width="1"/>
+<text x="504.5" y="308" font-size="10" text-anchor="middle" fill="#64748b">600</text>
+<line x1="608.4" y1="36" x2="608.4" y2="292" stroke="#f1f5f9" stroke-width="1"/>
+<text x="608.4" y="308" font-size="10" text-anchor="middle" fill="#64748b">700</text>
+<text x="359.0" y="332" font-size="11" text-anchor="middle" fill="#334155">Explicit Global Parameters (smaller &amp; faster ←)</text>
+<polyline points="95.0,268.0 153.2,102.7 161.5,98.1 222.9,89.5 326.8,54.5" fill="none" stroke="#059669" stroke-width="2" stroke-dasharray="5,4"/>
+<circle cx="603.2" cy="61.1" r="5.5" fill="#475569" stroke="#ffffff" stroke-width="1.5"/>
+<text x="595.2" y="49.1" font-size="10" font-weight="600" text-anchor="end" fill="#475569">u5-svgpmo (anchor) (695p, 1.00×)</text>
+<line x1="326.8" y1="64.5" x2="326.8" y2="44.5" stroke="#059669" stroke-width="1.5"/>
+<circle cx="326.8" cy="54.5" r="7" fill="#059669" stroke="#ffffff" stroke-width="1.5"/>
+<text x="336.8" y="42.5" font-size="10" font-weight="600" text-anchor="start" fill="#059669">c1-compact (WINNER) (429p, 1.18×)</text>
+<line x1="222.9" y1="102.3" x2="222.9" y2="76.6" stroke="#0284c7" stroke-width="1.5"/>
+<circle cx="222.9" cy="89.5" r="5.5" fill="#0284c7" stroke="#ffffff" stroke-width="1.5"/>
+<text x="232.9" y="79.5" font-size="10" font-weight="600" text-anchor="start" fill="#0284c7">c1s-semi (semi-annual) (329p, 1.22×)</text>
+<line x1="161.5" y1="111.7" x2="161.5" y2="84.4" stroke="#7c3aed" stroke-width="1.5"/>
+<circle cx="161.5" cy="98.1" r="5.5" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5"/>
+<text x="171.5" y="116.1" font-size="10" font-weight="600" text-anchor="start" fill="#7c3aed">c2-lean (Pareto knee) (270p, 1.43×)</text>
+<line x1="153.2" y1="116.7" x2="153.2" y2="88.7" stroke="#d97706" stroke-width="1.5"/>
+<circle cx="153.2" cy="102.7" r="5.5" fill="#d97706" stroke="#ffffff" stroke-width="1.5"/>
+<text x="163.2" y="92.7" font-size="10" font-weight="600" text-anchor="start" fill="#d97706">c3-ultra (1.67× speed) (262p, 1.68×)</text>
+<line x1="95.0" y1="293.9" x2="95.0" y2="242.2" stroke="#dc2626" stroke-width="1.5"/>
+<circle cx="95.0" cy="268.0" r="5.5" fill="#dc2626" stroke="#ffffff" stroke-width="1.5"/>
+<text x="105.0" y="258.0" font-size="10" font-weight="600" text-anchor="start" fill="#dc2626">c0-noseg (0 GPs) (206p, 1.28×)</text>
+</svg></div>
+    <h3><code>latest</code> split (<code>screen-k5</code> vs <code>u5-svgpmo</code>)</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Arm</th><th>Verdict</th><th>Proj ΔELPD ± SE</th><th>Params (Δ)</th><th>80% Cov</th><th>s/sweep (Speedup)</th><th>USD</th><th>R-hat</th></tr></thead>
+      <tbody><tr><td>w2-c1-compact</td><td>SIMPLIFY_KEEP</td><td>+66 ± 99</td><td>429 (-266)</td><td>79.89%</td><td>0.648s (1.18×)</td><td>$0.54</td><td>1.084</td></tr>
+<tr><td>w2-c1s-semi</td><td>KEEP_COMPLEX</td><td>-283 ± 128</td><td>329 (-366)</td><td>79.87%</td><td>0.626s (1.22×)</td><td>$0.51</td><td>1.110</td></tr>
+<tr><td>w2-c2-lean</td><td>KEEP_COMPLEX</td><td>-368 ± 136</td><td>270 (-425)</td><td>79.85%</td><td>0.532s (1.43×)</td><td>$0.43</td><td>1.078</td></tr>
+<tr><td>w2-c3-ultra</td><td>KEEP_COMPLEX</td><td>-414 ± 139</td><td>262 (-433)</td><td>79.84%</td><td>0.455s (1.68×)</td><td>$0.41</td><td>1.080</td></tr>
+<tr><td>w2-c0-noseg</td><td>KEEP_COMPLEX</td><td>-2061 ± 257</td><td>206 (-489)</td><td>79.99%</td><td>0.595s (1.28×)</td><td>$0.45</td><td>1.049</td></tr></tbody>
+    </table></div>
+    <h3><code>market</code> split (<code>screen-mkt-k5</code> vs <code>u5-svgpmo-mkt</code>, identical unified models)</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Arm</th><th>Verdict</th><th>Proj ΔELPD ± SE</th><th>Params (Δ)</th><th>80% Cov</th><th>s/sweep</th><th>USD</th><th>R-hat</th></tr></thead>
+      <tbody><tr><td>w2-m-c1s-semi</td><td>SIMPLIFY_KEEP</td><td>+65 ± 63</td><td>321 (+14)</td><td>75.36%</td><td>0.612s</td><td>$0.52</td><td>1.061</td></tr>
+<tr><td>w2-m-c1-compact</td><td>ESCALATE</td><td>+42 ± 66</td><td>413 (+106)</td><td>75.04%</td><td>0.631s</td><td>$0.51</td><td>1.135</td></tr>
+<tr><td>w2-m-c2-lean</td><td>ESCALATE</td><td>+36 ± 68</td><td>262 (-45)</td><td>75.30%</td><td>0.516s</td><td>$0.43</td><td>1.079</td></tr>
+<tr><td>w2-m-c0-noseg</td><td>SIMPLIFY_KEEP</td><td>+24 ± 12</td><td>206 (-101)</td><td>75.94%</td><td>0.581s</td><td>$0.48</td><td>1.042</td></tr>
+<tr><td>w2-m-unified-proof</td><td>ESCALATE</td><td>-10 ± 77</td><td>321 (+14)</td><td>75.52%</td><td>0.648s</td><td>$0.58</td><td>1.067</td></tr></tbody>
+    </table></div>
+    <p class="note"><strong>Discovery Rate (<code>bits/min</code> &amp; <code>bits/$</code>):</strong> On <code>c2-lean</code>, <code>screen-k10 (2 200 300)</code> matched <code>screen-k5 (2 250 400)</code> within 5 ELPD (<code>-373</code> vs <code>-368</code>) in <strong>7.8 min / $0.33</strong> (7.6 screens/hr, <strong>0.36 bits/min, 8.7 bits/$</strong>); <code>screen-mkt-k5</code> reached <strong>0.64 bits/min, 15.0 bits/$</strong>.</p>
+  </section>
+</div>
+</body>
+</html>

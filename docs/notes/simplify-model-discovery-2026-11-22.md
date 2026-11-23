@@ -177,3 +177,31 @@ Model for BOTH fits (100% identical specification — ZERO model fork):
   3. **Closed Eval Slice (`~35,000` leak-free `latest` ads from THE SAME SINGLE FIT):** ELPD/row **`1.275 – 1.295`** (matching `c1-compact-lat`!), 80% coverage `79.4% – 80.6%`.
   4. **End-to-End Single-Fit Publishing Proof:** Dry-run of `drift_deals`, `drift_estimates`, `drift_diagnostics`, and `drift_today` (on a sample/check) ALL succeed cleanly off THAT ONE SINGLE `c1-compact-uni` POOL!
   5. **Falsification criterion:** Misses gate OR loses `> 50` ELPD on the `9,346` active backtest ads vs `u5-svgpmo-mkt` (`10,249.7`).
+
+---
+
+## Wave 3 Scored Results (`7c95e5b8`, all 4/4 H200 shards landed, `$25.99` total; sprint grand total **`$47.82 / $100.00`**)
+
+### Fit 3A: `c1-compact-lat` (Full `latest` split, `189,647` held-out ads, **ONLY 2× H200 = 4 chains**)
+- **Settled Cost:** **`$14.32`** (`$7.02 + $7.30`) vs `$27.68` for `u5-svgpmo-lat` (**`-48.3%` cheaper per fit!**)
+- **Convergence Gate:** **PASS** (`max split R-hat = 1.0073` on `phase_factor[0]` — cleaner than `u5-svgpmo-lat`'s `1.0087`!; `min bulk ESS = 556` on `unit_sd`) — **PREDICTION HIT**
+- **Held-out ELPD:** **`243,210.6`** vs `243,290.3` (`u5-svgpmo-lat`) -> paired **`ΔELPD = -79.7 ± 42.3` (`z = -1.88`, `-0.033%`)**; beats `u4s-lat` (`242,751.5`) by **`+459.1`** — **PREDICTION HIT** (`243,200–243,450`)
+- **MAE & RMSE:** MAE **`0.03929`** (vs `0.03924`), RMSE **`0.07846`** (identical to 5 decimals vs `0.07846`!) — **PREDICTION HIT**
+- **Calibration (50 / 80 / 90 / 95%):** **`51.31% / 80.09% / 89.73% / 94.80%`** (even closer to nominal `80 / 90 / 95%` than `u5-svgpmo-lat`!) — **PREDICTION HIT**
+- **Compression:** **`695 → 429` explicit params (`-38.3%`)**, **`9 → 4` GPs (`-56%`)**, **`G_dim: ~1,500 → ~910` (`-39%`)**, deletes `sigma[2]` mixing bottleneck.
+
+### Fit 3B: `c1-compact-uni` (Full **`--split unified`**, `asof-20251110`, **ONLY 2× H200 = 4 chains**, ONE SINGLE FIT!)
+- **Settled Cost:** **`$11.67`** (`$5.79 + $5.88`, `53.8 min`) vs `$46.11` for `u5-svgpmo-lat + u5-svgpmo-mkt` (**`-74.7%` = `4×` cheaper!**) and vs `~$66+` for the 3-fit production stack (**`~5.6×` cheaper!**)
+- **Convergence Gate:** **PASS** (`max split R-hat = 1.0096`, `min bulk ESS = 642`) — **PREDICTION HIT**
+- **Active Backtest Open Ads (`n = 9,346`, raw `1.00×`):**
+  - **ELPD:** **`10,220.1`** vs `10,249.7` (`u5-svgpmo-mkt`) -> paired **`ΔELPD = -29.7 ± 32.2` (`z = -0.92`, statistically indistinguishable from 0!)**; beats live `range-j` (`10,042`) by **`+178.1`** — **PREDICTION HIT** (`10,210–10,320`)
+  - **MAE:** **`0.04610`** — **NEW ALL-TIME BEST BACKTEST MAE** (beats `u5-svgpmo-mkt` `0.04635` and `range-j` `0.04686`!) — **PREDICTION HIT**
+  - **Coverage (50 / 80 / 90 / 95%):** **`49.56% / 78.55% / 88.85% / 94.73%`** — **PREDICTION HIT**
+  - **Deals Backtest Outcomes (`drift_deals validate`, raw `1.00×`):**
+    - All 9,346 ads: lowest tenth (`620` ads) **27d median DOM, 16.9% cut, 25.0% gone ≤14d** vs highest tenth (`1,823` ads) **71d DOM, 62.6% cut**.
+    - Uncautioned: lowest tenth (`374` ads) **32d DOM, 19.8% cut, 24.1% raised** vs highest tenth (`1,555` ads) **71d DOM, 62.7% cut** — **PREDICTION HIT**
+- **Closed Eval Slice (`n = 34,727` leak-free historical ads in THE EXACT SAME FIT!):**
+  - **ELPD:** **`44,384.9` (`1.2781/row`)**, **MAE `0.03894`**, **50 / 80 / 90 / 95% coverage: `51.28% / 79.89% / 89.43% / 94.55%`** — **PREDICTION HIT** (`1.275–1.295/row`)
+- **End-to-End Single-Fit Site Verification:** `drift_deals.validate`, `drift_estimates.table` (`44,073` rows = `9,346` market + `34,727` latest), `drift_diagnostics.run_ads` (`44,073` ads across `66,878` buildings), and `drift_today.design_kw` / `segment_terms` / `cell_terms` ALL passed cleanly on the single `c1-compact-uni` pool!
+
+**Prediction Scoreboard (Wave 3):** **10 / 10 production gate predictions HIT.** Self-contained HTML report with embedded SVG charts: `docs/notes/simplify-model-discovery-2026-11-22.html`.
