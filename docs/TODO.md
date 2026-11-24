@@ -30,39 +30,49 @@ stood before 2026-11-10, with the Chelsea pilot's and the frontier line's items,
   `$0.56` `today_cpu`), scored `1.2594/row` (`MAE 4.03%`, `80% cov 79.73%`) on `149,550` closed
   ≥1-yr held-out ads with monotone Deals validation (`DOM 12d -> 27d`, `Cut 6.6% -> 52.0%`), and
   is live across all 4 site sections (`docs/notes/unified-c1-onefit-2026-11-23.md`).
-- [ ] **Post-gate worst-miss expert read & `drift_kept_report` on `c1-live-of`** (`CLAUDE.md`,
-  `docs/expert-reads.md`): read the worst misses (closed held-out and live `/deals` top 100) on
-  the newly live unified model and run `drift_kept_report` to seed the next Model Discovery wave.
-  Also sync `docs/model/drift.md` and `docs/model/lineage.html` to `c1-compact` + `onefit`.
-- [ ] **Deals refresh tooling, two faults from the Nov 23 refresh + `onefit` wiring**
-  (`docs/notes/market-refresh-2026-11-23.md`). (1) A scrape early on a Monday fails
-  `b0trim.dense_start`: the week that began that morning holds under 100 rows. Drop a thin
-  last week, or have `ops/deals-refresh` refuse to start before the week holds 100. (2) The
-  `*-extend` registry glob in `ops/market-dataset` and `ops/deals-refresh` picks
-  `YYYYMMDD-SHA-extend` over a later `-extend-HHMMSS` snapshot of the same day. Sort by
-  mtime or pass the snapshot along the chain. `registry-extend` also exits 134 after its NJ
-  step, with its file written. (3) Update `ops/deals-refresh` to run `c1-compact` on
-  `--split onefit` (`--large --lean`, or `--scales-fixed` for `~$2` fast refreshes) instead of
-  the retired `range-m*` path.
-- [ ] **Reconcile Modal spend ledger** (`docs/handoff/project-owner.md`): reconcile the handoff
-  sprint count (`$82.71`) with `/data1/apartments/modal/ledger.jsonl` (`$386.57` across sessions
-  since Nov 14) before the next paid sprint.
+- [x] **Post-gate worst-miss expert read & `drift_kept_report` on `c1-live-of`** (2026-11-24,
+  PR `#1550`, `docs/notes/c1-live-onefit-audit-2026-11-24.md`): ran kept-quantity mixing audit
+  (`13/155,750` ads with `pred_loc` R-hat > 1.05, `0` top live deals; `42/68,008` buildings > 1.05;
+  `235` far-thin buildings down from `338`), 140 blind NYC broker reads across 3 batches, and
+  unbiased Half-B ELPD confirmation; uncovered the `apply_floor_poly` floor-1 conflation and seeded
+  Wave 4 (`#1551`). *(Remaining doc sync: `docs/model/drift.md` and `docs/model/lineage.html`.)*
+- [x] **Deals refresh tooling, two faults from the Nov 23 refresh + `onefit` wiring** (2026-11-24,
+  PR `#1550`): added `--allow-thin-last` to `b0trim.py`, fixed mtime-sorted `-extend*` registry
+  selection in `ops/market-dataset` and `ops/deals-refresh`, added `ARROW_IO_THREADS=1` /
+  `OMP_NUM_THREADS=1` to `apartments-registry-extend.service`, and wired `ops/deals-refresh`
+  for `onefit` (`2× --large --lean` H200 or 1-container `SCALES_FIXED`) and `publish-all`
+  (18 passing tests).
+- [x] **Reconcile Modal spend ledger** (2026-11-24, PR `#1550` + Wave 4): reconciled
+  `/data1/apartments/modal/ledger.jsonl` (`$399.50` across 250 settled runs Nov 14–23 + `$11.71`
+  across 30 Wave 4 settlements on Nov 24 = `$411.21` settled since Nov 14; exact match to `$80.43`
+  for Nov 14–20; 5 stale unsettled reservations noted).
 - [ ] **Fold remaining data-investigation findings directly into `c1-compact` and data rules**
-  rather than accumulating publish-time cautions (`cautions.py`). Status after `#1534`–`#1549`:
+  rather than accumulating publish-time cautions (`cautions.py`). Status after `#1534`–`#1551`:
   - *Already live in `c1-compact` (`#1549`):* Student-t unit levels (`unitkn`), binary collapsed
     lease-phase + `bedtext` + `layout-range`, smooth monthly stochastic volatility `sv_gp_mo`
     (superseding `Y1` and `covid_vol`), `marks` (`changed_counts`, `baths_2`, `baths_3p`,
     `floor_1`, `large_01br`, `thin_first_ad`), `size` (filled-size slope + `large_01br`),
     `seg_add`, `floor_poly`, `ad_core`, `scalar_sigma`, `biweekly_walk`.
-  - *Screened & killed (`#1534`):* `bedunit` (`-170 ± 77`), `sbf` / `same_bed_first` (`-68 ± 33`),
-    `u4_bed` (`+3 ± 37` latest / `-3 ± 9` market), `income_scale` (`+36 ± 43`), `stab_dhcr`
-    (`-47 ± 53`), `concess_gap` (`-53 ± 39`), `covid_mean` (`+20 ± 89`).
-  - *Open to screen on `c1-compact` (`screen-k5`):* rewritten-description flag-change count
-    (`+230–254` ELPD) + gap-since-last-ad bins (`+138`) + renovation switch (`+54`), `3+BR`
-    building finish share (`+44`), top-3% scale (`+40`), duplex scale (`+23`), thin-building
-    shrinkage (`--level-dof 8`), finer-than-quarterly building AR(1) paths (coarsening to
-    semi-annual lost `-518 ± 48` at k5 in `#1537`), and new-unit / size-scale structure (`U1`
-    size-dependent unit scale, `LN1`/`U3` building × bedroom level after fixing `unit_sd` ridge).
+  - *Screened & WON in Wave 4 (`#1551`, `$11.71`, `docs/notes/c1-wave4-screen-2026-11-24.md`):*
+    **`bld_monthly`** (`12/yr` building AR(1): **`+1,799 ± 318`** full `latest` ELPD `z=+5.66`,
+    `2022+ z=+2.84`, **`+2.85–3.07 pp` open-market 80% coverage `75.2% -> 78.1%`**, `0` extra
+    params, `0.53×` sweep), **`bld_bimonthly`** (`6/yr`: **`+854 ± 270`** `z=+3.17`, `+1.1 pp`
+    open-market cov80, `0.90×` sweep), and **`attr_changes`** (strictly causal `1/2/3+` changed
+    binary attrs: **`+216 ± 56`** `z=+3.86`, `2022+ z=+3.82`, `0.97×` sweep). Combined stack
+    `b4-c2-mo` reached **`+2,104 ± 336` (`z=+6.27`)** on `latest` and **`78.05%` cov80 / `89.05%`
+    cov90** on open market; `b4-c2-bimo` reached **`+1,181 ± 286` (`z=+4.13`)**. **Next:** add
+    intermediate `CELL_PADS` (`64, 96, 128`) in `drift.py` to accelerate `bld_monthly`, then launch
+    a full `onefit` production gate of `c2-monthly` (`C1 + attr_changes,bld_monthly`) on Ben's go.
+  - *Screened & killed (`#1534`, `#1551`):* `bedunit` (`-170 ± 77`), `sbf` (`-68 ± 33`),
+    `u4_bed` (`+3 ± 37`), `income_scale` (`+36 ± 43`), `stab_dhcr` (`-47 ± 53`), `concess_gap`
+    (`-53 ± 39`), `covid_mean` (`+20 ± 89`), `mark_changed_bed` (`-5 ± 47`), `mark_floor_unk`
+    (`-8 ± 37`), `mark_sparse_photos` (`-8 ± 67`), `mark_tenure` (`-20 ± 101`), pooled
+    `floor1_mean` (`-42 ± 30`; opposite elevator/walkup signs), `--level-dof 8` (`-57 ± 33`),
+    `mark_townhouse` (`-138 ± 63`), and `u1_size_scale` (`+64 ± 74` latest / `-4.1 ± 3.0` market).
+  - *Open to screen on `c2`:* elevator-only `unit:elev_floor_1` mean fix (separating elevator
+    floor 1 from walkup floor 1), gap-since-last-ad fine bins (`<=180d`, `>2yr`), `3+BR` building
+    finish share (`+44`), duplex scale (`+23`), and `LN1`/`U3` building × bedroom level after
+    fixing `unit_sd` ridge.
   - *Open for next data version:* import ~410 unique audited ledger drafts (254 commercial/
     placeholder excludes + 68 building-level rows with 31 overlap = 291 excludes, plus 119
     zero-bed bedroom sets — separate from the 123-row whole-dataset audit batch merged in

@@ -91,7 +91,39 @@ Wave 2 runs **6 parallel `A100-40GB` screens (`~$3.60`)**: 2 combined stacks on 
 
 ---
 
-## 5. Wave 2 Results
+## 5. Wave 2 Results (`screen-k5` & `screen-mkt-k5`, Commit `a602b3a3`)
 
-*(To be populated after Wave 2 finishes and is scored.)*
+All 6 Wave 2 `A100-40GB` runs completed cleanly (`$4.13` across 6 runs; total overnight Wave 1 + Wave 2 Modal spend = **`$11.71`** across 30 ledger settlements including the `$0.44` initial fast-fail).
+
+### 5a. `screen-k5` (`latest`, `n = 37,199` held-out ads, scale `×5.10`)
+
+| Label | Variant on `C1` | Pre-Fit Range | Realized Full ΔELPD ± SE | `z` (`2022+ z`) | Half A / B (sub) | MAE / RMSE | 80% Cov (`<5%`) | `s/sweep` (rel) | `max R-hat` / `min ESS` | Cost |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `b4-anchor` | `C1` (`4/yr` AR(1)) | `0` | `0` (`47,854.0` sub) | — | — | `0.05430 / 0.07820` | `79.87%` (`5.80%`) | `0.651` (`1.00×`) | `1.085` / `24.0` | `$0.54` |
+| **`b4-c2-bimo`** | **`+attr_changes,u1_size_scale,bld_bimonthly`** | `+900` to `+1,400` | **`+1,181 ± 286`** | **`+4.13`** (**`+2.68`**) | **`+132.9 / +98.8`** | `0.05413 / 0.07810` | **`79.95%`** (`5.81%`) | **`0.775` (`0.84×`)** | **`1.078` / `38.1`** | `$0.60` |
+| **`b4-c2-mo`** | **`+attr_changes,u1_size_scale,bld_monthly`** | `+1,700` to `+2,400` | **`+2,104 ± 336`** | **`+6.27`** (**`+3.62`**) | **`+194.9 / +217.7`** | **`0.05392 / 0.07814`** | **`80.01%`** (`5.85%`) | `1.329` (`0.49×`) | `1.159`* / `11.3` | `$0.88` |
+
+*\*`b4-c2-mo`'s `1.159` R-hat is again on `beta[seg:zone:outer:2017q2]`, NOT building AR(1). Direct paired `b4-c2-mo` vs `b4-c2-bimo`: **`+181.0 ± 43.1` (`z = +4.19`, projected `+923 ± 220` full ΔELPD, `2022+ z = +1.91`)**.*
+
+### 5b. `screen-mkt-k5` (`asof-20251110` open-market backtest, `n = 1,891` open ads, scale `×4.94`)
+
+| Label | Variant on `C1` | Raw ΔELPD ± SE (Scaled `×4.94`) | Half A / B (raw) | MAE / RMSE | 80% Cov (`90% Cov`) | `unit>=1` / `unit=0` / `3+BR` Cov80 | `max R-hat` / `min ESS` | Cost |
+|---|---|---|---|---|---|---|---|---|
+| `b4-m-anchor` | `C1` (`4/yr` AR(1)) | `0` (`+0.0 ± 1.1` vs `w2-m`) | `+0.6 / -0.6` | `0.07135 / 0.11294` | `75.20%` (`87.68%`) | `77.2%` / `71.6%` / `73.1%` | `1.131` / `14.0` | `$0.57` |
+| `b4-m-attr-u1` | `+attr_changes,u1_size_scale` | `-4.1 ± 3.0` (`-20 ± 15`) | `-2.4 / -1.7` | `0.07159 / 0.11337` | `75.20%` (`87.41%`) | `77.2%` / `71.6%` / `73.1%` | `1.134` / `12.5` | `$0.59` |
+| **`b4-m-c2-bimo`** | **`+attr_changes,u1_size_scale,bld_bimonthly`** | **`+9.2 ± 15.0`** (`+46 ± 74`) | **`+2.6 / +6.7`** | `0.07172 / 0.11346` | **`76.31%` (`+1.11 pp`)** (`87.94%`) | **`79.5%`** / `70.5%` / `73.1%` | **`1.072`** / `9.9` | `$0.62` |
+| **`b4-m-c2-mo`** | **`+attr_changes,u1_size_scale,bld_monthly`** | **`+13.0 ± 17.0`** (`+64 ± 84`) | **`+2.7 / +10.3`** | `0.07145 / 0.11368` | **`78.05%` (`+2.85 pp`)** (**`89.05%`**) | **`80.8%`** / **`73.1%`** / **`75.2%`** | `1.125` / `11.1` | `$0.87` |
+
+*(Note: `ops/modal-screen compare` uses strict `<` / `>` inequality on quantiles (`74.93% -> 76.15% -> 78.00%`, `+3.07 pp`), while `<=` / `>=` above gives `75.20% -> 76.31% -> 78.05%`, `+2.85 pp`. Both show the exact same ~+3 pp leap!)*
+
+### 5c. Headline Discovery & Recommendation for Next Full `onefit` Gate
+
+1. **Monthly building AR(1) (`bld_monthly`) closes over 60% of the open-market under-coverage gap AND adds ~`+2,000` full `latest` ELPD:**
+   - Moving building AR(1) from `4/yr -> 6/yr -> 12/yr` lifts open-market 80% coverage monotonically from **`75.2% -> 76.3% -> 78.1%`** (and 90% coverage `87.7% -> 87.9% -> 89.1%`), with every slice improving (`unit_ads>=1`: `77.2% -> 80.8%`, `unit_ads=0`: `71.6% -> 73.1%`, `bld_ads<=5`: `67.0% -> 69.7%`, `3+BR`: `73.1% -> 75.2%`), while adding **`+1,799 ± 318` (`z = +5.66`)** single-change and **`+2,104 ± 336` (`z = +6.27`)** combined full `latest` ELPD!
+   - Why? Under quarterly AR(1), open listings sit up to 3 months past the last quarterly knot, compressing building-drift predictive uncertainty and blurring recent landlord repricing; monthly AR(1) propagates realistic month-to-month building momentum straight into open-market predictions.
+2. **Drop `u1_size_scale` from the production bundle:** `b4-u1-size` was marginal on `latest` (`+64 ± 74`, slightly worse RMSE `0.07820 -> 0.07850`) and `b4-m-attr-u1` was slightly negative on open market (`-4.1 ± 3.0`, MAE `0.07135 -> 0.07159`). Meanwhile `attr_changes` alone improved `latest` ELPD (`+216 ± 56`, `z = +3.86`, `2022+ z = +3.82`), MAE (`0.05430 -> 0.05428`), RMSE (`0.07820 -> 0.07810`), and ESS (`24.0 -> 29.4`) at zero speed cost.
+3. **Two ready-to-launch production gate options for Ben (`c1-compact` -> `c2`):**
+   - **Recommended Ceiling (`c2-monthly` = `C1 + attr_changes,bld_monthly`, `432` params):** ~`+2,015` full `latest` ELPD, `+2.8–3.1 pp` open-market 80% coverage, `-4.6 bps` MAE. Estimated full 1.9M-row `onefit` cost on 2× H200 `--lean`: `~$20–$23` (can be cut ~25% first by adding intermediate `64, 96, 128` buckets to `drift.CELL_PADS`).
+   - **Fast-Pareto Alternative (`c2-bimonthly` = `C1 + attr_changes,bld_bimonthly`, `432` params):** ~`+1,070` full `latest` ELPD, `+1.1–1.2 pp` open-market 80% coverage, only `+10%` sweep time (`~$14` full `onefit` on 2× H200 `--lean`).
+
 
