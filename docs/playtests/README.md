@@ -1,9 +1,7 @@
 # Website playtests
 
-**On hold since 2026-10-05 18:22 UTC (Ben):** website features are paused. Rounds go on with the
-`best-1bed` persona only, and their findings are logged in [`backlog.md`](backlog.md) rather than
-fixed. Fixes for things that are broken or wrong on the live site still ship. The process below
-applies again once Ben lifts the hold.
+**Hold lifted on 2026-11-23 (Ben):** the website feature hold from 2026-10-05 is lifted, and
+items in [`backlog.md`](backlog.md) are back in scope for future sprints.
 
 Persona playtesters drive the website's improvements. Each round, every persona in
 `personas/` gets the same `brief.md`, clicks through the live site in a real browser and writes

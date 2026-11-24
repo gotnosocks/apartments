@@ -1,8 +1,59 @@
-# Website backlog (on hold)
+# Website backlog
 
-Ben put website features on hold on 2026-10-05 (18:22 UTC). Playtests go on with the
-`best-1bed` persona only, one per round, and their findings are logged here, unbuilt.
-Fixes for things that are broken or wrong on the live site still ship.
+Ben lifted the 2026-10-05 website feature hold on 2026-11-23; items below are back in scope
+for future sprints. Several October items predate the Nov 2026 unified drift site (`/deals`,
+`/estimates`, `/price-now`, `/workbench`, `/about`, `/tags`, served from `c1-compact` on
+`--split onefit`) and are already done or superseded.
+
+## Active sprint backlog (triaged 2026-11-23 for the unified site)
+
+### Website UX & search (`$0` Modal spend)
+
+- [ ] **Richer filters, columns & explicit "not stated" handling on `/deals` and `/listings`**
+  *(Round 11 #2–3, Round 8 #1 & #5–6, Round 9 #4, Carried over #5)*: add amenity/physical filters
+  and table columns (size, price/sqft, floor range, elevator, laundry, doorman, views, facing);
+  show how many listings a filter drops as unstated; add a relaxed / include-unknown mode (or
+  infer walk-up/elevator from tax class instead of silently dropping unstated rows).
+- [ ] **Side-by-side compare view & lightweight shortlisting**
+  *(Round 11 #4, Round 9 #5, Round 8 #8, Ratings removal)*: compare 2–3 shortlisted deals or
+  buildings side by side (range bars, past asks, attributes, photos). Decide whether to extend
+  existing `/tags` into star ratings + shortlists rather than reviving the old `/ratings` SQLite
+  view separately.
+- [ ] **Preference / wish-match ranking alongside bargain ranking ("Finding the best, not
+  reproducing asks")** *(Round 11 #1, Rounds 9–10)*: add an editable preference sheet and a
+  `wish match × value` ranking alongside cautious saving, and present high building/unit premiums
+  as a quality signal rather than purely as cost.
+- [ ] **Transparency, calibration & explainer polish (`/estimates`, `/about`, `/workbench`)**
+  *(Story rounds 3–4 & 6–8, Carried over #2–4, #6–8, #10)*: versioned citation / permalink with
+  run id + snapshot id; `listings.csv` data dictionary (including 95% bounds); decode raw PLUTO
+  building class codes (`C7`, `D6`); remove scroll cutoffs on Building Units tables; add photos
+  and map context on deal/listing views; verify calibration breakdowns by neighbourhood, bedroom
+  count, price band, and building size; improve mobile readability and plain-English glossary links.
+- [ ] **Fresh playtest round on the unified drift site**: all existing playtest reports below
+  predate the Nov 2026 `/deals` + `/estimates` + `/price-now` + `/workbench` site; run a fresh
+  round (up to 3 personas including `best-1bed`) to reprioritize UX gaps against the live site.
+
+### Joint Data + Modeling + Site candidates
+
+- [ ] **Big/loud street frontage, transit/commute isochrones & nearby places** *(Ben on `/best`,
+  2026-10-06; Carried over #11 & #13)*: flag big/noisy streets (14th, 30th, avenues — ideally by
+  apartment facing side), subway commute times/transfers to Midtown and amenities, nearby places
+  (parks/dog runs, hospitals/ambulance routes, MSG), exposure evidence labels, and window-facing-wall.
+- [ ] **Unpriced renter wishes as model inputs or probability tags** *(Rounds 9–10)*: floor-through
+  likelihood from building geometry/line windows, garden view (rear facing + rear yard), and quiet
+  street — screen on `screen-k5` and surface validated terms as `/deals` filters/pills.
+
+### Done or superseded since October 2026
+
+- [x] **A current price for every apartment Ben has seen** *(Carried over #14)* — shipped as
+  `/price-now` (`drift_today`, live on `936,083` apartments from `c1-live-of`).
+- [x] **Size "not stated" yet priced** *(Round 10 #3)* — fixed in Round 11.
+- [x] **Old frontier / SQLite board items** *(Story round 3 #6, Story round 4 #3–4, Round 10 #4
+  Pareto k jargon)* — superseded by the unified drift site (`#1549`).
+
+---
+
+## Historical playtest log (October 2026)
 
 Each round adds a section at the top, ranked by how much the finding gets in the way of
 finding the best one-bedroom. Reports are in `/data1/apartments/tmp/playtests/<round>/`.
