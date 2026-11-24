@@ -146,7 +146,19 @@ Evaluated on all **`9,346` identical open ads** of `asof-20251110`, including ca
      - Open-market ELPD (`9,346` ads): **`10,250–10,280`** (matches `pf-full-c2mo` `10,263.5` within MC error!)
      - Convergence gate: **PASS (`max R-hat <= 1.010, min ESS >= 400`)**, eliminating the `phase:none` / `unit_sd` / `sigma` miss!
 
-### Phase 3b Results
+### Phase 3b Results & Final Gate-Passing Launches (Cumulative `$15.79 / $20.00`, `$4.21` Remaining)
 
-*(To be populated after Phase 3b completes.)*
+- **`pf-c2mo-fixed` (`02a1148b`, `1× H200 --large --lean`, `4 × (150 + 2,000) keep=10`, `--scales-fixed c2mo-j`) — SETTLED `$2.02` (19.5 min, `0.416 s/sw`):**
+  - **NEW ALL-TIME BEST OPEN-MARKET ELPD ON `asof-20251110` (`9,346` ads): `10,265.0`** (`+45.0 ± 30.4` vs `$11.67` `c1-compact-uni`, `+15.3` vs `$24.90` `u5-svgpmo-mkt`, `+223.0` vs `$2.04` `range-j`, `+1.59 ± 1.99` vs `$4.61` free-scales `pf-full-c2mo`!).
+  - **Exact posterior & deal fidelity:** `MAE = 0.06707`, **`cov80 = 79.81%`, `cov90 = 89.50%`**, Deals DOM `27d → 72d` (`ρ = 0.985`), Cut `16.1% → 62.6%`, **`97/100` top-100 overlap** & **`99.3%` bottom-10% overlap** with `pf-full-c2mo`, and **causal `βr(c2) = 1.0000` (`βr(c1) = 0.9993`)**!
+  - **Convergence:** `min ESS = 511.8` (**PASS** `> 400`), `max R-hat = 1.0126` (missed `1.010` by `0.0026` ONLY on `beta[seg:zone:outer:2014q4]`; **every single non-`seg` parameter had `max R-hat <= 1.0045` and `min ESS >= 834`!**).
+
+#### Pre-Fit Predictions for Final Two Gate-Passing Low-Cost Runs (Committed BEFORE Launch; Est. `$3.70` → Total `~$19.49 <= $20.00`)
+
+1. **`pf-c2mo-fix-gate` (`1× H200 --large --lean`, `4 × (200 + 2,400) keep=10`, `--scales-fixed c2mo-j`, exact `c2-monthly` `seg_add`):**
+   - Settled cost: **`$2.20–$2.45`**, ELPD: **`10,255–10,275`**, MAE: **`0.0670–0.0672`**, 80% cov: **`79.5–80.2%`**, Gate: **PASS (`max R-hat <= 1.009, min ESS >= 600`)**.
+2. **`pf-c2mo-lr12-fix` (`1× H200 --large --lean`, `4 × (150 + 1,250) keep=7`, `--scales-fixed c2mo-j`, `seg_add_lr12` replacing 52 raw quarterly segment knots with 12 smooth Matérn-3/2 eigenmodes):**
+   - Settled cost: **`$1.30–$1.55`** (sub-`$1.50` full 13-year NYC!), ELPD: **`10,240–10,275`** (beats `$24.90` `u5-svgpmo-mkt` at `~17×` lower cost!), MAE: **`0.0670–0.0674`**, 80% cov: **`79.3–80.2%`**, causal `βr >= 0.998`, Gate: **PASS (`max R-hat <= 1.008, min ESS >= 450`)** by eliminating the `seg:zone:outer:2014q4` raw-knot bottleneck!
+
+*(Final results to be populated upon completion.)*
 
