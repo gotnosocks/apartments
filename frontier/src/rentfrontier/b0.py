@@ -964,6 +964,7 @@ def main_run(
         {
             "fast_scales",
             "fast_scales_p6",
+            "fast_scales_p7",
             "slow_trim",
             "seg_slow",
             "em_laplace",

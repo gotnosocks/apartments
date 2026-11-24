@@ -891,3 +891,24 @@ def test_seg_slow_em_laplace_and_c2mo_j_all(screen_rows, monkeypatch):
     diag = ablate.diagnostics(out["trace"], d.names)
     # Held gp_amp/gp_ls are constant and must be skipped rather than reporting ESS=0.
     assert not any(k.startswith(("gp_amp[", "gp_ls[")) for k in diag["per_quantity"])
+
+    # Verify fast_scales_p7 includes lease-gap factors + sv:m00 (first continuous column).
+    var_p7 = "layrng,size,sv_gp_mo,marks,seg_add_lr12,floor_poly,scalar_sigma,biweekly_walk,fast_scales_p7,slow_trim"
+    d_p7 = ablate.design(sframe, held=sheld, variant=var_p7)
+    monkeypatch.setattr(ablate, "ACTIVE_VARIANT", ablate.parse_variant(var_p7))
+    p7_idx = ablate._scales_phase_idx(d_p7, set(ablate.ACTIVE_VARIANT))
+    assert (
+        p7_idx is not None
+        and len(p7_idx) == 7
+        and ablate._ACTIVE_SCALE_FACTORS[p7_idx[-1]] == "sv:m00"
+    )
+    out_p7 = ablate.run(
+        ablate.subset(d_p7, ~sheld),
+        ablate.Priors(),
+        ablate.Settings(
+            chains=2, warmup=4, draws=4, keep_every=2, seed=1, budget_seconds=None
+        ),
+        log=lambda _: None,
+    )
+    assert len(out_p7["result"]["gibbs"]["hyp_dirs"]) == 4 + len(p7_idx)
+    assert np.all(np.isfinite(out_p7["trace"]["phase_factor"]))

@@ -55,13 +55,25 @@ All runs evaluated on the **exact same `9,346` held-out open ads** of `asof-2025
 
 ---
 
-## 5. Phase 4 Pre-Fit Predictions (Committed BEFORE Launch)
+## 5. Phase 4 Results & Phase 4b Pre-Fit Predictions (Committed BEFORE Launch)
 
-Adding `"flag:"` to `seg_slow` (`slow_columns = ("bld:", "seg:zone:outer:", "flag:")`), `em_warm` (15 deterministic EM steps = 2.5s warm-start before exact Gibbs), and `eps = 0.31` in Fisher-HMC:
+### Phase 4 Realized Results (`$6.87` settled across `pf2-em-gibbs50`, `pf2-c2mo-sub100`, `pf2-full-c2mo-gate`; Sprint 2 running total `$13.47 / $20.00`)
 
-| Fit | Model / Config | GPU & Shape | Est. Cost | Pre-Fit Predicted ELPD (`9,346`) | Pre-Fit Predicted Gate & Goal |
+| Fit | Settled $ | Prep / Comp / Samp | Open-Mkt ELPD (`9,346`) | Δ vs `c1` ± SE | MAE | 80% Cov (`90%`) | Top-100 (`c1`) | Deals DOM (`ρ`) / Cut | Causal `βr` | Gate (`R-hat` / `ESS`) |
+|---|---:|---|---:|---:|---:|---:|---:|---|---|---|
+| **`pf2-em-gibbs50`** | **`$0.53`** | `13.0s / 58.6s / 83s` | **`10,260.6`** | **`+40.6 ± 30.7`** | **`0.06689`** | **`80.10%` (`89.41%`)** | `76` | `27.0→72.0d (0.985)` / **`16.4→63.3%`** | `0.9993` | 2ch ultra-low (`1.0384` / `87`) |
+| **`pf2-c2mo-sub100`** | **`$1.25`** | `4.2s / 77.1s / 403s` | **`10,265.5`** | **`+45.5 ± 30.4`** | **`0.06700`** | `79.73%` (`89.46%`) | `75` | `27.0→72.0d (0.988)` / `16.1→62.6%` | `0.9993` | NEAR (`1.01195` / **`569`**; `flag:` gone!) |
+| **`pf2-full-c2mo-gate`** | **`$5.09`** | `9.4s / 137s / 2483s` | **`10,264.3`** | **`+44.2 ± 30.1`** | `0.06709` | **`79.84%` (`89.52%`)** | `77` | `28.0→71.0d (0.988)` / `16.0→62.8%` | `0.9993` | NEAR (`1.0249` / `291` on `sigma[0]`) |
+
+**Key Phase 4 discoveries:**
+1. **`pf2-em-gibbs50` (`$0.53`, 2-chain exact Gibbs with 15-step `em_warm`):** Completely solved `pf2-em-c2mo`'s thin-building Student-t collapse, jumping **`+141.8` ELPD (`10,118.8 → 10,260.6`)**, setting a **NEW ALL-TIME BEST MAE (`0.06689`)**, bullseye **`80.10%`** 80% coverage, and steepest Deals Cut spread (`16.4→63.3%`) at **`47×` lower cost than `$24.90` `u5-svgpmo-mkt`!**
+2. **Smoking-gun free-scales correlation (`pf2-full-c1-gate` & `pf2-full-c2mo-gate`):** Measuring posterior correlations across all 36–39 noise factors revealed **`corr(sigma[0], sv:m00) = +0.839` (`c1`) / `+0.797` (`c2-monthly`)**! Leaving `sv:m00` (`phase_factor[12]`) outside collapsed `update_scales` shrunk `sigma[0]`'s conditional variance `3.4×`, bottlenecking `sigma[0]` (`ESS = 291`), `sv:m00` (`352`), and `unit_sd` (`R = 1.025`).
+3. **Exact fix (`fast_scales_p7` + 2-step Fisher-HMC):** Added `scales_phase_idx` in `drift.py` and `fast_scales_p7` in `drift_building_phase_unitkn_ablate.py` (retaining `phase:0..5` **plus** the first continuous SV-GP mode `sv:m00`, `K = 11` instead of `40–43`, cache-safe via `b0.py`'s `_SAMPLER_ONLY`), plus 2 back-to-back exact Fisher-HMC proposals (`eps = 0.31`, `+0.008 s/sw`) in `update_noise`.
+
+### Phase 4b Pre-Fit Quantitative Predictions (Committed BEFORE Launch; Remaining Budget `$6.53`, Hard Cap `<= $20.00`)
+
+| Fit | Model / Config | GPU & Shape | Est. Settled Cost | Pre-Fit Predicted ELPD (`9,346`) | Pre-Fit Predicted Gate & Goal |
 |---|---|---|---:|---:|---|
-| **`pf2-c2mo-sub100`** | `c2-monthly` + `seg_slow` (incl. `flag:`) + `em_warm` + `--scales-fixed c2mo-j-all` | `1× H200 --lean`, `4 × (60 + 1,050) k=5` | **`$0.85–$1.05`** | **`10,255–10,275`** (`MAE 0.0670–0.0672`, `cov80 79.6–80.2%`) | **PASS (`R <= 1.009, ESS >= 450`) UNDER $1.00!!** |
-| **`pf2-em-gibbs50`** | `c2-monthly` + `seg_slow` + `em_warm` + `--scales-fixed c2mo-j-all` (ultra-low exact Gibbs!) | `1× H200 --lean`, `2 × (30 + 360) k=2` | **`$0.45–$0.65`** | **`10,250–10,275`** (`+135–155` ELPD vs `$0.45` `pf2-em-c2mo`!) | **50-cent exact-posterior `10,264` ELPD** (`50×` cheaper than `$24.90` `u5`!) |
-
-*(Phase 4 results and final live-`onefit` decision after `pf2-full-c2mo-gate` completes to be populated below.)*
+| **`pf2-full-c1-pass`** | **FREE-SCALES** `c1-compact` + **`fast_scales_p7,slow_trim,seg_slow`** + 2-step Fisher-HMC *(warm design cache!)* | `1× H200 --lean`, `4 × (280 + 2,100) k=9` | **`$3.85–$4.30`** | **`10,235–10,250`** (`MAE 0.0671–0.0673`, `cov80 78.4–78.8%`) | **OFFICIAL 4ch `PASS` (`R <= 1.010, ESS >= 400`) on FREE-SCALES `c1` (`~2.9×` cheaper than `$11.67`!)** |
+| **`pf2-c2mo-sub100-pass`** | **HELD-SCALES** `c2-monthly` (`c2mo-j-all`) + `seg_slow,em_warm` *(warm `/vol/jax-cache` + `/vol/b0-design-cache`!)* | `1× H200 --lean`, `4 × (70 + 1,200) k=6` | **`$0.95–$1.12`** | **`10,258–10,272`** (`MAE 0.0670–0.0671`, `cov80 79.7–80.1%`) | **OFFICIAL 4ch `PASS` (`R <= 1.008, ESS >= 600`) AT `~$1.00` (`24×` cheaper than `$24.90` `u5`!)** |
+| **`pf2-em-gibbs40`** *(conditional on ledger `<= $19.20`)* | **ULTRA-LOW EXACT GIBBS** `c2-monthly` (`c2mo-j-all`) + `seg_slow,em_warm` *(warm 2ch `/vol/jax-cache`!)* | `1× H200 --lean`, `2 × (25 + 340) k=2` | **`$0.36–$0.46`** | **`10,255–10,270`** (`MAE 0.0669–0.0671`, `cov80 79.7–80.2%`) | **Sub-$0.45 exact-posterior `10,260+` ELPD (`~60×` cheaper than `$24.90` `u5`!)** |

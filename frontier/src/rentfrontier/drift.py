@@ -735,6 +735,7 @@ def make_sampler(
     scale_passes: int = 1,
     scales_no_phase: bool = False,
     scales_phase_k: int | None = None,
+    scales_phase_idx: tuple[int, ...] | None = None,
     slow_gps: bool = False,
     em_laplace: bool = False,
     em_warm: int = 0,
@@ -793,6 +794,9 @@ def make_sampler(
     assert scales_phase_k is None or scales_phase_k >= 0, "scales_phase_k must be >= 0"
     assert scales_phase_k is None or phase_collapsed, (
         "scales_phase_k needs phase_collapsed so omitted phase_scale factors are still sampled"
+    )
+    assert scales_phase_idx is None or phase_collapsed, (
+        "scales_phase_idx needs phase_collapsed so omitted phase_scale factors are still sampled"
     )
     nu_free = row_dof_fixed is None
     n_sigma = 1 if scalar_sigma else 4
@@ -874,15 +878,20 @@ def make_sampler(
     else:
         free = len(d.phases) - 1
     phased = free > 0
-    k_ph = (
-        0
-        if not phased
-        else (
-            min(free, int(scales_phase_k))
-            if scales_phase_k is not None
-            else (0 if scales_no_phase else free)
+    if not phased:
+        ph_idx_np = np.zeros(0, dtype=int)
+    elif scales_phase_idx is not None:
+        ph_idx_np = np.array(
+            [int(j) for j in scales_phase_idx if 0 <= int(j) < free], dtype=int
         )
-    )
+    elif scales_phase_k is not None:
+        ph_idx_np = np.arange(min(free, int(scales_phase_k)), dtype=int)
+    elif scales_no_phase:
+        ph_idx_np = np.zeros(0, dtype=int)
+    else:
+        ph_idx_np = np.arange(free, dtype=int)
+    k_ph = len(ph_idx_np)
+    ph_idx_j = jnp.asarray(ph_idx_np)
     use_fisher_hmc = phased and (k_ph < free) and phase_collapsed and pmap is not None
     assert not phase_collapsed or phased, "phase_collapsed needs phases"
     if "noise" in fixed_steps and phased:
@@ -1708,7 +1717,7 @@ def make_sampler(
         if k_ph == free and phased:
             p_scale = jnp.exp(x[pf : pf + free])
         elif k_ph > 0:
-            p_scale = jnp.concatenate([jnp.exp(x[pf : pf + k_ph]), phase_scale[k_ph:]])
+            p_scale = phase_scale.at[ph_idx_j].set(jnp.exp(x[pf : pf + k_ph]))
         else:
             p_scale = phase_scale
         c = lam / row_sd(D, sig, p_scale) ** 2
@@ -1759,7 +1768,7 @@ def make_sampler(
         lf = x[pf : pf + k_ph]
         return (
             out
-            - jnp.sum(phase_rows[:k_ph] * lf)
+            - jnp.sum(phase_rows[ph_idx_j] * lf)
             - jnp.sum(lf**2) / (2 * PHASE_PRIOR**2)
         )
 
@@ -1773,7 +1782,11 @@ def make_sampler(
         lnu = jnp.log(st["nu"])[None] if nu_free else jnp.zeros(0)
         ls_vec = jnp.log(st["sigma"][:1]) if scalar_sigma else jnp.log(st["sigma"])
         x = jnp.concatenate([st["hyp"], ls_vec, lnu])
-        x = jnp.concatenate([x, jnp.log(st["phase_scale"][:k_ph])]) if k_ph > 0 else x
+        x = (
+            jnp.concatenate([x, jnp.log(st["phase_scale"][ph_idx_j])])
+            if k_ph > 0
+            else x
+        )
         x = jnp.concatenate([x, jnp.log(st["unit_dof"])[None]]) if dof_free else x
         return jnp.concatenate([x, jnp.log(st["unit_tau"])[None]]) if unit_slow else x
 
@@ -1818,8 +1831,8 @@ def make_sampler(
         if k_ph == free and phased:
             new["phase_scale"] = jnp.exp(x[pf : pf + free])
         elif k_ph > 0:
-            new["phase_scale"] = jnp.concatenate(
-                [jnp.exp(x[pf : pf + k_ph]), st["phase_scale"][k_ph:]]
+            new["phase_scale"] = (
+                st["phase_scale"].at[ph_idx_j].set(jnp.exp(x[pf : pf + k_ph]))
             )
         if dof_free:
             m_u, sd_u = lam_moments(x[-1])
@@ -2521,7 +2534,6 @@ def make_sampler(
             # `lam` integrated out. Eliminates the (sigma, phase:*, sv:m00) collinear ridge in
             # 5 row passes instead of ~290 coordinate-slice passes while preserving exact balance.
             k_hmc = jax.random.fold_in(key, PHASE_KEY)
-            k_mom, k_acc = jax.random.split(k_hmc)
             ls0 = jnp.log(st["sigma"][:1]) if scalar_sigma else jnp.log(st["sigma"])
             lf0 = jnp.log(factor)
             th0 = jnp.concatenate([ls0, lf0])
@@ -2573,27 +2585,32 @@ def make_sampler(
                 return lp, jnp.concatenate([g_ls, g_lf])
 
             eps = 0.31
-            p0 = jax.random.normal(k_mom, (d_th,))
-            lp0, g0 = logp_and_grad(th0)
-            p_cur = p0 + 0.5 * eps * (L_inv.T @ g0)
-            th_cur = th0
 
-            def leap(carry, _):
-                th_c, p_c = carry
-                th_n = th_c + eps * (L_inv @ p_c)
-                _, g_n = logp_and_grad(th_n)
-                p_n = p_c + eps * (L_inv.T @ g_n)
-                return (th_n, p_n), None
+            def hmc_proposal(th_in, k_step):
+                km, ka = jax.random.split(k_step)
+                p0 = jax.random.normal(km, (d_th,))
+                lp0, g0 = logp_and_grad(th_in)
+                p_cur = p0 + 0.5 * eps * (L_inv.T @ g0)
+                th_cur = th_in
 
-            (th_cur, p_cur), _ = jax.lax.scan(leap, (th_cur, p_cur), None, length=4)
-            th_prop = th_cur + eps * (L_inv @ p_cur)
-            lp_prop, g_prop = logp_and_grad(th_prop)
-            p_prop = p_cur + 0.5 * eps * (L_inv.T @ g_prop)
-            log_alpha = (lp_prop - 0.5 * jnp.sum(p_prop**2)) - (
-                lp0 - 0.5 * jnp.sum(p0**2)
-            )
-            accept = jnp.log(jax.random.uniform(k_acc)) < log_alpha
-            th_new = jnp.where(accept, th_prop, th0)
+                def leap(carry, _):
+                    th_c, p_c = carry
+                    th_n = th_c + eps * (L_inv @ p_c)
+                    _, g_n = logp_and_grad(th_n)
+                    p_n = p_c + eps * (L_inv.T @ g_n)
+                    return (th_n, p_n), None
+
+                (th_cur, p_cur), _ = jax.lax.scan(leap, (th_cur, p_cur), None, length=4)
+                th_prop = th_cur + eps * (L_inv @ p_cur)
+                lp_prop, g_prop = logp_and_grad(th_prop)
+                p_prop = p_cur + 0.5 * eps * (L_inv.T @ g_prop)
+                log_alpha = (lp_prop - 0.5 * jnp.sum(p_prop**2)) - (
+                    lp0 - 0.5 * jnp.sum(p0**2)
+                )
+                accept = jnp.log(jax.random.uniform(ka)) < log_alpha
+                return jnp.where(accept, th_prop, th_in), None
+
+            th_new, _ = jax.lax.scan(hmc_proposal, th0, jax.random.split(k_hmc, 2))
             sig_new = jnp.exp(th_new[:n_sigma])
             sigma = jnp.broadcast_to(sig_new, (4,)) if scalar_sigma else sig_new
             factor = jnp.exp(th_new[n_sigma:])
@@ -3143,6 +3160,7 @@ def make_sampler(
             row_sd=row_sd,
             phased=phased,
             scales_k_ph=k_ph,
+            scales_ph_idx=ph_idx_np,
             phase_factors=phase_factors,
             scales_logp=scales_logp,
             scales_curvature=scales_curvature,
@@ -3243,6 +3261,7 @@ def run(
     scale_passes: int = 1,
     scales_no_phase: bool = False,
     scales_phase_k: int | None = None,
+    scales_phase_idx: tuple[int, ...] | None = None,
     slow_gps: bool = False,
     em_laplace: bool = False,
     em_warm: int = 0,
@@ -3291,6 +3310,7 @@ def run(
         scale_passes=scale_passes,
         scales_no_phase=scales_no_phase,
         scales_phase_k=scales_phase_k,
+        scales_phase_idx=scales_phase_idx,
         slow_gps=slow_gps,
         em_laplace=em_laplace,
         em_warm=em_warm,
@@ -3531,7 +3551,7 @@ def run(
                 ]
                 + ([np.log(np.asarray(st["nu"]))[:, None]] if parts["nu_free"] else [])
                 + (
-                    [np.log(np.asarray(st["phase_scale"])[:, : parts["scales_k_ph"]])]
+                    [np.log(np.asarray(st["phase_scale"])[:, parts["scales_ph_idx"]])]
                     if parts["scales_k_ph"] > 0
                     else []
                 )
