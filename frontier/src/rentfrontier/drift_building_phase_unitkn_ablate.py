@@ -164,6 +164,8 @@ ALL_TOKENS = (
     "biweekly_walk",
     "no_bld_ar",
     "scale_2x",
+    "fast_scales",
+    "slow_trim",
     # Track B1/B2 (2026-11-24): A1 audit discoveries & finer building AR(1) paths
     "mark_changed_bed",
     "mark_floor_unk",
@@ -1580,6 +1582,8 @@ def _active_groups(d: Design, tok: set[str]) -> list[dict] | None:
 def run(d: Design, priors: Priors, settings: Settings, log=print, checkpoint=None):
     """Run the L2-unitkn sweep with active simplification tokens."""
     tok = set(ACTIVE_VARIANT)
+    if "slow_trim" in tok and settings.slow_within == 0.0:
+        settings = dataclasses.replace(settings, slow_within=0.001)
     return drift.run(
         d,
         priors,
@@ -1596,6 +1600,7 @@ def run(d: Design, priors: Priors, settings: Settings, log=print, checkpoint=Non
         scalar_sigma=("scalar_sigma" in tok),
         walk_stride=2 if "biweekly_walk" in tok else 1,
         scale_passes=2 if "scale_2x" in tok else 1,
+        scales_no_phase=("fast_scales" in tok),
     )
 
 

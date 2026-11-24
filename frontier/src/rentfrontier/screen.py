@@ -175,6 +175,87 @@ def build_subsample(
     return screen_meta
 
 
+def window_dataset(
+    source: Path,
+    out: Path,
+    min_year: int,
+    *,
+    tail_anchor: bool = False,
+    overwrite: bool = False,
+) -> dict:
+    """Create a temporally windowed dataset keeping ALL held-out rows plus training rows with
+    `price_at.year >= min_year` (and optionally the single most recent earlier training row
+    per unit that has no training row `>= min_year`). Preserves `inputs.json` and `manifest.json`."""
+    src = Path(source)
+    dst = Path(out)
+    if dst.exists() and not overwrite:
+        raise FileExistsError(f"output already exists: {dst} (pass --overwrite)")
+    dst.mkdir(parents=True, exist_ok=True)
+    frame = pd.read_parquet(src / "rows.parquet")
+    if "carried_heldout" in frame.columns:
+        held = frame["carried_heldout"].to_numpy(bool)
+    elif "open" in frame.columns:
+        held = frame["open"].eq(True).to_numpy(bool)
+    else:
+        raise ValueError(f"source dataset has neither carried_heldout nor open: {src}")
+    dt = pd.to_datetime(frame["price_at"], utc=True)
+    yr = dt.dt.year.to_numpy(int)
+    keep = held | (yr >= int(min_year))
+    n_tail = 0
+    if tail_anchor:
+        has_uid = frame["unit_id"].notna().to_numpy(bool)
+        ukey = (
+            frame["building"].astype(str)
+            + "\x1f"
+            + frame["unit_id"].fillna("").astype(str)
+        ).to_numpy()
+        recent_tr_units = set(ukey[keep & (~held) & has_uid])
+        older_idx = np.flatnonzero((~held) & (yr < int(min_year)) & has_uid)
+        if len(older_idx) > 0:
+            older_df = pd.DataFrame(
+                {
+                    "idx": older_idx,
+                    "ukey": ukey[older_idx],
+                    "ts": dt.iloc[older_idx].astype("int64").to_numpy(),
+                }
+            )
+            older_df = older_df[~older_df["ukey"].isin(recent_tr_units)]
+            if len(older_df) > 0:
+                latest_idx = (
+                    older_df.sort_values(["ts", "idx"], kind="stable")
+                    .groupby("ukey", sort=False)["idx"]
+                    .last()
+                    .to_numpy(int)
+                )
+                keep[latest_idx] = True
+                n_tail = int(len(latest_idx))
+    cut = frame.loc[keep].reset_index(drop=True)
+    rows_path = dst / "rows.parquet"
+    cut.to_parquet(rows_path, index=False)
+    manifest = {}
+    if (src / "manifest.json").exists():
+        manifest = json.loads((src / "manifest.json").read_text())
+    if (src / "inputs.json").exists():
+        (dst / "inputs.json").write_text((src / "inputs.json").read_text())
+    win_meta = {
+        "source": str(src),
+        "min_year": int(min_year),
+        "tail_anchor": bool(tail_anchor),
+        "n_tail_anchors": int(n_tail),
+        "source_rows": int(len(frame)),
+        "rows": int(len(cut)),
+        "heldout_rows": int(held.sum()),
+        "row_fraction": float(len(cut) / max(1, len(frame))),
+    }
+    manifest |= {
+        "rows": int(len(cut)),
+        "rows_sha256": data_module.sha256(rows_path),
+        "window": win_meta,
+    }
+    (dst / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    return win_meta
+
+
 def resolve_run_dir(run_ref: str | Path) -> Path:
     """Resolve a run name under `run_module.RUNS` or an explicit directory path."""
     p = Path(run_ref)
@@ -1042,6 +1123,15 @@ def main(argv: list[str] | None = None) -> int:
     pb.add_argument("--strata", type=int, default=DEFAULT_STRATA)
     pb.add_argument("--overwrite", action="store_true")
 
+    pw = sub.add_parser(
+        "window", help="build a temporally windowed dataset keeping all held-out rows"
+    )
+    pw.add_argument("source", type=Path)
+    pw.add_argument("out", type=Path)
+    pw.add_argument("--min-year", type=int, required=True)
+    pw.add_argument("--tail-anchor", action="store_true")
+    pw.add_argument("--overwrite", action="store_true")
+
     pc = sub.add_parser(
         "compare", help="score and compare candidate vs baseline screen runs"
     )
@@ -1084,6 +1174,17 @@ def main(argv: list[str] | None = None) -> int:
             seed=args.seed,
             stratify=args.stratify,
             strata=args.strata,
+            overwrite=args.overwrite,
+        )
+        print(json.dumps(meta, indent=2))
+        return 0
+
+    if args.cmd == "window":
+        meta = window_dataset(
+            source=args.source,
+            out=args.out,
+            min_year=args.min_year,
+            tail_anchor=args.tail_anchor,
             overwrite=args.overwrite,
         )
         print(json.dumps(meta, indent=2))

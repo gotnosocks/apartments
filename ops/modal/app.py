@@ -869,6 +869,16 @@ LARGE_FITS = {
 }
 
 
+@_large_function("A100-40GB", LEAN_MEMORY_MIB)
+def fit_a100_40gb_lean(spec):
+    return _fit(spec)
+
+
+@_large_function("A100-80GB", LEAN_MEMORY_MIB)
+def fit_a100_80gb_lean(spec):
+    return _fit(spec)
+
+
 @_large_function("H100", LEAN_MEMORY_MIB)
 def fit_h100_lean(spec):
     return _fit(spec)
@@ -879,4 +889,9 @@ def fit_h200_lean(spec):
     return _fit(spec)
 
 
-LEAN_FITS = {"H100": fit_h100_lean, "H200": fit_h200_lean}
+LEAN_FITS = {
+    "A100-40GB": fit_a100_40gb_lean,
+    "A100-80GB": fit_a100_80gb_lean,
+    "H100": fit_h100_lean,
+    "H200": fit_h200_lean,
+}

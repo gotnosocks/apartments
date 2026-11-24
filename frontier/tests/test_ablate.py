@@ -741,3 +741,59 @@ def test_track_b1_b2_tokens_design_and_bld_steps(screen_rows, tmp_path, monkeypa
 
     monkeypatch.setattr(ablate, "ACTIVE_VARIANT", ("bld_monthly",))
     assert ablate.run_record(d_f1)["local"]["building"]["steps_per_year"] == 12
+
+
+def test_fast_scales_fisher_hmc_and_window_dataset(screen_rows, tmp_path, monkeypatch):
+    from rentfrontier import screen
+
+    sframe, sheld = screen_rows
+    sframe = sframe.copy()
+    sframe["price_at"] = pd.date_range(
+        "2018-01-01", periods=len(sframe), freq="7D", tz="UTC"
+    )
+    var = "layrng,size,sv_gp_mo,marks,seg_add_lr12,floor_poly,scalar_sigma,biweekly_walk,fast_scales,slow_trim"
+    d = ablate.design(sframe, held=sheld, variant=var)
+    monkeypatch.setattr(ablate, "ACTIVE_VARIANT", ablate.parse_variant(var))
+    settings = ablate.Settings(
+        chains=2, warmup=4, draws=4, keep_every=2, budget_seconds=None
+    )
+    out = ablate.run(
+        ablate.subset(d, ~sheld), ablate.Priors(), settings, log=lambda _: None
+    )
+    # K=4 in update_scales (unit_sd, drift_sd, drift_tau, scalar sigma), not 4+free
+    assert len(out["result"]["gibbs"]["hyp_dirs"]) == 4
+    assert out["trace"]["phase_factor"].shape == (2, 4, d.phase_map.shape[1])
+    assert np.all(np.isfinite(out["trace"]["phase_factor"]))
+
+    # window_dataset keeps all held-out rows + training rows >= min_year (+ optional tail anchor)
+    src = tmp_path / "src"
+    src.mkdir()
+    wdf = pd.DataFrame(
+        {
+            "building": ["B1", "B1", "B1", "B2", "B2"],
+            "unit_id": ["U1", "U1", "U1", "U2", "U2"],
+            "price_at": [
+                "2018-01-01T00:00:00Z",  # older U1
+                "2020-01-01T00:00:00Z",  # latest older U1 (tail anchor!)
+                "2025-11-01T00:00:00Z",  # held-out open U1
+                "2019-01-01T00:00:00Z",  # older U2 (dropped even w/ tail_anchor since U2 has 2023)
+                "2023-06-01T00:00:00Z",  # recent U2
+            ],
+            "carried_heldout": [False, False, True, False, False],
+        }
+    )
+    wdf.to_parquet(src / "rows.parquet", index=False)
+    (src / "inputs.json").write_text('{"x": 1}\n')
+    meta_pure = screen.window_dataset(src, tmp_path / "w_pure", min_year=2022)
+    assert meta_pure["rows"] == 2  # held-out U1 + recent U2
+    assert (tmp_path / "w_pure" / "inputs.json").exists()
+    meta_tail = screen.window_dataset(
+        src, tmp_path / "w_tail", min_year=2022, tail_anchor=True
+    )
+    assert meta_tail["rows"] == 3 and meta_tail["n_tail_anchors"] == 1
+    out_df = pd.read_parquet(tmp_path / "w_tail" / "rows.parquet")
+    assert sorted(out_df["price_at"].tolist()) == [
+        "2020-01-01T00:00:00Z",
+        "2023-06-01T00:00:00Z",
+        "2025-11-01T00:00:00Z",
+    ]

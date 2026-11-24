@@ -182,7 +182,7 @@ AR_WIDTHS = (0.5, 1.0)
 # the slice interval's length for each zone's log spread, the lengths along (log sd, logit
 # rho) until the warmup sets the directions, and the weight that pins a path at its drawn
 # cells while the steps between them are filled in.
-CELL_PADS = (1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 44)
+CELL_PADS = (1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 44, 60, 80, 108, 144)
 SPREAD_WIDTH = 0.05
 # The step of `scales_curvature`'s finite differences, in columns of the slice directions.
 CURV_STEP = 0.05
@@ -733,6 +733,7 @@ def make_sampler(
     scalar_sigma: bool = False,
     walk_stride: int = 1,
     scale_passes: int = 1,
+    scales_no_phase: bool = False,
 ):
     """The jitted sweep, the initial state, the jitted prediction step and the sampler's
     parts for design `d`. The sweep, the initial state and the prediction step are vmapped
@@ -782,6 +783,9 @@ def make_sampler(
     # scale step's coordinates.
     assert walk_stride >= 1, "walk_stride must be at least 1"
     assert scale_passes >= 1, "scale_passes must be at least 1"
+    assert not scales_no_phase or phase_collapsed, (
+        "scales_no_phase needs phase_collapsed so phase_scale is still sampled"
+    )
     nu_free = row_dof_fixed is None
     n_sigma = 1 if scalar_sigma else 4
     pf = 3 + n_sigma + nu_free
@@ -873,6 +877,29 @@ def make_sampler(
         )
     pmap_j = None if pmap is None else jnp.asarray(pmap)
     pmap_binary = pmap is not None and bool(np.all((pmap == 0.0) | (pmap == 1.0)))
+    # Precompute cell-level Gram matrix of [group_indicators, phase_map] for Fisher-preconditioned
+    # joint HMC over (log_sigma, log_phase_factors) when `scales_no_phase=True`.
+    noise_gram_j = None
+    if phased and scales_no_phase and pmap is not None:
+        n_cells = len(d.phases)
+        M_pm = np.asarray(pmap, float)
+        g_idx = np.asarray(d.group, int)
+        p_idx = np.asarray(d.phase, int)
+        if scalar_sigma:
+            c_cnt = np.bincount(p_idx, minlength=n_cells).astype(float)
+            M_aug = np.column_stack([np.ones(n_cells), M_pm])
+            gram = (M_aug.T * c_cnt) @ M_aug
+        else:
+            G_sig = np.zeros((4, 4), float)
+            G_cross = np.zeros((4, free), float)
+            for gk in range(4):
+                c_gk = np.bincount(p_idx[g_idx == gk], minlength=n_cells).astype(float)
+                G_sig[gk, gk] = c_gk.sum()
+                G_cross[gk] = c_gk @ M_pm
+            c_cnt = np.bincount(p_idx, minlength=n_cells).astype(float)
+            G_pm = (M_pm.T * c_cnt) @ M_pm
+            gram = np.block([[G_sig, G_cross], [G_cross.T, G_pm]])
+        noise_gram_j = jnp.asarray(gram)
 
     # Rows sorted by building, then unit, then time, and the buildings in blocks.
     t_all = years(d)
@@ -1625,9 +1652,10 @@ def make_sampler(
             jnp.sqrt(jax.scipy.special.polygamma(1, a)),
         )
 
-    def scales_logp(D, x, eta, tgt, bsd, par, F, kap=None, keta=None):
+    def scales_logp(D, x, eta, tgt, bsd, par, F, kap=None, keta=None, phase_scale=None):
         """The log density of x = (log ss, log sd, log tau, log sigma of each group, log nu
-        unless `row_dof_fixed` holds it), in a design with noise phases the log factor of each phase but the reference, and
+        unless `row_dof_fixed` holds it), in a design with noise phases (unless `scales_no_phase`)
+        the log factor of each phase but the reference, and
         under `unit_t` the log of the units' degrees of freedom nu_u, given theta, the
         buildings' spreads, the collapsed path's scales and the rows' standardized log
         mixing scales eta, with u, the buildings' levels and the collapsed
@@ -1651,7 +1679,12 @@ def make_sampler(
         m, sd = lam_moments(lnu)
         loglam = m + sd * eta
         lam = jnp.exp(loglam)
-        c = lam / row_sd(D, sig, jnp.exp(x[pf : pf + free])) ** 2
+        p_scale = (
+            jnp.exp(x[pf : pf + free])
+            if (phased and not scales_no_phase)
+            else phase_scale
+        )
+        c = lam / row_sd(D, sig, p_scale) ** 2
         ukap = None
         if unit_t:
             m_u, sd_u = lam_moments(
@@ -1693,7 +1726,7 @@ def make_sampler(
                 + ua * x[-1]
                 - ub * 2 * a_u
             )
-        if not phased:
+        if not (phased and not scales_no_phase):
             return out
         # Each phase's factor enters c as sigma does, and its log takes a Normal prior.
         lf = x[pf : pf + free]
@@ -1709,7 +1742,11 @@ def make_sampler(
         lnu = jnp.log(st["nu"])[None] if nu_free else jnp.zeros(0)
         ls_vec = jnp.log(st["sigma"][:1]) if scalar_sigma else jnp.log(st["sigma"])
         x = jnp.concatenate([st["hyp"], ls_vec, lnu])
-        x = jnp.concatenate([x, jnp.log(st["phase_scale"])]) if phased else x
+        x = (
+            jnp.concatenate([x, jnp.log(st["phase_scale"])])
+            if (phased and not scales_no_phase)
+            else x
+        )
         x = jnp.concatenate([x, jnp.log(st["unit_dof"])[None]]) if dof_free else x
         return jnp.concatenate([x, jnp.log(st["unit_tau"])[None]]) if unit_slow else x
 
@@ -1731,9 +1768,12 @@ def make_sampler(
         bsd, par = st["bld_sd"], st["ar_par"][0] if col is not None else None
 
         keta = unit_eta(st) if unit_t else None
+        p_fixed = st.get("phase_scale") if (phased and scales_no_phase) else None
 
         def logp(x):
-            return scales_logp(D, x, eta, tgt, bsd, par, F, st.get("kap"), keta)
+            return scales_logp(
+                D, x, eta, tgt, bsd, par, F, st.get("kap"), keta, p_fixed
+            )
 
         x = scales_x(st)
         x, _ = slice_along(key, x, logp(x), logp, st["hyp_dirs"])
@@ -1748,7 +1788,7 @@ def make_sampler(
             nu=jnp.exp(lnu),
             lam=jnp.exp(m + sd * eta),
         )
-        if phased:
+        if phased and not scales_no_phase:
             new["phase_scale"] = jnp.exp(x[pf : pf + free])
         if dof_free:
             m_u, sd_u = lam_moments(x[-1])
@@ -1772,6 +1812,7 @@ def make_sampler(
         if col is not None:
             tgt = tgt + st["ar"][0].ravel()[D["ar_cell"][0]]
             par = st["ar_par"][0]
+        p_fixed = st.get("phase_scale") if (phased and scales_no_phase) else None
         x0 = scales_x(st)
         K = x0.shape[0]
         eye = jnp.eye(K)
@@ -1789,6 +1830,7 @@ def make_sampler(
                 F,
                 st.get("kap"),
                 unit_eta(st) if unit_t else None,
+                p_fixed,
             ),
             pts,
         )
@@ -2129,7 +2171,9 @@ def make_sampler(
             else st["nu"]
         )
 
-        if "noise" in fixed_steps:
+        if "noise" in fixed_steps or (
+            scales_no_phase and phase_collapsed and pmap_j is not None
+        ):
             sigma = st["sigma"]
         elif scalar_sigma:
 
@@ -2151,7 +2195,93 @@ def make_sampler(
 
             sigma = jnp.exp(b0.slice_vec(k2, jnp.log(st["sigma"]), logp_sigma, 0.02))
         factor = st.get("phase_scale")
-        if phase_collapsed and "noise" not in fixed_steps:
+        if (
+            scales_no_phase
+            and phase_collapsed
+            and pmap_j is not None
+            and "noise" not in fixed_steps
+        ):
+            # Exact Fisher-preconditioned HMC over (log_sigma, log_phase_factors) jointly with
+            # `lam` integrated out. Eliminates the (sigma, phase:*, sv:m00) collinear ridge in
+            # 5 row passes instead of ~290 coordinate-slice passes while preserving exact balance.
+            k_hmc = jax.random.fold_in(key, PHASE_KEY)
+            k_mom, k_acc = jax.random.split(k_hmc)
+            ls0 = jnp.log(st["sigma"][:1]) if scalar_sigma else jnp.log(st["sigma"])
+            lf0 = jnp.log(factor)
+            th0 = jnp.concatenate([ls0, lf0])
+            d_th = th0.shape[0]
+            ph_idx = D["phase"]
+            n_cells = pmap_j.shape[0]
+            r2_nu = (r * r) / nu
+            half_nu1 = 0.5 * (nu + 1.0)
+            fish_c = (2.0 * nu) / (nu + 3.0)
+            prior_diag = jnp.concatenate(
+                [
+                    jnp.full((n_sigma,), 1.0 / priors.sigma**2),
+                    jnp.full((free,), 1.0 / PHASE_PRIOR**2),
+                ]
+            )
+            I_mat = fish_c * noise_gram_j + jnp.diag(prior_diag)
+            L_fish = jnp.linalg.cholesky(I_mat)
+            L_inv = jax.scipy.linalg.solve_triangular(
+                L_fish.T, jnp.eye(d_th), lower=False
+            )
+
+            def logp_and_grad(th):
+                ls_v = th[:n_sigma]
+                lf_v = th[n_sigma:]
+                sig_v = jnp.exp(ls_v)
+                cell_ls = pmap_j @ lf_v
+                s_row = (
+                    ls_v[0] + cell_ls[ph_idx]
+                    if scalar_sigma
+                    else ls_v[group_all] + cell_ls[ph_idx]
+                )
+                u = r2_nu * jnp.exp(-2.0 * s_row)
+                ll = -jnp.sum(s_row) - half_nu1 * jnp.sum(jnp.log1p(u))
+                lp = (
+                    ll
+                    - jnp.sum(sig_v**2) / (2.0 * priors.sigma**2)
+                    + jnp.sum(ls_v)
+                    - jnp.sum(lf_v**2) / (2.0 * PHASE_PRIOR**2)
+                )
+                g_row = -1.0 + (nu + 1.0) * (u / (1.0 + u))
+                g_ls = (
+                    jnp.sum(g_row)[None]
+                    if scalar_sigma
+                    else seg(g_row, group_all, num_segments=4)
+                )
+                g_ls = g_ls - (sig_v**2) / (priors.sigma**2) + 1.0
+                g_cell = seg(g_row, ph_idx, num_segments=n_cells)
+                g_lf = pmap_j.T @ g_cell - lf_v / (PHASE_PRIOR**2)
+                return lp, jnp.concatenate([g_ls, g_lf])
+
+            eps = 0.28
+            p0 = jax.random.normal(k_mom, (d_th,))
+            lp0, g0 = logp_and_grad(th0)
+            p_cur = p0 + 0.5 * eps * (L_inv.T @ g0)
+            th_cur = th0
+
+            def leap(carry, _):
+                th_c, p_c = carry
+                th_n = th_c + eps * (L_inv @ p_c)
+                _, g_n = logp_and_grad(th_n)
+                p_n = p_c + eps * (L_inv.T @ g_n)
+                return (th_n, p_n), None
+
+            (th_cur, p_cur), _ = jax.lax.scan(leap, (th_cur, p_cur), None, length=4)
+            th_prop = th_cur + eps * (L_inv @ p_cur)
+            lp_prop, g_prop = logp_and_grad(th_prop)
+            p_prop = p_cur + 0.5 * eps * (L_inv.T @ g_prop)
+            log_alpha = (lp_prop - 0.5 * jnp.sum(p_prop**2)) - (
+                lp0 - 0.5 * jnp.sum(p0**2)
+            )
+            accept = jnp.log(jax.random.uniform(k_acc)) < log_alpha
+            th_new = jnp.where(accept, th_prop, th0)
+            sig_new = jnp.exp(th_new[:n_sigma])
+            sigma = jnp.broadcast_to(sig_new, (4,)) if scalar_sigma else sig_new
+            factor = jnp.exp(th_new[n_sigma:])
+        elif phase_collapsed and "noise" not in fixed_steps:
             # Its key is folded in, so nu, sigma and lam take the keys they had without
             # this step.
             k_ph = jax.random.fold_in(key, PHASE_KEY)
@@ -2207,22 +2337,27 @@ def make_sampler(
                 factor = jnp.exp(lf_new)
             else:
                 # General systematic-scan coordinate slice update for non-binary `phase_map`.
+                # Carries u2 = (r / sd)^2 / nu and drops constants in `v` (exact match to t_logpdf).
                 lf0 = jnp.log(factor)
-                ls_base = jnp.log(sigma[group_all]) + (pmap_j @ lf0)[D["phase"]]
                 ph_idx = D["phase"]
+                sd0 = row_sd(D, sigma, factor)
+                u2_0 = (r / sd0) ** 2 / nu
+                half_nu1 = 0.5 * (nu + 1.0)
 
                 def step_factor(carry, j):
-                    lf_cur, ls_cur = carry
+                    lf_cur, u2_cur = carry
                     m_j = pmap_j[ph_idx, j]
                     active = m_j != 0.0
                     old_v = lf_cur[j]
-                    ls_without = ls_cur - old_v * m_j
+                    sum_m = jnp.sum(m_j)
+                    u2_act = jnp.where(active, u2_cur, 0.0)
 
                     def logp_j(val):
-                        v = val[0]
-                        sd_j = jnp.exp(ls_without + v * m_j)
-                        ll = jnp.sum(jnp.where(active, b0.t_logpdf(r, nu, sd_j), 0.0))
-                        return (ll - v * v / (2 * PHASE_PRIOR**2))[None]
+                        dv = val[0] - old_v
+                        ll = -dv * sum_m - half_nu1 * jnp.sum(
+                            jnp.log1p(u2_act * jnp.exp(-2.0 * dv * m_j))
+                        )
+                        return (ll - val[0] * val[0] / (2 * PHASE_PRIOR**2))[None]
 
                     new_v = b0.slice_vec(
                         jax.random.fold_in(k_ph, j),
@@ -2231,11 +2366,13 @@ def make_sampler(
                         PHASE_NOISE_WIDTH,
                     )[0]
                     lf_next = lf_cur.at[j].set(new_v)
-                    ls_next = ls_without + new_v * m_j
-                    return (lf_next, ls_next), None
+                    u2_next = jnp.where(
+                        active, u2_cur * jnp.exp(-2.0 * (new_v - old_v) * m_j), u2_cur
+                    )
+                    return (lf_next, u2_next), None
 
                 (lf_new, _), _ = jax.lax.scan(
-                    step_factor, (lf0, ls_base), jnp.arange(free)
+                    step_factor, (lf0, u2_0), jnp.arange(free)
                 )
                 factor = jnp.exp(lf_new)
         z2 = (r / row_sd(D, sigma, factor)) ** 2
@@ -2606,7 +2743,7 @@ def make_sampler(
                     [HYP_WIDTH] * 3
                     + [SIGMA_WIDTH] * n_sigma
                     + [NU_WIDTH] * nu_free
-                    + [PHASE_WIDTH] * free
+                    + [PHASE_WIDTH] * (0 if scales_no_phase else free)
                     + [UNIT_DOF_WIDTH] * dof_free
                     + [UNIT_TAU_WIDTH] * unit_slow
                 )
@@ -2773,6 +2910,7 @@ def run(
     scalar_sigma: bool = False,
     walk_stride: int = 1,
     scale_passes: int = 1,
+    scales_no_phase: bool = False,
 ):
     """Sample the posterior of design `d` with the sweep above and the floor curves' Gaussian
     process priors. The kept arrays hold `building_zones_gibbs`'s, the unit scales `unit_sd`
@@ -2816,6 +2954,7 @@ def run(
         scalar_sigma=scalar_sigma,
         walk_stride=walk_stride,
         scale_passes=scale_passes,
+        scales_no_phase=scales_no_phase,
     )
     held = parts["held"]
     if held:
@@ -2978,7 +3117,11 @@ def run(
                     sig_warm,
                 ]
                 + ([np.log(np.asarray(st["nu"]))[:, None]] if parts["nu_free"] else [])
-                + ([np.log(np.asarray(st["phase_scale"]))] if phase else [])
+                + (
+                    [np.log(np.asarray(st["phase_scale"]))]
+                    if (phase and not scales_no_phase)
+                    else []
+                )
                 + (
                     [np.log(np.asarray(st["unit_dof"]))[:, None]]
                     if parts["dof_free"]
