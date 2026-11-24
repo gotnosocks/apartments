@@ -62,7 +62,8 @@ mod = cmd[2]
 rest = cmd[3:]
 with open(os.environ["TEST_LOG"], "a") as fh:
     fh.write(json.dumps({"cmd": mod, "args": rest}) + "\\n")
-out = rest[0] if mod == "rentfrontier.b0data" else rest[1]
+pos = [a for a in rest if not a.startswith("-")]
+out = pos[0] if mod == "rentfrontier.b0data" else pos[1]
 Path(out).mkdir(parents=True, exist_ok=False)
 (Path(out) / "rows.parquet").write_bytes(b"ok")
 """,
@@ -207,6 +208,7 @@ def test_datasets_default_chain_matches_master_and_skips_on_rerun(tmp_path):
         "ops/market-dataset",
         "rentfrontier.b0bedtext",
     ]
+    assert calls[2]["args"] == ["--allow-thin-last", str(base), f"{base}-dense"]
     assert calls[4]["args"] == [
         h,
         "codes",
@@ -610,3 +612,67 @@ def test_market_and_asof_closingraise_bedtext_chain(tmp_path, monkeypatch):
     assert bdf.loc["2", "latest_ask"] == 3100.0
     assert pd.Timestamp(bdf.loc["2", "latest_day"]).date() == date(2025, 11, 10)
     assert bool(bdf.loc["1", "bed_flex_at"]) and not bool(bdf.loc["2", "bed_flex_at"])
+
+
+def test_onefit_launches_two_lean_h200_shards_or_scales_fixed_fast_refresh(tmp_path):
+    h = "deadbeef12345678"
+    repo, data, log_path, run, read_log = _setup_sandbox(tmp_path, h)
+    commit = _init_git_origin_master(repo)
+    ds_dir = data / "frontier" / "datasets" / f"b0-{h}-alldata-dense-nyc-market-bedtext"
+    ds_dir.mkdir()
+    (ds_dir / "rows.parquet").write_bytes(b"ok")
+
+    res = run(["onefit", "c1-nov24", h])
+    assert res.returncode == 0, res.stderr
+    calls = read_log()
+    assert len(calls) == 2
+    for call, shard, seed in zip(calls, ("a", "b"), ("1", "2")):
+        assert call["cmd"] == "ops/modal-fit"
+        argv = call["args"]
+        assert "--large" in argv and "--lean" in argv
+        assert "--gpu" in argv and argv[argv.index("--gpu") + 1] == "H200"
+        assert "--split" in argv and argv[argv.index("--split") + 1] == "onefit"
+        assert f"c1-nov24-{shard}" in argv
+        assert argv[argv.index("--seed") + 1] == seed
+        assert commit in argv
+
+    # Fast refresh with SCALES_FIXED launches a single container.
+    log_path.unlink()
+    fast = run(["onefit", "c1-fast", h], env={"SCALES_FIXED": "prev-run"})
+    assert fast.returncode == 0, fast.stderr
+    fcalls = read_log()
+    assert len(fcalls) == 1
+    fargv = fcalls[0]["args"]
+    assert fargv[fargv.index("--scales-fixed") + 1] == "prev-run"
+    assert "c1-fast" in fargv
+
+
+def test_registry_glob_picks_newer_same_day_extend_hhmmss_by_mtime(tmp_path):
+    """Both ops/deals-refresh and ops/market-dataset must pick YYYYMMDD-SHA-extend-HHMMSS
+    over an earlier same-day YYYYMMDD-SHA-extend snapshot."""
+    reg_root = tmp_path / "external" / "registry"
+    first = reg_root / "20261123-1f0c240-extend"
+    second = reg_root / "20261123-1f0c240-extend-180210"
+    first.mkdir(parents=True)
+    second.mkdir(parents=True)
+    p1 = first / "registry.parquet"
+    p2 = second / "registry.parquet"
+    p1.write_bytes(b"old")
+    p2.write_bytes(b"new")
+    os.utime(p1, (1_700_000_000, 1_700_000_000))
+    os.utime(p2, (1_700_003_600, 1_700_003_600))
+
+    picked = subprocess.check_output(
+        [
+            "bash",
+            "-c",
+            f'ls -t "{reg_root}"/*-extend*/registry.parquet | head -1',
+        ],
+        text=True,
+    ).strip()
+    assert picked == str(p2)
+    # Also confirm both ops scripts use the mtime-sorted *-extend*/registry.parquet pattern.
+    assert "/*-extend*/registry.parquet" in SCRIPT.read_text()
+    assert (
+        "/*-extend*/registry.parquet" in (ROOT / "ops" / "market-dataset").read_text()
+    )
