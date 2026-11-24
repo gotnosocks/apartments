@@ -169,6 +169,7 @@ ALL_TOKENS = (
     "slow_trim",
     "seg_slow",
     "em_laplace",
+    "em_warm",
     # Track B1/B2 (2026-11-24): A1 audit discoveries & finer building AR(1) paths
     "mark_changed_bed",
     "mark_floor_unk",
@@ -1588,10 +1589,14 @@ def run(d: Design, priors: Priors, settings: Settings, log=print, checkpoint=Non
     tok = set(ACTIVE_VARIANT)
     if "slow_trim" in tok and settings.slow_within == 0.0:
         settings = dataclasses.replace(settings, slow_within=0.001)
-    if "seg_slow" in tok and "seg:zone:outer:" not in settings.slow_columns:
-        settings = dataclasses.replace(
-            settings, slow_columns=(*settings.slow_columns, "seg:zone:outer:")
+    if "seg_slow" in tok:
+        add_cols = tuple(
+            c for c in ("seg:zone:outer:", "flag:") if c not in settings.slow_columns
         )
+        if add_cols:
+            settings = dataclasses.replace(
+                settings, slow_columns=(*settings.slow_columns, *add_cols)
+            )
     return drift.run(
         d,
         priors,
@@ -1612,6 +1617,7 @@ def run(d: Design, priors: Priors, settings: Settings, log=print, checkpoint=Non
         scales_phase_k=6 if "fast_scales_p6" in tok else None,
         slow_gps=("seg_slow" in tok),
         em_laplace=("em_laplace" in tok),
+        em_warm=15 if "em_warm" in tok else 0,
     )
 
 

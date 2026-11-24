@@ -737,6 +737,7 @@ def make_sampler(
     scales_phase_k: int | None = None,
     slow_gps: bool = False,
     em_laplace: bool = False,
+    em_warm: int = 0,
 ):
     """The jitted sweep, the initial state, the jitted prediction step and the sampler's
     parts for design `d`. The sweep, the initial state and the prediction step are vmapped
@@ -2571,7 +2572,7 @@ def make_sampler(
                 g_lf = pmap_j.T @ g_cell - lf_v / (PHASE_PRIOR**2)
                 return lp, jnp.concatenate([g_ls, g_lf])
 
-            eps = 0.28
+            eps = 0.31
             p0 = jax.random.normal(k_mom, (d_th,))
             lp0, g0 = logp_and_grad(th0)
             p_cur = p0 + 0.5 * eps * (L_inv.T @ g0)
@@ -3108,7 +3109,7 @@ def make_sampler(
     swept = jax.jit(jax.vmap(sweep, in_axes=(None, 0, 0)))
     predicted = jax.jit(jax.vmap(predict, in_axes=(None, 0)))
     curved = jax.jit(jax.vmap(scales_curvature, in_axes=(None, 0)))
-    em_stepped = jax.jit(em_step) if em_laplace else None
+    em_stepped = jax.jit(em_step) if (em_laplace or em_warm > 0) else None
     laplaced = (
         jax.jit(jax.vmap(laplace_draw, in_axes=(None, 0, None))) if em_laplace else None
     )
@@ -3118,7 +3119,11 @@ def make_sampler(
         lambda st: predicted(data, st),
         dict(
             data=data,
-            em_step=(lambda st: em_stepped(data, st)) if em_laplace else None,
+            em_step=(
+                (lambda st: em_stepped(data, st))
+                if (em_laplace or em_warm > 0)
+                else None
+            ),
             laplace_draw=(
                 (lambda keys, st_map: laplaced(data, keys, st_map))
                 if em_laplace
@@ -3240,6 +3245,7 @@ def run(
     scales_phase_k: int | None = None,
     slow_gps: bool = False,
     em_laplace: bool = False,
+    em_warm: int = 0,
 ):
     """Sample the posterior of design `d` with the sweep above and the floor curves' Gaussian
     process priors. The kept arrays hold `building_zones_gibbs`'s, the unit scales `unit_sd`
@@ -3287,6 +3293,7 @@ def run(
         scales_phase_k=scales_phase_k,
         slow_gps=slow_gps,
         em_laplace=em_laplace,
+        em_warm=em_warm,
     )
     held = parts["held"]
     if held:
@@ -3481,6 +3488,28 @@ def run(
                 )
         st = st_draw
         return output(final=True)
+    if em_warm > 0:
+        t_em = time.perf_counter()
+        st_map = jax.tree_util.tree_map(lambda a: a[0], st)
+        em_fn = parts["em_step"]
+        for _ in range(em_warm):
+            st_map = em_fn(st_map)
+        jax.block_until_ready(st_map)
+        log(
+            f"em_warm: {em_warm} deterministic EM steps in {time.perf_counter() - t_em:.1f}s"
+        )
+        # Warm-start every chain's latent state at the EM mode while preserving scale inits.
+        for k_em in ("theta", "lev", "lam", "kap", "ukap"):
+            if k_em in st and k_em in st_map:
+                st = st | {k_em: jnp.broadcast_to(st_map[k_em][None], st[k_em].shape)}
+        if "ar" in st and "ar" in st_map:
+            st = st | {
+                "ar": tuple(
+                    jnp.broadcast_to(a[None], b.shape)
+                    for a, b in zip(st_map["ar"], st["ar"])
+                )
+            }
+        t_first = time.perf_counter()
     for i in range(total):
         key, sub = jax.random.split(key)
         st, out = sweep(jax.random.split(sub, settings.chains), st)

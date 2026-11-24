@@ -967,6 +967,7 @@ def main_run(
             "slow_trim",
             "seg_slow",
             "em_laplace",
+            "em_warm",
             "scale_2x",
             "biweekly_walk",
         }

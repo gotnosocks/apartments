@@ -39,6 +39,29 @@ All runs evaluated on the **exact same `9,346` held-out open ads** of `asof-2025
 
 ---
 
-## 4. Results
+## 4. Phase 2 & 3 Results (Commit `254cac24`, `$6.60` Settled + `pf2-full-c2mo-gate` Running)
 
-*(To be populated as Phase 2–4 complete.)*
+| Fit | Settled $ | Prep / Comp / Samp | Open-Mkt ELPD (`9,346`) | Δ vs `c1` ± SE | MAE | 80% Cov (`90%`) | Top-100 (`c1`) | Deals DOM (`ρ`) / Cut | Causal `βr` | Gate (`R-hat` / `ESS`) |
+|---|---:|---|---:|---:|---:|---:|---:|---|---|---|
+| **`pf2-c2mo-sub120`** | **`$1.26`** | `22.8s / 12.3s / 527s` | **`10,264.2`** | **`+44.1 ± 30.1`** | `0.06708` | **`79.93%` (`89.47%`)** | `79` | `27.5→72.0d (0.988)` / **`15.9→62.7%`** | **`0.9993`** | **PASS (`1.0077` / `551`)** |
+| **`pf2-em-c2mo`** | **`$0.45`** | **`4.1s` / `33.5s` / `100s`** | **`10,118.8`** | `-101.3 ± 35.4` | `0.06754` | `78.42%` (`88.26%`) | `73` | `29.0→71.0d (1.000)` / `17.0→62.1%` | `0.9993` | **PASS (`1.0082` / `441`)** |
+| `pf2-c2mo-segfix` | `$1.41` | `190.5s / 60.1s / 415s` | **`10,265.8`** | `+45.7 ± 30.3` | **`0.06704`** | `79.87%` (`89.52%`) | `75` | `27.0→71.5d (0.988)` / `16.5→62.8%` | `0.9993` | NEAR (`1.0111` / `519`) |
+| `pf2-full-c1-gate` | `$3.48` | `195.4s / 108s / 1518s` | `10,242.4` | `+22.3 ± 11.9` | `0.06721` | `78.59%` (`88.58%`) | `94` | `27.0→72.0d (0.988)` / `16.2→62.9%` | `0.9998` | NEAR (`1.0353` / `307` on `sv:m20` only) |
+
+**Key Phase 2–3 diagnostic breakthroughs:**
+1. **`pf2-c2mo-sub120` (`$1.26`, `PASS`)** cut gate-passing all-time-best full-NYC `c2-monthly` cost nearly in half again (`$2.29 → $1.26`, **`19.8×` cheaper than `$24.90` `u5-svgpmo-mkt`!**), confirming `/vol/b0-design-cache` (`190.5s → 4.1–22.8s`) and `/vol/jax-cache` (`60.1s → 12.3s`), with `beta[seg:zone:outer:*]` completely eliminated from worst-ESS/R-hat. The sole remaining ESS floor is `beta[flag:income_restricted]` (`551`).
+2. **Exact root cause of `pf2-em-c2mo`'s (`$0.45`) `-145.5` ELPD gap vs exact Gibbs (`$1.26`):** On the median apartment, `pf2-em-c2mo` actually *beats* exact Gibbs (`median ΔELPD = +0.0046`), and beats `$2.04` `range-j` by **`+76.7` ELPD at `4.5×` lower cost**. The entire `-145.5` gap comes from ~200 thin/outlier buildings & units where the joint Student-t posterior over `(lam, kap, ukap)` is multimodal/heavy-tailed, so fixing `(lam*, kap*, ukap*)` around a single EM mode collapses those 80% intervals `2–2.7×` (`w_em = 0.25–0.30` vs `w_ref = 0.57–0.81`).
+3. **Fisher-HMC tuning (`pf2-full-c1-gate`, `$3.48`):** `fast_scales_p6 + seg_slow` passed `unit_sd` (`1.0037 / 551`), `drift_sd` (`1.0073 / 518`), `sigma[0]` (`1.0081 / 525`), `phase:none` (`1.0012 / 772`), `phase:26+` (`1.0007 / 1,218`), and every `beta`/`seg`! Only `sv:m20` (`1.0353 / 307`) lagged because `eps = 0.28` had `94.9%` acceptance (`T = 1.40 < π/2`). Tuned `eps = 0.31` (`T = 1.55 ≈ π/2`).
+
+---
+
+## 5. Phase 4 Pre-Fit Predictions (Committed BEFORE Launch)
+
+Adding `"flag:"` to `seg_slow` (`slow_columns = ("bld:", "seg:zone:outer:", "flag:")`), `em_warm` (15 deterministic EM steps = 2.5s warm-start before exact Gibbs), and `eps = 0.31` in Fisher-HMC:
+
+| Fit | Model / Config | GPU & Shape | Est. Cost | Pre-Fit Predicted ELPD (`9,346`) | Pre-Fit Predicted Gate & Goal |
+|---|---|---|---:|---:|---|
+| **`pf2-c2mo-sub100`** | `c2-monthly` + `seg_slow` (incl. `flag:`) + `em_warm` + `--scales-fixed c2mo-j-all` | `1× H200 --lean`, `4 × (60 + 1,050) k=5` | **`$0.85–$1.05`** | **`10,255–10,275`** (`MAE 0.0670–0.0672`, `cov80 79.6–80.2%`) | **PASS (`R <= 1.009, ESS >= 450`) UNDER $1.00!!** |
+| **`pf2-em-gibbs50`** | `c2-monthly` + `seg_slow` + `em_warm` + `--scales-fixed c2mo-j-all` (ultra-low exact Gibbs!) | `1× H200 --lean`, `2 × (30 + 360) k=2` | **`$0.45–$0.65`** | **`10,250–10,275`** (`+135–155` ELPD vs `$0.45` `pf2-em-c2mo`!) | **50-cent exact-posterior `10,264` ELPD** (`50×` cheaper than `$24.90` `u5`!) |
+
+*(Phase 4 results and final live-`onefit` decision after `pf2-full-c2mo-gate` completes to be populated below.)*
