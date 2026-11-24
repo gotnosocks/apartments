@@ -165,6 +165,7 @@ ALL_TOKENS = (
     "no_bld_ar",
     "scale_2x",
     "fast_scales",
+    "fast_scales_p6",
     "slow_trim",
     # Track B1/B2 (2026-11-24): A1 audit discoveries & finer building AR(1) paths
     "mark_changed_bed",
@@ -1601,6 +1602,7 @@ def run(d: Design, priors: Priors, settings: Settings, log=print, checkpoint=Non
         walk_stride=2 if "biweekly_walk" in tok else 1,
         scale_passes=2 if "scale_2x" in tok else 1,
         scales_no_phase=("fast_scales" in tok),
+        scales_phase_k=6 if "fast_scales_p6" in tok else None,
     )
 
 

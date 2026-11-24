@@ -797,3 +797,54 @@ def test_fast_scales_fisher_hmc_and_window_dataset(screen_rows, tmp_path, monkey
         "2023-06-01T00:00:00Z",
         "2025-11-01T00:00:00Z",
     ]
+
+
+def test_fast_scales_p6_and_scales_fixed_c2mo(screen_rows, monkeypatch):
+    """fast_scales_p6 keeps 6 lease-gap factors in update_scales (K=10) + Fisher-HMC;
+    scales_fixed works with scalar_sigma + phase_map."""
+    from rentfrontier import drift_scales
+
+    scales_c2, src = drift_scales.resolve("c2mo-j")
+    assert len(scales_c2["phase_scale"]) == 39
+    assert "pf-full-c2mo" in src
+
+    sframe, sheld = screen_rows
+    sframe = sframe.copy()
+    sframe["price_at"] = pd.date_range(
+        "2018-01-01", periods=len(sframe), freq="7D", tz="UTC"
+    )
+    var = "layrng,size,sv_gp_mo,marks,seg_add_lr12,floor_poly,scalar_sigma,biweekly_walk,fast_scales_p6,slow_trim"
+    d = ablate.design(sframe, held=sheld, variant=var)
+    monkeypatch.setattr(ablate, "ACTIVE_VARIANT", ablate.parse_variant(var))
+    settings = ablate.Settings(
+        chains=2, warmup=4, draws=4, keep_every=2, seed=1, budget_seconds=None
+    )
+    out = ablate.run(
+        ablate.subset(d, ~sheld), ablate.Priors(), settings, log=lambda _: None
+    )
+    k_ph = min(6, d.phase_map.shape[1])
+    assert len(out["result"]["gibbs"]["hyp_dirs"]) == 4 + k_ph
+    assert out["trace"]["phase_factor"].shape == (2, 4, d.phase_map.shape[1])
+    assert np.all(np.isfinite(out["trace"]["phase_factor"]))
+
+    # Verify scales_fixed with scalar_sigma + phase_map holds all scales cleanly.
+    sub_scales = dict(scales_c2)
+    sub_scales["phase_scale"] = scales_c2["phase_scale"][: d.phase_map.shape[1]]
+    monkeypatch.setitem(drift_scales.SETS, "_test_c2mo_tiny", sub_scales)
+    monkeypatch.setitem(drift_scales.SOURCES, "_test_c2mo_tiny", "tiny test")
+    settings_fix = ablate.Settings(
+        chains=2,
+        warmup=4,
+        draws=4,
+        keep_every=2,
+        seed=1,
+        budget_seconds=None,
+        scales_fixed="_test_c2mo_tiny",
+    )
+    out_fix = ablate.run(
+        ablate.subset(d, ~sheld), ablate.Priors(), settings_fix, log=lambda _: None
+    )
+    assert np.allclose(out_fix["trace"]["sigma"], sub_scales["sigma"][0])
+    assert np.allclose(
+        out_fix["trace"]["phase_factor"], np.asarray(sub_scales["phase_scale"])
+    )

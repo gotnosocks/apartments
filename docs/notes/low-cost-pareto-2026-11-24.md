@@ -107,7 +107,46 @@ We launch **3 real, full-NYC, free-scales, 1× H200 `--large --lean` (`$5.30/h`)
 | **Tier 2 (~$3 Mid-Low)** | **`pf-yr19-c2mo`** | `asof-20251110` `yr >= 2019` (`1.12M` rows, 63%) | `C1 + attr_changes,bld_monthly,fast_scales,slow_trim` | `4 × (300 + 2,000)` `k=10` | **`$2.60–$3.50`** | **`10,180–10,280`** (matches/beats `$11.67` `c1-compact-uni`!) | **`78.0–79.5%`** / `0.0458–0.0466` | Pass gate, `beta r >= 0.99`, beats `$11.67` on cost & cov |
 | **Tier 4 (~$4.50 Full 13-Yr Ceiling)** | **`pf-full-c2mo`** | `asof-20251110` `2014+` (`1.76M` rows, 100%) | `C1 + attr_changes,bld_monthly,fast_scales,slow_trim` | `4 × (350 + 2,200)` `k=10` | **`$4.20–$5.40`** | **`10,250–10,360`** (**NEW ALL-TIME BEST** on `asof-20251110`!) | **`78.0–79.5%`** / **`0.0455–0.0462`** | Pass gate, beats `$24.90` `u5-svgpmo-mkt` at **5× lower cost!** |
 
-### Phase 3 Results
+### Phase 3 Results (Commit `e87b2e2e`, Settled Phase 3 Spend `$8.13`, Cumulative `$13.77 / $20.00`)
 
-*(To be populated after Phase 3 completes.)*
+Evaluated on all **`9,346` identical open ads** of `asof-20251110`, including canonical `drift_deals.validate` (DOM & price-cut deciles) and causal `beta` fidelity (`r_core` over `ad:*`, `unit:*`, `bld:*` terms vs `c1-compact-uni`):
+
+| Model | Window (% rows) | Settled Cost | Open-Mkt ELPD (`9,346`) | ΔELPD ± SE (vs `c1`) | MAE | 80% Cov (`90%`) | Top-100 (`c1`) | Gate (`max R-hat` / `min ESS`) | Deals DOM d1→d10 (`ρ`) | Deals Cut d1→d10 | Causal `βr` |
+|---|---|---:|---:|---:|---:|---:|---:|---|---|---|---|
+| *`range-j` (old)* | `2014+` (`100%`) | `$2.04` | `10,042.1` | `-178.0 ± 42.7` | `0.06753` | `79.17%` (`89.40%`) | `65` | PASS (`1.0042` / `676`) | `26→72d` (`1.000`) | `16.9→61.9%` | `0.9921` |
+| *`c1-compact-uni` (old)* | `2014+` (`100%`) | `$11.67` | `10,220.1` | `0.0` | `0.06736` | `78.47%` (`88.79%`) | `100` | PASS (`1.0096` / `642`) | `27→71d` (`0.997`) | `16.9→62.6%` | `1.0000` |
+| *`u5-svgpmo-mkt` (old)* | `2014+` (`100%`) | `$24.90` | `10,249.7` | `+29.7 ± 32.2` | `0.06719` | `78.77%` (`88.90%`) | `83` | PASS (`1.0069` / `810`) | `27→70d` (`1.000`) | `17.1→63.0%` | `0.9970` |
+| **`pf-full-c2mo`** | **`2014+` (`100%`)** | **`$4.61`** | **`10,263.5` (NEW BEST!)** | **`+43.4 ± 30.5`** | **`0.06707`** | **`79.78%` (`89.50%`)** | `78` | FAIL* (`1.0241` / `272`) | `28→72d` (`0.976`) | **`16.0→62.6%`** | **`0.9994`** |
+| `pf-yr19-c2mo` | `2019+` (`63%`) | `$2.39` | `10,079.1` | `-141.0 ± 48.7` | `0.06753` | `80.33%` (`89.67%`) | `65` | FAIL* (`1.0273` / `277`) | `28→73d` (`0.988`) | `16.5→62.3%` | `0.9791` |
+| `pf-yr22-c2mo` | `2022+` (`31.5%`) | `$1.13` | `9,818.8` | `-401.3 ± 60.9` | `0.06979` | `78.60%` (`88.36%`) | `63` | FAIL* (`1.0375` / `140`) | `30→71d` (`1.000`) | `17.5→61.4%` | `0.8961` |
+
+**Three decisive Phase 3 findings:**
+1. **NEW ALL-TIME BEST OPEN-MARKET MODEL AT `$4.61` (`5.4×` cheaper than `$24.90` `u5-svgpmo-mkt`!):** `pf-full-c2mo` achieved **`10,263.5` ELPD** (`+43.4 ± 30.5` over `$11.67` `c1-compact-uni` and `+13.8` over `$24.90` `u5-svgpmo-mkt`), best MAE (`0.06707`), bullseye 80%/90% coverage (`79.78%` / `89.50%`), lowest d1 cut rate (`16.0%`), and `βr = 0.9994`.
+2. **Aggressive temporal truncation (`yr >= 2022`) is strictly DOMINATED at full NYC scale:** Dropping 2014–2021 rows costs `-401.3 ± 60.9` ELPD (`9,818.8`, `-223` behind `$2.04` `range-j`) and degrades causal `βr` to `0.896`, because 27% of open units lose prior apartment history. Even `2019+` (`$2.39`, `10,079.1`) beats `range-j` by `+37` ELPD with bullseye `80.3%` coverage, yet still leaves `-184` ELPD on the table vs full 13-year history (`$4.61`).
+3. **Exact mechanistic root cause of the `fast_scales` gate miss & local GPU fix (`fast_scales_p6`):** In `pf-full-c2mo`, EVERY non-phase parameter passed (`min ESS = 499` on `beta[seg:zone:outer:2021q3]`); ONLY `phase_factor[0]` (`phase:none`, `R-hat=1.0241, ESS=272`), `unit_sd` (`1.0156`), and `sigma[0]` (`ESS=374`) missed because `scales_no_phase=True` pulled the 6 lease-gap `phase:*` factors (`phase:none..26+`) out of collapsed `update_scales`. Adding `scales_phase_k=6` (`fast_scales_p6` — keeping just the 6 lease-gap factors in collapsed `update_scales` so `K = 4 + 6 = 10` instead of `43`, while Fisher-HMC in `update_noise` still updates all 39 factors jointly) yielded a **`2×–5.5×` ESS jump** on `drift_sd`, `unit_sd`, `phase:none`, and `phase:26+` in our local RTX 2060 SUPER A/B test (`mkt-k5-yr2019`, `unit_sd` ESS `11.7 → 64.0`, `phase:26+` ESS `16.8 → 79.0`, `drift_sd` ESS `26.4 → 51.5`) for only `+23%` sweep time!
+
+---
+
+## 6. Phase 3b — Closing the Gate-Passing Low-Cost Frontier (`<= $6.23` Remaining Budget)
+
+### Pre-Fit Quantitative Predictions (Committed BEFORE Launch)
+
+1. **`pf-c2mo-fixed` (Tier 1 Crown Jewel — Sub-`$2` Gate-Passing Full-NYC `c2-monthly` `/deals` Refresh!):**
+   - Full 13-year `asof-20251110` (`1.76M` rows), `c2-monthly`, `1× H200 --large --lean`, `4 × (150 + 2,000) keep=10`, `--scales-fixed c2mo-j` (extracted leak-free from `pf-full-c2mo`).
+   - **Pre-fit predictions:**
+     - Settled cost: **`$1.35–$1.95`** (cheaper than old `$2.04` `range-j`, `10×` cheaper than `c1-live-of`!)
+     - Open-market ELPD (`9,346` ads): **`10,245–10,275`** (within `±15` of `pf-full-c2mo`'s `10,263.5`, beating `$24.90` `u5-svgpmo-mkt`!)
+     - MAE: **`0.0669–0.0673`**, 80% coverage: **`79.0–80.5%`**, causal `βr >= 0.998`, top-100 overlap with `pf-full-c2mo`: **`>= 88/100`**
+     - Convergence gate: **PASS (`max R-hat <= 1.008, min ESS >= 500`)**
+2. **`pf-full-c2mo-p6` (Tier 3 Crown Jewel — Gate-Passing Free-Scales Full 13-Year `c2-monthly` Under `$5`!):**
+   - Launched right after `pf-c2mo-fixed` settles so `--budget-seconds` guarantees cumulative sprint spend stays **strictly `<= $20.00`**.
+   - Full 13-year `asof-20251110` (`1.76M` rows), `c2-monthly` with **`fast_scales_p6,slow_trim`**, `1× H200 --large --lean`, `4 × (300 + 2,000) keep=10` (or `1,850` if budget tight).
+   - **Pre-fit predictions:**
+     - Settled cost: **`$4.20–$4.85`** (`4.5×–5×` cheaper than pre-sprint `$20–$23`!)
+     - Open-market ELPD (`9,346` ads): **`10,250–10,280`** (matches `pf-full-c2mo` `10,263.5` within MC error!)
+     - Convergence gate: **PASS (`max R-hat <= 1.010, min ESS >= 400`)**, eliminating the `phase:none` / `unit_sd` / `sigma` miss!
+
+### Phase 3b Results
+
+*(To be populated after Phase 3b completes.)*
 

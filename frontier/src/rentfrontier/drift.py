@@ -734,6 +734,7 @@ def make_sampler(
     walk_stride: int = 1,
     scale_passes: int = 1,
     scales_no_phase: bool = False,
+    scales_phase_k: int | None = None,
 ):
     """The jitted sweep, the initial state, the jitted prediction step and the sampler's
     parts for design `d`. The sweep, the initial state and the prediction step are vmapped
@@ -785,6 +786,10 @@ def make_sampler(
     assert scale_passes >= 1, "scale_passes must be at least 1"
     assert not scales_no_phase or phase_collapsed, (
         "scales_no_phase needs phase_collapsed so phase_scale is still sampled"
+    )
+    assert scales_phase_k is None or scales_phase_k >= 0, "scales_phase_k must be >= 0"
+    assert scales_phase_k is None or phase_collapsed, (
+        "scales_phase_k needs phase_collapsed so omitted phase_scale factors are still sampled"
     )
     nu_free = row_dof_fixed is None
     n_sigma = 1 if scalar_sigma else 4
@@ -866,6 +871,16 @@ def make_sampler(
     else:
         free = len(d.phases) - 1
     phased = free > 0
+    k_ph = (
+        0
+        if not phased
+        else (
+            min(free, int(scales_phase_k))
+            if scales_phase_k is not None
+            else (0 if scales_no_phase else free)
+        )
+    )
+    use_fisher_hmc = phased and (k_ph < free) and phase_collapsed and pmap is not None
     assert not phase_collapsed or phased, "phase_collapsed needs phases"
     if "noise" in fixed_steps and phased:
         assert scales_fixed is not None and "phase_scale" in scales_fixed, (
@@ -878,9 +893,9 @@ def make_sampler(
     pmap_j = None if pmap is None else jnp.asarray(pmap)
     pmap_binary = pmap is not None and bool(np.all((pmap == 0.0) | (pmap == 1.0)))
     # Precompute cell-level Gram matrix of [group_indicators, phase_map] for Fisher-preconditioned
-    # joint HMC over (log_sigma, log_phase_factors) when `scales_no_phase=True`.
+    # joint HMC over (log_sigma, log_phase_factors) when `k_ph < free` (`scales_no_phase` / `scales_phase_k`).
     noise_gram_j = None
-    if phased and scales_no_phase and pmap is not None:
+    if use_fisher_hmc:
         n_cells = len(d.phases)
         M_pm = np.asarray(pmap, float)
         g_idx = np.asarray(d.group, int)
@@ -1679,11 +1694,12 @@ def make_sampler(
         m, sd = lam_moments(lnu)
         loglam = m + sd * eta
         lam = jnp.exp(loglam)
-        p_scale = (
-            jnp.exp(x[pf : pf + free])
-            if (phased and not scales_no_phase)
-            else phase_scale
-        )
+        if k_ph == free and phased:
+            p_scale = jnp.exp(x[pf : pf + free])
+        elif k_ph > 0:
+            p_scale = jnp.concatenate([jnp.exp(x[pf : pf + k_ph]), phase_scale[k_ph:]])
+        else:
+            p_scale = phase_scale
         c = lam / row_sd(D, sig, p_scale) ** 2
         ukap = None
         if unit_t:
@@ -1726,11 +1742,15 @@ def make_sampler(
                 + ua * x[-1]
                 - ub * 2 * a_u
             )
-        if not (phased and not scales_no_phase):
+        if k_ph == 0:
             return out
         # Each phase's factor enters c as sigma does, and its log takes a Normal prior.
-        lf = x[pf : pf + free]
-        return out - jnp.sum(phase_rows * lf) - jnp.sum(lf**2) / (2 * PHASE_PRIOR**2)
+        lf = x[pf : pf + k_ph]
+        return (
+            out
+            - jnp.sum(phase_rows[:k_ph] * lf)
+            - jnp.sum(lf**2) / (2 * PHASE_PRIOR**2)
+        )
 
     def unit_eta(st):
         """Under `unit_t`, the units' standardized log mixing scales at the state's nu_u."""
@@ -1742,11 +1762,7 @@ def make_sampler(
         lnu = jnp.log(st["nu"])[None] if nu_free else jnp.zeros(0)
         ls_vec = jnp.log(st["sigma"][:1]) if scalar_sigma else jnp.log(st["sigma"])
         x = jnp.concatenate([st["hyp"], ls_vec, lnu])
-        x = (
-            jnp.concatenate([x, jnp.log(st["phase_scale"])])
-            if (phased and not scales_no_phase)
-            else x
-        )
+        x = jnp.concatenate([x, jnp.log(st["phase_scale"][:k_ph])]) if k_ph > 0 else x
         x = jnp.concatenate([x, jnp.log(st["unit_dof"])[None]]) if dof_free else x
         return jnp.concatenate([x, jnp.log(st["unit_tau"])[None]]) if unit_slow else x
 
@@ -1768,7 +1784,7 @@ def make_sampler(
         bsd, par = st["bld_sd"], st["ar_par"][0] if col is not None else None
 
         keta = unit_eta(st) if unit_t else None
-        p_fixed = st.get("phase_scale") if (phased and scales_no_phase) else None
+        p_fixed = st.get("phase_scale") if (phased and k_ph < free) else None
 
         def logp(x):
             return scales_logp(
@@ -1788,8 +1804,12 @@ def make_sampler(
             nu=jnp.exp(lnu),
             lam=jnp.exp(m + sd * eta),
         )
-        if phased and not scales_no_phase:
+        if k_ph == free and phased:
             new["phase_scale"] = jnp.exp(x[pf : pf + free])
+        elif k_ph > 0:
+            new["phase_scale"] = jnp.concatenate(
+                [jnp.exp(x[pf : pf + k_ph]), st["phase_scale"][k_ph:]]
+            )
         if dof_free:
             m_u, sd_u = lam_moments(x[-1])
             new["unit_dof"] = jnp.exp(x[-1])
@@ -1812,7 +1832,7 @@ def make_sampler(
         if col is not None:
             tgt = tgt + st["ar"][0].ravel()[D["ar_cell"][0]]
             par = st["ar_par"][0]
-        p_fixed = st.get("phase_scale") if (phased and scales_no_phase) else None
+        p_fixed = st.get("phase_scale") if (phased and k_ph < free) else None
         x0 = scales_x(st)
         K = x0.shape[0]
         eye = jnp.eye(K)
@@ -2171,9 +2191,7 @@ def make_sampler(
             else st["nu"]
         )
 
-        if "noise" in fixed_steps or (
-            scales_no_phase and phase_collapsed and pmap_j is not None
-        ):
+        if "noise" in fixed_steps or use_fisher_hmc:
             sigma = st["sigma"]
         elif scalar_sigma:
 
@@ -2195,12 +2213,7 @@ def make_sampler(
 
             sigma = jnp.exp(b0.slice_vec(k2, jnp.log(st["sigma"]), logp_sigma, 0.02))
         factor = st.get("phase_scale")
-        if (
-            scales_no_phase
-            and phase_collapsed
-            and pmap_j is not None
-            and "noise" not in fixed_steps
-        ):
+        if use_fisher_hmc and "noise" not in fixed_steps:
             # Exact Fisher-preconditioned HMC over (log_sigma, log_phase_factors) jointly with
             # `lam` integrated out. Eliminates the (sigma, phase:*, sv:m00) collinear ridge in
             # 5 row passes instead of ~290 coordinate-slice passes while preserving exact balance.
@@ -2743,7 +2756,7 @@ def make_sampler(
                     [HYP_WIDTH] * 3
                     + [SIGMA_WIDTH] * n_sigma
                     + [NU_WIDTH] * nu_free
-                    + [PHASE_WIDTH] * (0 if scales_no_phase else free)
+                    + [PHASE_WIDTH] * k_ph
                     + [UNIT_DOF_WIDTH] * dof_free
                     + [UNIT_TAU_WIDTH] * unit_slow
                 )
@@ -2812,6 +2825,7 @@ def make_sampler(
             scales_x=scales_x,
             row_sd=row_sd,
             phased=phased,
+            scales_k_ph=k_ph,
             phase_factors=phase_factors,
             scales_logp=scales_logp,
             scales_curvature=scales_curvature,
@@ -2911,6 +2925,7 @@ def run(
     walk_stride: int = 1,
     scale_passes: int = 1,
     scales_no_phase: bool = False,
+    scales_phase_k: int | None = None,
 ):
     """Sample the posterior of design `d` with the sweep above and the floor curves' Gaussian
     process priors. The kept arrays hold `building_zones_gibbs`'s, the unit scales `unit_sd`
@@ -2955,6 +2970,7 @@ def run(
         walk_stride=walk_stride,
         scale_passes=scale_passes,
         scales_no_phase=scales_no_phase,
+        scales_phase_k=scales_phase_k,
     )
     held = parts["held"]
     if held:
@@ -3118,8 +3134,8 @@ def run(
                 ]
                 + ([np.log(np.asarray(st["nu"]))[:, None]] if parts["nu_free"] else [])
                 + (
-                    [np.log(np.asarray(st["phase_scale"]))]
-                    if (phase and not scales_no_phase)
+                    [np.log(np.asarray(st["phase_scale"])[:, : parts["scales_k_ph"]])]
+                    if parts["scales_k_ph"] > 0
                     else []
                 )
                 + (
