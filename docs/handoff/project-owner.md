@@ -15,6 +15,16 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
+## Milestone: 2026-11-23 (Evening) — Unified Single-Model Production Launch (`c1-live-of` live across all 4 site pages)
+
+- **Cross-thread consolidation & PRs merged:** `#1545` (`u5-svgpmo` 6-chain production gate results), `#1538` (`c1-compact` simplified model, `--scales-fixed` for `unitkn`, single-fit site publishers, Pareto `screen.py`), `#1547` (consolidated single-fit onto `--split onefit`, wired closed-heldout `drift_deals.validate` & automatic `publish` validation, pre-fit predictions), and `#1548` (25× faster `onefit` Deals publish via `rows` subset slicing in `drift_score.score_run`).
+- **First unified live `onefit` fit (`drift-building-phase-unitkn-ablate-b0-onefit-00bc8849-c1-live-of`):**
+  - Model: `c1-compact` (`429` params, `4` GPs) on Nov 23 live dataset (`b0-b157a29e19aa837a-alldata-dense-nyc-market-bedtext`, `1,745,472` train / `6,200` open / `149,550` closed ≥1-yr held-out).
+  - Shape & cost: 2× `--large --lean` H200 (`4 × 2,600` draws, `$12.37`) + `today_cpu` (`$0.56`) = **`$12.93` total**.
+  - Gate: **PASS** (`max R-hat = 1.0071` on `phase_factor[20]`, `min ESS = 595` on `beta[seg:zone:outer:2019q2]`).
+  - Closed ≥1-yr held-out (`149,550` ads): ELPD `188,338.4` (`1.2594/row`), MAE `0.04034`, 80% coverage `79.73%`; Deals validation strictly monotone (`DOM 12d → 27d`, Spearman `0.9939`; `Cut 6.6% → 52.0%`, Spearman `1.0000`).
+  - **Live site unified:** `/deals`, `/estimates`, `/price-now` (`936,083` units, `grid_end = 2026-11-30`, `width80_ratio = 0.9996`), and `/diagnostics` (`/about`) all live from `c1-live-of` (previous live directories backed up in `/data1/apartments/tmp/site-backup-before-c1-onefit-20261123/`). Full note: `docs/notes/unified-c1-onefit-2026-11-23.md`.
+
 ## State at about 4 PM ET on Nov 23, Deals refreshed
 
 - Deals reads `range-m4` (6,200 ads, 1,577 cautioned, backtest `range-j`, build rows
