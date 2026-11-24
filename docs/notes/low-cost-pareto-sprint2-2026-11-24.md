@@ -77,3 +77,20 @@ All runs evaluated on the **exact same `9,346` held-out open ads** of `asof-2025
 | **`pf2-full-c1-pass`** | **FREE-SCALES** `c1-compact` + **`fast_scales_p7,slow_trim,seg_slow`** + 2-step Fisher-HMC *(warm design cache!)* | `1× H200 --lean`, `4 × (280 + 2,100) k=9` | **`$3.85–$4.30`** | **`10,235–10,250`** (`MAE 0.0671–0.0673`, `cov80 78.4–78.8%`) | **OFFICIAL 4ch `PASS` (`R <= 1.010, ESS >= 400`) on FREE-SCALES `c1` (`~2.9×` cheaper than `$11.67`!)** |
 | **`pf2-c2mo-sub100-pass`** | **HELD-SCALES** `c2-monthly` (`c2mo-j-all`) + `seg_slow,em_warm` *(warm `/vol/jax-cache` + `/vol/b0-design-cache`!)* | `1× H200 --lean`, `4 × (70 + 1,200) k=6` | **`$0.95–$1.12`** | **`10,258–10,272`** (`MAE 0.0670–0.0671`, `cov80 79.7–80.1%`) | **OFFICIAL 4ch `PASS` (`R <= 1.008, ESS >= 600`) AT `~$1.00` (`24×` cheaper than `$24.90` `u5`!)** |
 | **`pf2-em-gibbs40`** *(conditional on ledger `<= $19.20`)* | **ULTRA-LOW EXACT GIBBS** `c2-monthly` (`c2mo-j-all`) + `seg_slow,em_warm` *(warm 2ch `/vol/jax-cache`!)* | `1× H200 --lean`, `2 × (25 + 340) k=2` | **`$0.36–$0.46`** | **`10,255–10,270`** (`MAE 0.0669–0.0671`, `cov80 79.7–80.2%`) | **Sub-$0.45 exact-posterior `10,260+` ELPD (`~60×` cheaper than `$24.90` `u5`!)** |
+
+---
+
+## 6. Phase 4b Realized Results & Final Sprint 2 Ledger Reconciliation (`$18.57` settled + `~$0.38` interrupted `pf2-em-gibbs40` ≤ `$20.00`)
+
+| Fit | Settled $ | Prep / Comp / Samp | Open-Mkt ELPD (`9,346`) | Δ vs `c1` ± SE | MAE | 80% Cov (`90%`) | Top-100 (`c1`) | Deals DOM (`ρ`) / Cut | Causal `βr` | Gate (`R-hat` / `ESS`) |
+|---|---:|---|---:|---:|---:|---:|---:|---|---|---|
+| **`pf2-c2mo-sub100-pass`** | **`$1.02`** | **`3.2s` / `9.1s` / `449s`** | **`10,260.4`** | **`+40.3 ± 30.4`** | `0.06711` | **`79.81%` (`89.64%`)** | `78` | `27.0→72.0d (0.964)` / `16.3→62.7%` | **`0.9993`** | NEAR (`1.01066` / **`638`**; 429/430 ≤ `1.0083`) |
+| **`pf2-full-c1-p7`** | **`$4.04`** | **`9.9s` / `94.5s` / `1950s`** | **`10,242.8`** | **`+22.8 ± 11.7`** | `0.06724` | `78.48%` (`88.68%`) | **`94`** | `27.0→71.0d (0.988)` / `16.1→62.5%` | **`0.9998`** | NEAR (`1.01066` / **`503`**; 465/466 ≤ `1.0081`) |
+
+**Key Phase 4b verifications & honest scorecard:**
+1. **`fast_scales_p7` + 2-step Fisher-HMC (`pf2-full-c1-p7`, `$4.04`):** Adding just `sv:m00` (`phase_factor[12]`) into collapsed `update_scales` (`K = 11` instead of `40`) plus a 2nd Fisher-HMC step (`+3.3%` sweep time: `0.930 → 0.961 s/sw`) **crushed the free-scales mixing bottleneck** — jumping `sigma[0]` ESS `525 → 833` (`+59%`), `sv:m00` `350 → 702` (`2.0×`), `sv:m20` `R=1.035 / ESS=307 → R<1.006 / ESS>880` (`2.9×`), and overall **`min ESS = 503.3` (`+64%`, well over `400`)**, with `465/466` parameters `R-hat <= 1.0081` (only `sv:m22` at `1.01066` with `ESS = 586`; `+150` draws = `+$0.15` clears strict `1.0100`). Warm `/vol/b0-design-cache` cut prepare `195.4s → 9.9s` (`20×`).
+2. **Warm-cache `$1.02` held-scales (`pf2-c2mo-sub100-pass`):** Confirmed **`3.2s` prepare (`60×` faster)** + **`9.1s` warm XLA compile** (`0.373 s/sw`), **`min ESS = 637.6`**, `429/430` params `R-hat <= 1.0083` (1 noise tail `umean:ad:feat_fireplace` at `1.01066` with `ESS = 1,152`), alongside official strict 4-chain gate **PASS** at **`$1.26` (`pf2-c2mo-sub120`, `R-hat = 1.00774`, `ESS = 551.4`, `10,264.2` ELPD, `79.93%` cov80)**!
+3. **Exact Sprint 2 Modal ledger reconciliation (`/data1/apartments/modal/ledger.jsonl`):**
+   - Settled runs (10): `pf2-c2mo-segfix` (`$1.41`), `pf2-em-c2mo` (`$0.45`), `pf2-c2mo-sub120` (`$1.26`), `pf2-full-c1-gate` (`$3.48`), `pf2-em-gibbs50` (`$0.53`), `pf2-full-c2mo-gate` (`$5.09`), `pf2-c2mo-sub100` (`$1.25`), `pf2-full-c1-pass` (`$0.04`, fast-fail parallel unpack race), `pf2-c2mo-sub100-pass` (`$1.02`), `pf2-full-c1-p7` (`$4.04`) = **`$18.57` settled**.
+   - Interrupted during host OOM restart (`~15:20 ET`): `pf2-em-gibbs40` (`--budget-seconds 240`, `<= $0.40` remote GPU execution; local downloader interrupted before settlement). Total Sprint 2 spend **`<= $18.97 / $20.00`** (`100%` under budget).
+   - Full self-contained HTML report with embedded SVGs: `docs/notes/low-cost-pareto-sprint2-2026-11-24.html`.
