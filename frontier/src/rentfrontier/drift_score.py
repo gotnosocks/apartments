@@ -136,12 +136,15 @@ def score_run(
     at=None,
     exact: bool = False,
     open_scale: float = 1.0,
+    rows=None,
 ) -> dict:
-    """Scores for every row the run at `run_dir` predicted. `at` (rows,) asks for `cdf_at`,
-    the predictive probability of a log rent below each row's value. `exact` takes the
-    quantiles and the median from the cdf's roots, not from replicates. `open_scale` (> 0)
-    scales both `pred_unit_sd` and observation `sigma` uniformly for held-out scoring (e.g.
-    to calibrate closed-ad fits for wider open-market ask dispersion without target leakage)."""
+    """Scores for every row the run at `run_dir` predicted (or the subset `rows` when
+    given, a boolean mask or index array over the held-out rows). `at` (rows,) asks for
+    `cdf_at`, the predictive probability of a log rent below each row's value. `exact`
+    takes the quantiles and the median from the cdf's roots, not from replicates.
+    `open_scale` (> 0) scales both `pred_unit_sd` and observation `sigma` uniformly for
+    held-out scoring (e.g. to calibrate closed-ad fits for wider open-market ask dispersion
+    without target leakage)."""
     open_scale = float(open_scale)
     if not np.isfinite(open_scale) or open_scale <= 0:
         raise ValueError(f"open_scale must be finite and > 0, got {open_scale}")
@@ -159,10 +162,20 @@ def score_run(
     phase = None
     if "kept/pred_phase" in z:
         phase, factor = z["kept/pred_phase"], flat("phase_scale")
+    row_sel = None if rows is None else np.asarray(rows)
+    if row_sel is not None:
+        loc = loc[:, row_sel]
+        usd = usd[:, row_sel]
+        y = y[row_sel]
+        group = group[row_sel]
+        if phase is not None:
+            phase = phase[row_sel]
     out = {k: [] for k in ("elpd", "cdf", "q", "pred", "unit_sd")}
     if at is not None:
         out["cdf_at"] = []
         at = np.asarray(at, float)
+        if row_sel is not None and len(at) != len(y):
+            at = at[row_sel]
     for a in range(0, len(y), CHUNK):
         sl = slice(a, a + CHUNK)
         row_sig = (
@@ -193,6 +206,8 @@ def score_run(
         frame = pd.read_parquet(
             dataset / "rows.parquet", columns=["listing_id", "building", "latest_day"]
         )[z["heldout"]]
+        if row_sel is not None:
+            frame = frame.iloc[row_sel]
         res |= dict(
             listing=frame.listing_id.astype(str).to_numpy().astype("U"),
             building=frame.building.astype(str).to_numpy().astype("U"),

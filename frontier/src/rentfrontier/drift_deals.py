@@ -405,19 +405,11 @@ def deals(
     false they are sampled (`drift_score.SAMPLES`), as until 2026-11-20."""
     frame, h, held = _held_frame(run_dir)
     target, keep_h = _market_mask(run_dir, frame, held)
-    res = drift_score.score_run(run_dir, exact=exact)
-    if not keep_h.all():
+    row_sel = None if keep_h.all() else keep_h
+    extra = {"rows": row_sel} if row_sel is not None else {}
+    res = drift_score.score_run(run_dir, exact=exact, **extra)
+    if row_sel is not None:
         h = h[keep_h].reset_index(drop=True)
-        res = {
-            k: (
-                v[keep_h]
-                if isinstance(v, np.ndarray)
-                and v.ndim >= 1
-                and v.shape[0] == len(keep_h)
-                else v
-            )
-            for k, v in res.items()
-        }
     a = _ads(ads, h.listing_id)
     q = np.exp(res["q"].astype(float))
     ask = h.latest_ask.to_numpy(float)
@@ -553,8 +545,8 @@ def validate(
     else:
         keep_h = open_keep_h
         target = open_target
-    h_all = h
-    if not keep_h.all():
+    row_sel = None if keep_h.all() else keep_h
+    if row_sel is not None:
         h = h[keep_h].reset_index(drop=True)
     a = _ads(ads, h.listing_id)
     codes, with_text, _ = _run_cautions(
@@ -575,20 +567,9 @@ def validate(
     first = first_net(gross, final, a.page_price, free)
     ok = np.isfinite(first) & (first > 0)
     no_basis = int((np.isfinite(gross) & (gross > 0) & ~ok).sum())
-    at_vals = np.log(h_all.latest_ask.to_numpy(float))
-    at_vals[keep_h] = np.log(np.where(ok, first, final))
-    res = drift_score.score_run(run_dir, at=at_vals)
-    if not keep_h.all():
-        res = {
-            k: (
-                v[keep_h]
-                if isinstance(v, np.ndarray)
-                and v.ndim >= 1
-                and v.shape[0] == len(keep_h)
-                else v
-            )
-            for k, v in res.items()
-        }
+    at_vals = np.log(np.where(ok, first, final))
+    extra = {"rows": row_sel} if row_sel is not None else {}
+    res = drift_score.score_run(run_dir, at=at_vals, **extra)
     place = res["cdf_at"]
     day = pd.to_datetime(h.final_day if "final_day" in h else h.latest_day)
     off = pd.to_datetime(a.off_day).to_numpy()
