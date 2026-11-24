@@ -598,3 +598,146 @@ def test_seg_add_and_lowrank_covariance_exact(screen_rows):
     assert not any(n.startswith("seg:") for n in d_lr.names)
     # Floor GPs remain when floor_poly is not passed, while segment GPs are 0
     assert all(not s["name"].startswith("seg:") for s in ablate.gp_spec(d_lr.names))
+
+
+def test_attr_change_marks_strictly_causal_and_binned():
+    frame = pd.DataFrame(
+        {
+            "building": ["B1", "B1", "B1", "B1", "B1", "B2"],
+            "unit_id": ["U1", "U1", "U1", "U1", "U1", None],
+            "price_at": [
+                "2022-01-01T00:00:00Z",  # 0: first train ad -> 0 changes
+                "2022-02-01T00:00:00Z",  # 1: held-out ad with 2 changes vs row 0
+                "2022-03-01T00:00:00Z",  # 2: train ad with 1 change vs row 0 (must NOT see row 1!)
+                "2022-03-01T00:00:00Z",  # 3: same timestamp tie as row 2 -> sees row 0 (3 changes), NOT row 2!
+                "2022-04-01T00:00:00Z",  # 4: train ad after row 2/3 -> sees row 3 (0 changes)
+                "2022-05-01T00:00:00Z",  # 5: missing unit_id -> all zeros
+            ],
+        }
+    )
+    train = np.array([True, False, True, True, True, True])
+    x = np.array(
+        [
+            [0.0, 0.0, 0.0, 0.0],  # row 0
+            [1.0, 1.0, 0.0, 0.0],  # row 1 (held): 2 diffs vs row 0
+            [1.0, 0.0, 0.0, 0.0],  # row 2 (train): 1 diff vs row 0
+            [1.0, 1.0, 1.0, 0.0],  # row 3 (train, same ts): 3 diffs vs row 0
+            [1.0, 1.0, 1.0, 0.0],  # row 4 (train): 0 diffs vs row 3
+            [1.0, 1.0, 1.0, 1.0],  # row 5 (no unit_id)
+        ]
+    )
+
+    class _D:
+        names = (
+            "ad:floorplan",
+            "ad:feat_loft",
+            "unit:dishwasher",
+            "flag:rent_stabilized",
+        )
+
+    _D.x = x
+    mat, names = ablate.attr_change_marks(frame, _D(), train)
+    assert names == ["mark:attr_chg_1", "mark:attr_chg_2", "mark:attr_chg_3p"]
+    np.testing.assert_array_equal(mat[0], [0.0, 0.0, 0.0])
+    np.testing.assert_array_equal(mat[1], [0.0, 1.0, 0.0])  # 2 diffs vs row 0
+    np.testing.assert_array_equal(
+        mat[2], [1.0, 0.0, 0.0]
+    )  # 1 diff vs row 0 (not row 1)
+    np.testing.assert_array_equal(
+        mat[3], [0.0, 0.0, 1.0]
+    )  # 3 diffs vs row 0 (not row 2)
+    np.testing.assert_array_equal(mat[4], [0.0, 0.0, 0.0])  # 0 diffs vs row 3
+    np.testing.assert_array_equal(mat[5], [0.0, 0.0, 0.0])
+
+
+def test_track_b1_b2_tokens_design_and_bld_steps(screen_rows, tmp_path, monkeypatch):
+    frame, held = screen_rows
+    frame = frame.copy()
+    reg = tmp_path / "registry.parquet"
+    pluto = tmp_path / "pluto.parquet"
+    pd.DataFrame(
+        {
+            "building": ["shared", "b8", "b9"],
+            "bbl": [1000000001, 1000000002, 1000000003],
+        }
+    ).to_parquet(reg, index=False)
+    pd.DataFrame(
+        {
+            "bbl": [1000000001, 1000000002, 1000000003],
+            "bldgclass": ["D4", "A4", "R4"],
+            "unitsres": [80, 2, 40],
+        }
+    ).to_parquet(pluto, index=False)
+    monkeypatch.setattr(building_attrs, "REGISTRY", reg)
+    monkeypatch.setattr(building_attrs, "PLUTO", pluto)
+
+    # Augment fixture design with columns read by Track B1 tokens
+    orig = ablate.drift_building_phase_unitkn_level.design(frame, held=held)
+    n = len(orig.y)
+    extra_names = [
+        "unit:size_unknown",
+        "unit:elev_floor_unknown",
+        "unit:walkup_floor_unknown",
+        "bld:condo",
+        "ad:log1p_photos",
+        "ad:floorplan",
+    ]
+    extra_x = np.zeros((n, len(extra_names)), dtype=float)
+    extra_x[2, 1] = 1.0  # unit:elev_floor_unknown
+    extra_x[9, 3] = 1.0  # bld:condo
+    extra_x[:, 4] = np.log1p(10.0)
+    extra_x[[0, 1], 4] = np.log1p(1.0)  # sparse photos
+    extra_x[2, 5] = 1.0  # attr change on unit "u"
+    aug = dataclasses.replace(
+        orig,
+        names=[*orig.names, *extra_names],
+        x=np.column_stack([orig.x, extra_x]),
+    )
+    monkeypatch.setattr(
+        ablate.drift_building_phase_unitkn_level, "design", lambda *a, **k: aug
+    )
+
+    # floor1_mean survives floor_poly
+    d_f1 = ablate.design(frame, held=held, variant="floor_poly,floor1_mean")
+    assert "unit:floor_1" in d_f1.names
+    assert "unit:elev_f_lin" in d_f1.names
+    assert not any(c == "unit:elev_f2" for c in d_f1.names)
+    f1_idx = d_f1.names.index("unit:floor_1")
+    assert d_f1.x[0, f1_idx] == 1.0 and d_f1.x[2, f1_idx] == 0.0
+
+    # All Track B1 tokens combined with floor_poly + ad_core + bld_core + layrng
+    tok_str = (
+        "layrng,marks,floor_poly,ad_core,bld_core,floor1_mean,"
+        "mark_changed_bed,mark_floor_unk,mark_tenure,u1_size_scale,"
+        "attr_changes,mark_sparse_photos,mark_townhouse"
+    )
+    d_all = ablate.design(frame, held=held, variant=tok_str)
+    assert "bld:coop" in d_all.names
+    assert "bld:small_lot_le4" in d_all.names
+    assert d_all.x[0, d_all.names.index("bld:coop")] == 1.0  # shared -> D4
+    assert d_all.x[8, d_all.names.index("bld:small_lot_le4")] == 1.0  # b8 -> 2 units
+    assert not d_all.phase_map[0].any()
+    rec = ablate.run_record(d_all)
+    fnames = set(rec["phase"]["free_factors"])
+    assert {
+        "mark:floor_unknown",
+        "mark:condo",
+        "mark:coop",
+        "u1:log_size_gt1k",
+        "mark:sparse_photos",
+        "mark:small_lot_le4",
+        "mark:attr_chg_1",
+    } <= fnames
+
+    # Building step resolution tokens + mutual exclusivity
+    with pytest.raises(ValueError, match="at most one building step token"):
+        ablate.design(frame, held=held, variant="bld_bimonthly,bld_monthly")
+
+    monkeypatch.setattr(ablate, "ACTIVE_VARIANT", ("bld_bimonthly",))
+    grps = ablate._active_groups(d_f1, {"bld_bimonthly"})
+    assert grps is not None
+    assert [g["per_year"] for g in grps if g["name"] == "building"] == [6]
+    assert ablate.run_record(d_f1)["local"]["building"]["steps_per_year"] == 6
+
+    monkeypatch.setattr(ablate, "ACTIVE_VARIANT", ("bld_monthly",))
+    assert ablate.run_record(d_f1)["local"]["building"]["steps_per_year"] == 12
