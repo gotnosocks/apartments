@@ -15,6 +15,14 @@ research directions and data collection (photo and plan fetches, school zones, o
 sites, the P1 fit, GPU inference). Their costs count against the $100. He also asked for each
 subagent's model and effort to be picked by its task.
 
+## Milestone: 2026-11-24 (Morning Sprint) — Low-Cost Pareto Frontier Collapse (`$19.35 / $20.00`, `$2.29` Gate-Passing All-Time-Best `c2-monthly`!)
+
+- **Headline breakthrough (`docs/notes/low-cost-pareto-2026-11-24.html` & `.md`, PR `#1552`):** Expanded and collapsed the low-cost side of the NYC open-market Pareto frontier (`asof-20251110`, all `9,346` open ads) across **20 settled Modal runs (`$19.35 / $20.00` authorized)**:
+  - **`pf-c2mo-fix-gate` (`$2.29`, 21.7 min on `1× H200 --large --lean`, `--scales-fixed c2mo-j`, full 13-year `1.76M`-row `c2-monthly`):** **OFFICIAL 4-CHAIN GATE PASS (`max R-hat = 1.0089`, `min ESS = 535.2`)**, **`10,264.4` ELPD** (`+222.3` vs `$2.04` `range-j`, `+44.3 ± 30.6` vs `$11.67` `c1-compact-uni`, `+14.7` vs `$24.90` `u5-svgpmo-mkt` — **`10.9×` cheaper than the prior ceiling!**), new best **MAE `0.06705`**, bullseye **`79.90%` 80% / `89.51%` 90% coverage**, Deals backtest `DOM 28.0→71.5d` (`ρ=0.988`) & `Cut 16.0→62.7%`, **`98/100` top-100 / `99.5%` bottom-10% deal overlap** with free-scales `pf-full-c2mo`, and **causal `βr = 0.9994`**.
+  - **Free-scales full 13-year `c2-monthly` (`pf-full-c2mo`):** Collapsed from **`$20–$23` → `$4.61`** (`4.7×` cheaper!) via exact **Fisher-preconditioned joint HMC** over `(sigma, phase_scale)` (`fast_scales`, `2.85×` exact sweep speedup, `ΔELPD = -0.4 ± 1.1`, `99/100` overlap), intermediate `CELL_PADS = (..., 60, 80, 108, 144)` (cutting `bld_monthly` overhead `+89% → +17%`), and `slow_trim`. Scored `10,263.5` ELPD (`R-hat = 1.0241` on `phase:none`); diagnosed root cause and shipped **`fast_scales_p6`** (`scales_phase_k=6`, keeping just the 6 lease-gap factors in collapsed `update_scales`), achieving a `2×–5.5×` ESS jump on local RTX 2060 SUPER A/B test (`+23%` sweep time).
+  - **Hardware & windowing findings:** Proved **H200 beats A100-40GB/80GB by `2×` on `$/fit`** at 1.76M rows (`4.59×` faster sweeps on HBM3e); cleanly falsified aggressive `2022+` truncation (`$1.13`, `-401` ELPD, causal `βr = 0.896`), `tail_anchor` (`z = -3.16`), and `seg_add_lr12` (`$1.27`, `10,257.5` ELPD, but global eigenmodes mix `10×` slower `R-hat = 1.054` than localized `seg_add`!).
+  - **New production playbook:** Weekly `$2.29` gate-passing `c2-monthly` `/deals` refreshes (`1× H200`, `--scales-fixed c2mo-n`) + quarterly `~$5` free-scales `c2-monthly` (`fast_scales_p6,slow_trim`) base refit. Reconciled Modal spend since Nov 14: `$411.21 + $19.35 = $430.56`.
+
 ## Milestone: 2026-11-24 (Overnight) — Tracks A1, A2, B1, B2 (`c1-live-of` Audit, Refresh Tooling, & Wave 4 `bld_monthly` Breakthrough; `$11.71`)
 
 - **Track A1 + A2 (PR `#1550`, `$0` Modal spend):**

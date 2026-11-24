@@ -162,3 +162,24 @@ Evaluated on all **`9,346` identical open ads** of `asof-20251110`, including ca
 
 *(Final results to be populated upon completion.)*
 
+### Final Phase 3b Results & Reconciled Sprint Scorecard (`$19.35 / $20.00`, 20 Settled Modal Runs)
+
+| Model | Window (% rows) | Settled Cost | Open-Mkt ELPD (`9,346`) | Δ vs `c1` ± SE | MAE | 80% Cov (`90%`) | Top-100 (`c1`/`c2`) | Gate (`max R-hat` / `min ESS`) | Deals DOM d1→d10 (`ρ`) | Deals Cut d1→d10 | Causal `βr(c1)` |
+|---|---|---:|---:|---:|---:|---:|---:|---|---|---|---|
+| *`range-j` (old)* | `2014+` (`100%`) | `$2.04` | `10,042.1` | `-178.0 ± 42.7` | `0.06753` | `79.17%` (`89.40%`) | `65` / — | PASS (`1.0042` / `676`) | `26.0→72.0d` (`1.000`) | `16.9→61.9%` | `0.9921` |
+| *`c1-compact-uni` (old)* | `2014+` (`100%`) | `$11.67` | `10,220.1` | `0.0` | `0.06736` | `78.47%` (`88.79%`) | `100` / `78` | PASS (`1.0096` / `642`) | `27.0→71.0d` (`0.997`) | `16.9→62.6%` | `1.0000` |
+| *`u5-svgpmo-mkt` (old)* | `2014+` (`100%`) | `$24.90` | `10,249.7` | `+29.7 ± 32.2` | `0.06719` | `78.77%` (`88.90%`) | `83` / — | PASS (`1.0069` / `810`) | `27.0→70.0d` (`1.000`) | `17.1→63.0%` | `0.9970` |
+| **`pf-c2mo-fix-gate`** | **`2014+` (`100%`)** | **`$2.29`** | **`10,264.4`** | **`+44.3 ± 30.6`** | **`0.06705`** | **`79.90%` (`89.51%`)** | `79` / **`98`** | **PASS (`1.0089` / `535`)** | `28.0→71.5d` (`0.988`) | **`16.0→62.7%`** | **`0.9994`** |
+| `pf-c2mo-fixed` | `2014+` (`100%`) | `$2.02` | `10,265.0` | `+45.0 ± 30.4` | `0.06707` | `79.81%` (`89.50%`) | `76` / `97` | NEAR (`1.0126` / `512`) | `27.0→72.0d` (`0.985`) | `16.1→62.6%` | `0.9993` |
+| `pf-c2mo-lr12-fix` | `2014+` (`100%`) | `$1.27` | `10,257.5` | `+37.5 ± 33.9` | `0.06706` | `79.82%` (`89.47%`) | `71` / `89` | FAIL (`1.0544` / `51`) | `28.0→71.0d` (`0.988`) | `17.5→62.5%` | `0.9992` |
+| **`pf-full-c2mo` (free)** | **`2014+` (`100%`)** | **`$4.61`** | **`10,263.5`** | **`+43.4 ± 30.5`** | **`0.06707`** | **`79.78%` (`89.50%`)** | `78` / `100` | NEAR (`1.0241` / `272`) | `28.0→72.0d` (`0.976`) | `16.0→62.6%` | `0.9994` |
+| `pf-yr19-c2mo` (free) | `2019+` (`63%`) | `$2.39` | `10,079.1` | `-141.0 ± 48.7` | `0.06753` | `80.33%` (`89.67%`) | `65` / `76` | FAIL (`1.0273` / `277`) | `28.0→73.0d` (`0.988`) | `16.5→62.3%` | `0.9791` |
+| `pf-yr22-c2mo` (free) | `2022+` (`31.5%`) | `$1.13` | `9,818.8` | `-401.3 ± 60.9` | `0.06979` | `78.60%` (`88.36%`) | `63` / `62` | FAIL (`1.0375` / `140`) | `30.0→71.0d` (`1.000`) | `17.5→61.4%` | `0.8961` |
+
+#### Honest Pre-Fit vs Realized Scorecard
+- **HIT — `pf-c2mo-fix-gate` (`$2.29`):** Passed the official 4-chain gate (`max R-hat = 1.00887`, `min ESS = 535.2`) right inside predicted `$2.20–$2.45`, scored **`10,264.4` ELPD** (`+44.3` vs `c1-compact-uni`, `+14.7` vs `$24.90` `u5-svgpmo-mkt`, `+222.3` vs `$2.04` `range-j`), new best **MAE `0.06705`**, bullseye **`79.90%` 80% / `89.51%` 90% coverage**, **`98/100` top-100 and `99.5%` bottom-10% deal overlap** with free-scales `pf-full-c2mo` (`ΔELPD = +0.90 ± 1.34`), and **causal `βr = 0.9994`**.
+- **PARTIAL / HONEST FALSIFICATION — `pf-c2mo-lr12-fix` (`$1.27`):** Hit cost (`$1.27`), accuracy (`10,257.5` ELPD, `0.06706` MAE, `79.82%` cov80), and causal fidelity (`βr = 0.9992`), **BUT falsified our mixing prediction** — global low-rank eigenmodes (`seglr:zone:outer:m03/m00/m01`) coupled strongly with the 13-year building AR(1) paths (`R-hat = 1.0544`, `ESS = 51`), mixing `10×` worse than localized quarterly knots `seg_add` (`ESS = 535`). **Keep `seg_add` in production.**
+- **FALSIFIED — A100-40GB/80GB for full 1.76M fits & `2022+` / `tail_anchor` windowing:** H200 is `2×` cheaper per full fit than A100 (`4.59×` faster sweeps on HBM3e); `2022+` loses `-401` ELPD and degrades causal `βr` to `0.896`; `tail_anchor` loses `-65.5 ± 20.7` (`z = -3.16`).
+- **Self-contained HTML report:** `docs/notes/low-cost-pareto-2026-11-24.html` (4 inline SVGs, phone-Safari-friendly).
+- **Exact Modal Ledger Reconciliation (`2026-11-24`, sprint runs `p1-*`, `lc-*`, `pf-*`):** Phase 1 probes `$2.87` + Phase 2 `k5` screen `$2.77` + Phase 3 full-NYC `$8.13` (`$1.13 + $2.39 + $4.61`) + Phase 3b held-scales `$5.58` (`$2.02 + $1.27 + $2.29`) = **`$19.35 / $20.00`** (`$0.65` remaining).
+

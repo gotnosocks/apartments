@@ -89,9 +89,25 @@ stood before 2026-11-10, with the Chelsea pilot's and the frontier line's items,
     (`$46–$66` -> `$12.37`), 24-factor `phase_factor` trace (`-40%` screen wall time), `c1-compact`
     (`-38%` params, `-56%` GPs, 4-chain gate pass), and 48 GiB `--lean` H200 containers (`$5.30/h`
     vs `$6.45/h`; 4 chains in one container rejected at `r = 1.94`, H100 tied H200 at `h = 1.117`).
-  - [ ] **Remaining sampler & fit-cost levers**: test `warmup=300` instead of `500` on the next
-    `onefit` fit (`~$0.80` saved/fit, `#1544`), double-pass unit/scale sweep (steps 6, 7, 3;
-    pilot on thelio's GPU first), and `slow_within=0.001`.
+  - [x] **Low-Cost Pareto Frontier Sprint (`$19.35 / $20.00`, 2026-11-24, PR `#1552`,
+    [docs/notes/low-cost-pareto-2026-11-24.html](notes/low-cost-pareto-2026-11-24.html)):**
+    implemented exact **Fisher-preconditioned joint HMC** over `(sigma, phase_scale)`
+    (`fast_scales` / `fast_scales_p6`, **`2.85×` exact sweep speedup**, `ΔELPD = -0.4 ± 1.1`,
+    `99/100` top-100 overlap), intermediate `CELL_PADS = (..., 60, 80, 108, 144)` (cutting
+    `bld_monthly` overhead `+89% -> +17%`), `slow_trim`, `A100-40GB/80GB --lean`, and
+    `ops/modal-screen window`. Proved **H200 beats A100 by `2×` on `$/fit`** at 1.76M rows
+    (`4.59×` faster sweeps on HBM3e), falsified aggressive `2022+` windowing (`-401` ELPD,
+    `βr=0.896`) and `tail_anchor` (`z=-3.16`), collapsed free-scales full 13-year `c2-monthly`
+    from **`$20–$23 -> $4.61`** (`10,263.5` ELPD, new all-time best), and delivered
+    **`pf-c2mo-fix-gate` (`$2.29`, 21.7 min on `1× H200`, `--scales-fixed c2mo-j`)** —
+    **official 4-chain gate PASS (`R-hat = 1.0089`, `ESS = 535`)**, **`10,264.4` ELPD**
+    (`+44.3` vs `$11.67` `c1-compact-uni`, `+14.7` vs `$24.90` `u5-svgpmo-mkt`, `+222.3` vs
+    `$2.04` `range-j`), best MAE `0.06705`, bullseye **`79.90%` 80% / `89.51%` 90% coverage**,
+    `98/100` deal overlap, and `βr = 0.9994` (`10.9×` cheaper than `$24.90` ceiling!).
+  - [ ] **Remaining sampler & fit-cost levers**: run a 1-shot free-scales `c2-monthly`
+    `onefit` gate using `fast_scales_p6,slow_trim` (`~$4.80–$5.40` on `1× H200`) to mint the
+    live `c2mo-n` scale set for **`$2.29` weekly `c2-monthly` `/deals` refreshes**; double-pass
+    unit/scale sweep remains optional.
   > *"The person who won did the most experiments. And that person was the person who figured
   > out how to pick the smallest model, data size, experiment which gave them a noisy but still
   > directionally correct and statistically trustable Bayesian update. The best research lesson
