@@ -52,12 +52,62 @@ All 10 arms run on `A100-40GB`, `2 250 400 10`, `--seed 1`, evaluated on the **e
 
 ---
 
-## 4. Phase 1 & Phase 2 Results
+## 4. Phase 1 & Phase 2 Results (Commit `d16e233e`, Total Spend `$5.64 / $20.00`)
 
-*(To be populated after Phase 1 & Phase 2 complete.)*
+### 4a. Phase 1 — Full-NYC (1.76M-Row) Hardware & Algorithm Probes (`$2.87`)
+
+| Probe | GPU (`--lean`, $/hr) | `prep` / `comp` | Pure Sweep (`wu`) | Est. `k=10` Sweep | Host RAM Peak | Probe Cost | Projected Full `4×(300+2600)` (2× vs 1×) |
+|---|---|---:|---:|---:|---:|---:|---:|
+| **`p1-h200-fast`** | **H200 (`$5.30/h`)** | `194s / 145s` | **`0.391 s/sw`** | **`0.429 s/sw`** | `24.3 GB` | `$0.84` | **`$4.85` (2×) / `$4.14` (1×)** |
+| `p1-a100-40-fast` | A100-40GB* (`$2.86/h`) | `170s / 212s` | `1.796 s/sw` (`4.59×`) | `1.848 s/sw` | `24.4 GB` | `$0.64` | `$9.25` (2×) / `$8.64` (1×) |
+| `p1-a100-80-fast` | A100-80GB (`$3.26/h`) | `178s / 221s` | `1.806 s/sw` (`4.62×`) | `1.858 s/sw` | `24.4 GB` | `$0.74` | `$10.63` (2×) / `$9.92` (1×) |
+| `p1-a100-40-c2mo` | A100-40GB* (`$2.86/h`) | `173s / 218s` | `2.104 s/sw` (`1.17×` qtr) | `2.166 s/sw` | `24.5 GB` | `$0.65` | `$10.69` (2×) / `$10.03` (1×) |
+
+*\*Modal fulfilled A100-40GB requests on A100-SXM4-80GB hardware billed at the `$2.86/h` A100-40GB rate.*
+
+**Two decisive Phase 1 findings:**
+1. **H200 is `2×` CHEAPER per full 1.76M-row fit than A100 (`$4.14–$4.85` vs `$8.64–$9.25`):** Once `fast_scales` + `slow_trim` strips away the old slice overhead, the sampler is pure FP64 compute + HBM3e bandwidth (`4.80` vs `1.56–2.04 TB/s`). H200 sweeps **`4.59×` faster** than A100 while costing only `1.85×` more per hour!
+2. **Our exact algorithmic speedups slashed full-fit costs `2.6×–4.5×` with ZERO approximation:**
+   - Full 13-year `c1-compact` on H200 dropped from `1.105 s/sw` (`$12.37`) → **`0.391 s/sw` (`$4.14–$4.85`)**!
+   - Intermediate `CELL_PADS` cut `bld_monthly`'s overhead over quarterly from **`+89%` → `+17%`**, slashing full 13-year `c2-monthly` on H200 from `$20–$23` → **`~$4.60–$5.50`**!
+
+### 4b. Phase 2 — Temporal Windowing & Ultralite Screen (`screen-mkt-k5`, `n=1,891` identical open ads, `$2.77`)
+
+| Label | Window (% rows) | ΔELPD ± SE (vs `b4-m-anchor`) | Trimmed Δ | MAE | 80% Cov (`90%`) | Top-100 Overlap | `s/sweep` | Cost | `max R-hat` / `min ESS` |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---|
+| `b4-m-anchor` | `2014+` (`100%`) | `0.0` | `0.0` | `0.07135` | `75.20%` (`87.7%`) | `100/100` | `0.578 s` | `$0.57` | `1.131` / `14.0` |
+| `b4-m-c2-mo(old)` | `2014+` (`100%`) | `+13.0 ± 17.0` | `+8.8` | `0.07145` | `78.05%` (`89.1%`) | `84/100` | `1.286 s` | `$0.87` | `1.125` / `11.1` |
+| **`lc-fast-c1`** | **`2014+` (`100%`)** | **`-0.4 ± 1.1` (`z=-0.35`)** | **`-0.3`** | **`0.07134`** | **`75.09%`** (`87.5%`) | **`99/100`** | **`0.203 s` (`2.85×`)** | **`$0.30`** | **`1.133` / `13.5`** |
+| **`lc-yr2019`** | **`2019+` (`64%`)** | `-23.1 ± 26.7` (`z=-0.87`) | `-25.2` | **`0.07113`** | **`78.16%`** (`87.9%`) | `78/100` | **`0.141 s` (`4.1×`)** | `$0.32` | **`1.112` / `19.1`** |
+| `lc-yr2020` | `2020+` (`55%`) | `-50.5 ± 29.4` | `-50.1` | `0.07268` | `77.79%` (`88.0%`) | `72/100` | `0.129 s` | `$0.29` | `1.190` / `7.8` |
+| `lc-yr2021` | `2021+` (`43%`) | `-51.3 ± 29.5` | `-48.7` | `0.07243` | `77.26%` (`88.4%`) | `73/100` | `0.111 s` | `$0.25` | `1.160` / `21.4` |
+| `lc-yr2022` | `2022+` (`32%`) | `-47.8 ± 28.6` | `-46.1` | `0.07291` | `77.05%` (`88.3%`) | `72/100` | `0.097 s` | `$0.22` | `1.116` / `21.4` |
+| `lc-yr2023` | `2023+` (`24%`) | `-76.5 ± 31.6` | `-76.6` | `0.07397` | `78.00%` (`88.4%`) | `65/100` | `0.091 s` | `$0.30` | `1.178` / `5.4` |
+| `lc-yr2022-tail` | `2022+`+tail (`60%`) | `-65.5 ± 20.7` (`z=-3.16`) | `-64.3` | `0.07300` | `74.62%` (`86.5%`) | `74/100` | `0.156 s` | `$0.29` | `1.184` / `4.9` |
+| `lc-yr2021-c2mo` | `2021+` (`43%`) | `-41.5 ± 34.4` | `-39.3` | `0.07223` | `78.27%` (`88.1%`) | `72/100` | `0.134 s` | `$0.24` | `1.156` / `11.9` |
+| **`lc-yr2022-c2mo`** | **`2022+` (`32%`)** | `-44.6 ± 30.2` (`z=-1.48`) | `-43.5` | `0.07284` | **`78.48%`** (`88.1%`) | `71/100` | **`0.121 s` (`10.6×`)** | `$0.27` | `1.147` / `7.6` |
+| `lc-yr2022-lite` | `2022+` (`32%`) | `-59.0 ± 31.4` | `-56.2` | `0.07292` | `76.94%` (`86.4%`) | `72/100` | `0.087 s` | `$0.29` | `1.179` / `16.8` |
+
+**Key Phase 2 insights:**
+1. **`lc-fast-c1` proved exact posterior equivalence** (`-0.4 ± 1.1`, `99/100` top-100 overlap, identical R-hat/ESS) at **`2.85×` faster sweep speed** (`0.578 → 0.203 s/sw`).
+2. **Causal beta fidelity stays high under windowing:** `yr >= 2019` has `beta r = 0.9871` (`key_mad = 0.0041`) and `yr >= 2022 + c2mo` has `beta r = 0.9675` (`key_mad = 0.0088`).
+3. **Why windowed `k5` lost ELPD (`-23` to `-44`):** On `lc-yr2022-c2mo`, brand-new first-ad open units (`n=668`) actually **GAINED `+18.6` ELPD** over 13-year `c1-compact`, while units whose only prior ad was pre-2022 (`n=326`) lost `-32.9` ELPD. `tail_anchor` was cleanly falsified (`-65.5 ± 20.7`) because sparse isolated pre-2022 rows corrupt the older `L(t)` walk.
 
 ---
 
-## 5. Phase 3 Full-NYC Low-Cost Pareto Frontier Fits (Pre-Fit Predictions & Results)
+## 5. Phase 3 — Full-NYC (`asof-20251110`, ALL `9,346` Open Ads!) Low-Cost Pareto Frontier Fits
 
-*(To be written and committed BEFORE launching Phase 3.)*
+### Pre-Fit Quantitative Predictions (Committed BEFORE Launch)
+
+We launch **3 real, full-NYC, free-scales, 1× H200 `--large --lean` (`$5.30/h`) fits** spanning **`~$1.70` → `~$3.00` → `~$4.60`** (estimated `~$9.30` total → cumulative `~$14.94 / $20.00`, reserving `~$5.00` for Tier 3 `pf-full-c1fast` and a sub-`$1` `--scales-fixed` refresh afterward), all evaluated on **all `9,346` open ads**, **Deals backtest DOM/Cut monotonicity**, **top-100 overlap**, **causal `beta` fidelity**, and **exact gate convergence (`R-hat <= 1.01, ESS > 400`)** against `range-j` (`$2.04`, `10,042.0`), `c1-compact-uni` (`$11.67`, `10,220.1`), and `u5-svgpmo-mkt` (`$24.90`, `10,249.8`):
+
+| Tier | Label | Full-NYC Dataset | Variant | Chains × (WU + Draws) | Est. Cost | Pre-Fit Predicted Open-Mkt ELPD (9,346 ads) | Pre-Fit Predicted 80% Cov / MAE | Gate & Success Rule |
+|---|---|---|---|---|---:|---:|---|---|
+| **Tier 1 (Sub-$2 Free-Scales)** | **`pf-yr22-c2mo`** | `asof-20251110` `yr >= 2022` (`555k` rows, 31.5%) | `C1 + attr_changes,bld_monthly,fast_scales,slow_trim` | `4 × (300 + 1,600)` `k=8` | **`$1.50–$2.10`** | **`10,050–10,180`** (beats `range-j` `$2.04` with free scales!) | **`77.5–79.5%`** / `0.0468–0.0478` | Pass gate (`R-hat <= 1.01, ESS > 400`), monotone DOM/Cut |
+| **Tier 2 (~$3 Mid-Low)** | **`pf-yr19-c2mo`** | `asof-20251110` `yr >= 2019` (`1.12M` rows, 63%) | `C1 + attr_changes,bld_monthly,fast_scales,slow_trim` | `4 × (300 + 2,000)` `k=10` | **`$2.60–$3.50`** | **`10,180–10,280`** (matches/beats `$11.67` `c1-compact-uni`!) | **`78.0–79.5%`** / `0.0458–0.0466` | Pass gate, `beta r >= 0.99`, beats `$11.67` on cost & cov |
+| **Tier 4 (~$4.50 Full 13-Yr Ceiling)** | **`pf-full-c2mo`** | `asof-20251110` `2014+` (`1.76M` rows, 100%) | `C1 + attr_changes,bld_monthly,fast_scales,slow_trim` | `4 × (350 + 2,200)` `k=10` | **`$4.20–$5.40`** | **`10,250–10,360`** (**NEW ALL-TIME BEST** on `asof-20251110`!) | **`78.0–79.5%`** / **`0.0455–0.0462`** | Pass gate, beats `$24.90` `u5-svgpmo-mkt` at **5× lower cost!** |
+
+### Phase 3 Results
+
+*(To be populated after Phase 3 completes.)*
+
