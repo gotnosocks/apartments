@@ -52,11 +52,14 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import hashlib
 import json
 import math
 import os
+import pickle
 import sys
 import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -953,20 +956,82 @@ def main_run(
     priors = spec.Priors()
     started = time.time()
     t0 = time.perf_counter()
-    frame = load_frame()
-    heldout = splits.SPLITS[args.split](frame)
-    full = spec.design(frame)
-    # B0.4 carries each row's building with its design, so it slices its own.
-    cut = getattr(spec, "subset", subset)
-    train = cut(full, ~heldout)
-    held_rows = int(np.count_nonzero(heldout))
+    ds_path = Path(os.environ["FRONTIER_DATASET"])
+    ds_sha = json.loads((ds_path / "manifest.json").read_text())["rows_sha256"]
+    b0_cache_dir = os.environ.get("FRONTIER_B0_DESIGN_CACHE_DIR")
+    # Sampler-only ablate tokens that do not alter the prepared Design arrays.
+    _SAMPLER_ONLY = frozenset(
+        {
+            "fast_scales",
+            "fast_scales_p6",
+            "slow_trim",
+            "seg_slow",
+            "em_laplace",
+            "scale_2x",
+            "biweekly_walk",
+        }
+    )
+    cache_path = None
+    if b0_cache_dir:
+        raw_var = tuple(getattr(spec, "ACTIVE_VARIANT", ()) or ())
+        design_var = tuple(t for t in raw_var if t not in _SAMPLER_ONLY)
+        key_payload = json.dumps(
+            {
+                "v": 1,
+                "ds_sha": ds_sha,
+                "split": args.split,
+                "split_seed": splits.SEED,
+                "name": name,
+                "design_var": design_var,
+            },
+            sort_keys=True,
+        ).encode()
+        cache_key = hashlib.sha256(key_payload).hexdigest()[:20]
+        cache_path = Path(b0_cache_dir) / f"b0design-{cache_key}.pkl"
+    loaded_cache = None
+    if cache_path is not None and cache_path.exists():
+        try:
+            with open(cache_path, "rb") as f:
+                loaded_cache = pickle.load(f)
+        except Exception:
+            loaded_cache = None
+    if loaded_cache is not None:
+        train, heldout, names, weeks, start, count, own_record = loaded_cache
+        # Re-stamp current ACTIVE_VARIANT onto own_record if ablate model.
+        if hasattr(spec, "ACTIVE_VARIANT") and "ablate_variant" in own_record:
+            own_record = dict(own_record)
+            own_record["ablate_variant"] = list(spec.ACTIVE_VARIANT)
+        held_rows = int(np.count_nonzero(heldout))
+        ds_str = str(ds_path)
+    else:
+        frame = load_frame(ds_path)
+        ds_str = frame.attrs["dataset"]
+        ds_sha = frame.attrs["source_sha256"]
+        heldout = splits.SPLITS[args.split](frame)
+        full = spec.design(frame)
+        # B0.4 carries each row's building with its design, so it slices its own.
+        cut = getattr(spec, "subset", subset)
+        train = cut(full, ~heldout)
+        held_rows = int(np.count_nonzero(heldout))
+        names, weeks, start, count = full.names, full.weeks, full.start, full.count
+        own_record = spec.run_record(full) if hasattr(spec, "run_record") else {}
+        del full, frame
+        if cache_path is not None:
+            try:
+                cache_path.parent.mkdir(parents=True, exist_ok=True)
+                tmp_p = cache_path.with_name(
+                    f"{cache_path.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+                )
+                with open(tmp_p, "wb") as f:
+                    pickle.dump(
+                        (train, heldout, names, weeks, start, count, own_record),
+                        f,
+                        protocol=pickle.HIGHEST_PROTOCOL,
+                    )
+                os.replace(tmp_p, cache_path)
+            except Exception:
+                pass
     prep_seconds = time.perf_counter() - t0
-    # `train` holds a copy of the training rows' design, and under `drift.subset` of the
-    # held-out rows' too, so the design of every row goes before the sampler copies the
-    # training rows. The record's fields from it are read first.
-    names, weeks, start, count = full.names, full.weeks, full.start, full.count
-    own_record = spec.run_record(full) if hasattr(spec, "run_record") else {}
-    del full
     log_lines = []
 
     def log(msg):
@@ -1022,8 +1087,8 @@ def main_run(
         "commit": commit,
         "dirty": bool(dirty),
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime(started)),
-        "dataset": frame.attrs["dataset"],
-        "dataset_observations_sha256": frame.attrs["source_sha256"],
+        "dataset": ds_str,
+        "dataset_observations_sha256": ds_sha,
         "split": args.split,
         "split_seed": splits.SEED,
         "feature_set": name,

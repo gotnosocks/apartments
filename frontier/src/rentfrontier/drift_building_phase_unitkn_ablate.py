@@ -167,6 +167,8 @@ ALL_TOKENS = (
     "fast_scales",
     "fast_scales_p6",
     "slow_trim",
+    "seg_slow",
+    "em_laplace",
     # Track B1/B2 (2026-11-24): A1 audit discoveries & finer building AR(1) paths
     "mark_changed_bed",
     "mark_floor_unk",
@@ -1547,7 +1549,8 @@ def diagnostics(trace: dict, names: list[str]) -> dict:
         return out
     rows = out["per_quantity"]
     for n, x in extras.items():
-        rows[n] = {"rhat": split_rhat(x), "ess": ess(x)}
+        if np.ptp(x) > 0:
+            rows[n] = {"rhat": split_rhat(x), "ess": ess(x)}
     worst = max(rows, key=lambda n: rows[n]["rhat"])
     least = min(rows, key=lambda n: rows[n]["ess"])
     return out | {
@@ -1585,6 +1588,10 @@ def run(d: Design, priors: Priors, settings: Settings, log=print, checkpoint=Non
     tok = set(ACTIVE_VARIANT)
     if "slow_trim" in tok and settings.slow_within == 0.0:
         settings = dataclasses.replace(settings, slow_within=0.001)
+    if "seg_slow" in tok and "seg:zone:outer:" not in settings.slow_columns:
+        settings = dataclasses.replace(
+            settings, slow_columns=(*settings.slow_columns, "seg:zone:outer:")
+        )
     return drift.run(
         d,
         priors,
@@ -1603,6 +1610,8 @@ def run(d: Design, priors: Priors, settings: Settings, log=print, checkpoint=Non
         scale_passes=2 if "scale_2x" in tok else 1,
         scales_no_phase=("fast_scales" in tok),
         scales_phase_k=6 if "fast_scales_p6" in tok else None,
+        slow_gps=("seg_slow" in tok),
+        em_laplace=("em_laplace" in tok),
     )
 
 
