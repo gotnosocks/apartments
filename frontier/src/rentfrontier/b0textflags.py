@@ -77,12 +77,20 @@ from . import cautions
 from .b0data import MIN_DESCRIPTION, sha256
 from .b0income import INCOME
 
-# INCOME's "ami", but not in the name of the agent Jonathan Ben-Ami, who lists in 22 ads.
+# INCOME's "ami", excluding cafe names (Mon/Bel/Bon Ami) and agents (Ben-Ami, Ami Rothschild/Ray).
 _AMI = r"(?<!mon )(?<!bel )\bami\b"
 assert _AMI in INCOME.pattern
+_INC_RESTRICT = r"(?<!optional for )income[- ]restrict"
+assert _INC_RESTRICT in INCOME.pattern
 # Matched on the text as `cautions.plain` leaves it, like INCOME.
 INCOME_V2 = re.compile(
-    INCOME.pattern.replace(_AMI, r"(?<!mon )(?<!bel )(?<!ben-)(?<!ben )\bami\b")
+    INCOME.pattern.replace(
+        _INC_RESTRICT,
+        r"(?<!optional for )income[- ]restrict(?![^.\n]{0,35}(?:40\s*x|times\s+the\s+rent))",
+    ).replace(
+        _AMI,
+        r"(?<!mon )(?<!bel )(?<!bon )(?<!ben-)(?<!ben )\bami\b(?! (?:rothschild|ray)\b)",
+    )
     # The state agency that finances income-restricted rentals.
     + r"|\bhdc\b"
     + r"|income caps?\b"
@@ -106,15 +114,16 @@ SHARED_V2 = re.compile(
     rf"|{_FACILITY} (?:is |are )?shared (?:with|between|among) (?:\w+ ){{0,2}}{_OTHERS}\b"
     rf"|shared {_FACILITY} (?:with|between|among) (?:\w+ ){{0,2}}{_OTHERS}\b"
     rf"|shared {_FACILITY} (?:(?:is |are )?(?:located )?(?:in|down|across|on) (?:the )?hall"
-    r"|one door down)"
+    r"|one door down|(?:per|on each|on every) floor\b)"
     rf"|(?<!living )(?<!dining )\b(?:studio|room|unit|sro|efficiency)s? (?:with|w/|has|have"
     rf"|features) (?:a |an )?shared {_FACILITY}"
     rf"|(?:each|every) floor (?:has|have|features|shares) (?:a |an )?(?:[\w-]+,? ){{0,2}}"
     rf"(?:shared|communal) {_FACILITY}"
-    # A room for rent in a shared home.
-    r"|(?:this|our|my|in a|in an) shared (?:apartment|apt|house|home|unit|suite)\b"
+    # A room for rent in a shared home (excluding whole-apt copy like "especially in a shared home").
+    r"|(?<!especially )(?:this|our|my|in a|in an) shared (?:apartment|apt|house|home|unit|suite)\b"
     r"|roommate matching|room pricing"
     r"|\b(?:a|private|furnished|single|sunny|bright|cozy|nice|spacious) rooms? for rent\b"
+    r"|\b(?:have|has|offering|renting) (?:\d+|one|two|three|four|five) rooms? for rent\b"
     r"|furnished (?:private )?room (?:for rent|available|in)\b"
     r"|(?:live|living|join|joining)(?: with)? (?:\d|one|two|three|four|five) "
     r"(?:other |friendly |great |current |amazing |cool )?"

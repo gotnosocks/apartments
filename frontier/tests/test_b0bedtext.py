@@ -217,3 +217,29 @@ def test_flex_wording_for_two_counts_flags_either():
 )
 def test_a_converted_building_is_no_flex_wording(text):
     assert b0bedtext.read(text)[1] == []
+
+
+def test_b0bedtext_fixes_2026_11_24():
+    # 1. Ordinal flex wording ("flexible 5th bedroom", "flex 2nd bedroom").
+    got = _code("5 Bedrooms (flexible 5th bedroom) with terrace and laundry.", 5)
+    assert got["bed_flex_at"]
+    got2 = _code("Spacious layout with convertible 3rd bedroom and two baths.", 3)
+    assert got2["bed_flex_at"]
+
+    # 2. "the size of a ... studio" must not be misread as a studio unit.
+    got3 = _code(
+        "Living room is the size of a large studio apartment with skyline views.", 2
+    )
+    assert not got3["bed_text_fewer"] and math.isnan(got3["bed_text"])
+
+    # 3. "wellbeats studio" amenity must not trigger studio even with STUDIO_AFTER words.
+    got4 = _code("Enjoy the wellbeats studio available on the amenity floor.", 1)
+    assert not got4["bed_text_fewer"] and math.isnan(got4["bed_text"])
+
+    # 4. Opening line unit size stands when a later sentence lists building inventory.
+    got5 = _code(
+        "Gorgeous 1 Bed + Home office with private terrace.\n"
+        "The building offers studio, one-, two-, and three-bedroom residences.",
+        2,
+    )
+    assert got5["bed_text_fewer"] and got5["bed_text"] == 1.0

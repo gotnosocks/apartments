@@ -22,6 +22,28 @@ def test_dense_start_skips_early_stragglers_and_a_thin_gap():
         b0trim.dense_start(day, 101)
 
 
+def test_dense_start_allow_thin_last_handles_monday_morning_scrape():
+    day = pd.Series(
+        [pd.Timestamp("2010-07-28")]
+        + [pd.Timestamp("2014-01-06")] * 150
+        + [pd.Timestamp("2014-01-13")] * 120
+        + [pd.Timestamp("2014-01-20")] * 85  # partial Monday morning week (< 100)
+    )
+    with pytest.raises(ValueError):
+        b0trim.dense_start(day, 100)
+    assert b0trim.dense_start(day, 100, allow_thin_last=True) == pd.Timestamp(
+        "2014-01-06"
+    )
+    # Still fails if the preceding week is also thin.
+    sparse = pd.Series(
+        [pd.Timestamp("2014-01-06")] * 150
+        + [pd.Timestamp("2014-01-13")] * 50
+        + [pd.Timestamp("2014-01-20")] * 85
+    )
+    with pytest.raises(ValueError):
+        b0trim.dense_start(sparse, 100, allow_thin_last=True)
+
+
 def test_trim_writes_a_new_dataset_and_leaves_the_source(tmp_path):
     frame, _ = frame_of(n=4000, weeks=30, seed=7)
     early = frame.iloc[:3].assign(latest_day=pd.Timestamp("2015-02-11"))

@@ -1,0 +1,406 @@
+{
+  "run": "drift-building-phase-unitkn-ablate-b0-onefit-00bc8849-c1-live-of",
+  "bounds": {
+    "rhat": 1.05,
+    "far_level": 0.5,
+    "few_ads": 10
+  },
+  "kept_draws": [
+    4,
+    86
+  ],
+  "counts": {
+    "scored_ads": 155750,
+    "ads_rhat_over": 13,
+    "buildings": 68008,
+    "buildings_rhat_over": 42,
+    "buildings_rhat_over_with_scored_ads": 21,
+    "buildings_far_thin": 235,
+    "buildings_far_thin_with_scored_ads": 61,
+    "scored_ads_in_far_thin_buildings": 80,
+    "buildings_level_over_far_with_scored_ads": 104,
+    "scored_ads_in_buildings_level_over_far": 297
+  },
+  "ads_top20": [
+    {
+      "listing_id": "4741190",
+      "place": 82468,
+      "below_share": 0.5047780656,
+      "rhat": 7.3942910583
+    },
+    {
+      "listing_id": "4323400",
+      "place": 96369,
+      "below_share": 0.5926792869,
+      "rhat": 4.9326895462
+    },
+    {
+      "listing_id": "4774173",
+      "place": 135389,
+      "below_share": 0.8562127894,
+      "rhat": 1.3177816029
+    },
+    {
+      "listing_id": "4343239",
+      "place": 115470,
+      "below_share": 0.7173735367,
+      "rhat": 1.1544260698
+    },
+    {
+      "listing_id": "3980729",
+      "place": 83298,
+      "below_share": 0.5101065245,
+      "rhat": 1.1330531611
+    },
+    {
+      "listing_id": "4581268",
+      "place": 1853,
+      "below_share": 0.0111829435,
+      "rhat": 1.082165085
+    },
+    {
+      "listing_id": "5149941",
+      "place": 15234,
+      "below_share": 0.0859766304,
+      "rhat": 1.0696989141
+    },
+    {
+      "listing_id": "3448469",
+      "place": 127749,
+      "below_share": 0.8024871241,
+      "rhat": 1.0646817216
+    },
+    {
+      "listing_id": "2016150",
+      "place": 132020,
+      "below_share": 0.8319413947,
+      "rhat": 1.0592166617
+    },
+    {
+      "listing_id": "2119411",
+      "place": 77337,
+      "below_share": 0.4731430128,
+      "rhat": 1.055028381
+    },
+    {
+      "listing_id": "2939744",
+      "place": 152057,
+      "below_share": 0.975738287,
+      "rhat": 1.0545595505
+    },
+    {
+      "listing_id": "4845702",
+      "place": 121754,
+      "below_share": 0.7601258327,
+      "rhat": 1.053753946
+    },
+    {
+      "listing_id": "4811994",
+      "place": 129228,
+      "below_share": 0.8126446389,
+      "rhat": 1.0520960333
+    }
+  ],
+  "buildings_top30": [
+    {
+      "building": "the-st-regis-hotel",
+      "zone": "manhattan",
+      "train_rows": 2,
+      "level": 2.2477206342,
+      "rhat": 0.9955583397,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "43-west-46-street-new_york",
+      "zone": "manhattan",
+      "train_rows": 2,
+      "level": 1.697158006,
+      "rhat": 0.9976552504,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "the-pierre",
+      "zone": "manhattan",
+      "train_rows": 3,
+      "level": 1.5776788222,
+      "rhat": 1.0009865123,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "the-carlyle",
+      "zone": "manhattan",
+      "train_rows": 3,
+      "level": 1.4355738102,
+      "rhat": 0.9982636402,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "62-delevan-street-brooklyn",
+      "zone": "outer",
+      "train_rows": 4,
+      "level": 1.3288439763,
+      "rhat": 0.9992835927,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "21-clark-street-brooklyn",
+      "zone": "outer",
+      "train_rows": 6,
+      "level": 1.2302520597,
+      "rhat": 1.002970395,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "220-central-park-south-new_york",
+      "zone": "manhattan",
+      "train_rows": 5,
+      "level": 1.1742151678,
+      "rhat": 0.9903618526,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "76-green-street-brooklyn",
+      "zone": "outer",
+      "train_rows": 2,
+      "level": 1.1258601067,
+      "rhat": 0.9995912932,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "1-east-62-street-new_york",
+      "zone": "manhattan",
+      "train_rows": 6,
+      "level": 1.0888648187,
+      "rhat": 1.0159404119,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "831-madison-avenue-new_york",
+      "zone": "manhattan",
+      "train_rows": 2,
+      "level": -1.0639759838,
+      "rhat": 1.0033881184,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "671-1-avenue-new_york",
+      "zone": "manhattan",
+      "train_rows": 4,
+      "level": 1.0624665233,
+      "rhat": 1.0102567453,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "313-west-74-street-new_york",
+      "zone": "manhattan",
+      "train_rows": 1,
+      "level": 1.0106669392,
+      "rhat": 0.9986942535,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "109-10-avenue-new_york",
+      "zone": "manhattan",
+      "train_rows": 2,
+      "level": -0.997136273,
+      "rhat": 1.0270733271,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "146-east-end-avenue-new_york",
+      "zone": "manhattan",
+      "train_rows": 2,
+      "level": 0.9890492754,
+      "rhat": 0.9944288783,
+      "scored_ads": 1,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "71-washington-avenue-brooklyn",
+      "zone": "outer",
+      "train_rows": 2,
+      "level": 0.9727595839,
+      "rhat": 1.0071177833,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "86-mac-dougal-street-new_york",
+      "zone": "manhattan",
+      "train_rows": 3,
+      "level": 0.9570528673,
+      "rhat": 0.9970500049,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "64-washington-mews-new_york",
+      "zone": "manhattan",
+      "train_rows": 4,
+      "level": 0.9335785792,
+      "rhat": 1.0014482577,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "444-west-20-street-new_york",
+      "zone": "manhattan",
+      "train_rows": 2,
+      "level": 0.920956783,
+      "rhat": 0.9936649313,
+      "scored_ads": 1,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "the-central-park-studios",
+      "zone": "manhattan",
+      "train_rows": 2,
+      "level": 0.9175147042,
+      "rhat": 1.0004495087,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "45-east-66-th-street-building",
+      "zone": "manhattan",
+      "train_rows": 2,
+      "level": 0.9013089755,
+      "rhat": 0.9996436515,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "604-east-11-street-new_york",
+      "zone": "manhattan",
+      "train_rows": 9,
+      "level": 0.8991229281,
+      "rhat": 0.9940358111,
+      "scored_ads": 3,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "259-dean-street-brooklyn",
+      "zone": "outer",
+      "train_rows": 2,
+      "level": 0.8983520949,
+      "rhat": 1.001841068,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "93-hudson-street-new_york",
+      "zone": "manhattan",
+      "train_rows": 3,
+      "level": -0.879117645,
+      "rhat": 1.0013109818,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "327-east-9-street-new_york",
+      "zone": "manhattan",
+      "train_rows": 5,
+      "level": 0.8786476513,
+      "rhat": 0.9961023825,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "225-west-57th-street-new_york",
+      "zone": "manhattan",
+      "train_rows": 3,
+      "level": -0.8652438483,
+      "rhat": 1.0036991198,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "333-west-86-street-new_york",
+      "zone": "manhattan",
+      "train_rows": 3,
+      "level": 0.859432861,
+      "rhat": 0.9946870056,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "134-charles-street-new_york",
+      "zone": "manhattan",
+      "train_rows": 8,
+      "level": 0.8530516172,
+      "rhat": 1.0016348017,
+      "scored_ads": 2,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "456-johnson-avenue-brooklyn",
+      "zone": "outer",
+      "train_rows": 2,
+      "level": 0.847539646,
+      "rhat": 0.9920437632,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "33-east-74-street-new_york",
+      "zone": "manhattan",
+      "train_rows": 4,
+      "level": 0.8290913548,
+      "rhat": 0.9960550221,
+      "scored_ads": 1,
+      "rhat_over": false,
+      "far_thin": true
+    },
+    {
+      "building": "498-fulton-street-brooklyn",
+      "zone": "outer",
+      "train_rows": 2,
+      "level": 0.8280444135,
+      "rhat": 1.0031369883,
+      "scored_ads": 0,
+      "rhat_over": false,
+      "far_thin": true
+    }
+  ]
+}

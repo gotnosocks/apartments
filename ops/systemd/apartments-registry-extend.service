@@ -6,6 +6,8 @@ Type=oneshot
 Environment=UV_PROJECT_ENVIRONMENT=/data1/apartments/venvs/serve-frontier
 Environment=TMPDIR=/data1/apartments/tmp/registry-extend
 Environment=JAX_PLATFORMS=cpu
+Environment=ARROW_IO_THREADS=1
+Environment=OMP_NUM_THREADS=1
 # Before each run the service moves /data1/apartments/serve/master to master, as the dashboard
 # build does, and runs the module from there. The module writes a snapshot only from a clean
 # checkout, and the snapshot's provenance gives master's commit.
