@@ -1264,3 +1264,56 @@ def test_y1_pre2024_treats_2024_and_later_as_reference(monkeypatch):
         # No yr:* factor is active for 2024+ under y1_pre2024.
         yr_cols = [j for j, n in enumerate(cl.names) if n.startswith("yr:")]
         assert not (cl.pmap[phase][:, yr_cols] > 0.5).any()
+
+
+def test_cell_index_preserves_continuous_sv_factors_and_monthly_target_index():
+    """Continuous `sv_gp*` phase_map rows must not be truncated to int8 in `cell_index`,
+    `KEPT_MARKS` includes `mark:attr_chg_*`, and `target_index` honors `per_year=12`."""
+    from types import SimpleNamespace
+
+    assert {"mark:attr_chg_1", "mark:attr_chg_2", "mark:attr_chg_3p"} <= set(
+        dt.KEPT_MARKS
+    )
+    pmap = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.25, -0.35],
+            [0.0, -0.15, 0.40],
+            [1.0, -0.15, 0.40],
+        ],
+        float,
+    )
+    log_f = np.array([[0.2, 0.5, -0.4], [-0.1, 0.3, 0.2]])
+    cl = SimpleNamespace(
+        names=["phase:none", "sv:m00", "sv:m01"],
+        pmap=pmap.copy(),
+        log_factor=log_f,
+    )
+    fit = SimpleNamespace(
+        full=SimpleNamespace(cells=cl, phases=("ref", "c1", "c2", "c3")),
+        kept={"phase_scale": np.exp(log_f @ pmap.T)},
+    )
+    # Query one existing continuous row and one unseen continuous row in the span.
+    q_rows = np.array([[0.0, -0.15, 0.40], [0.0, 0.25, -0.35]], float)
+    idx = dt.cell_index(fit, q_rows)
+    assert idx[0] == 2
+    assert idx[1] == 4
+    np.testing.assert_allclose(cl.pmap[idx[1]], q_rows[1], atol=1e-6)
+    np.testing.assert_allclose(
+        fit.kept["phase_scale"][:, idx[1]], np.exp(log_f @ q_rows[1]), rtol=1e-6
+    )
+
+    rw = dt.Rows(
+        unit=np.array([0, 1]),
+        site=np.array([0, 0]),
+        week=np.array([0, 10]),
+        frac=np.array([0.0, 0.0]),
+        xb=np.zeros((2, 2)),
+        group=np.array([0, 0]),
+        phase=None,
+    )
+    tg4 = dt.target_index([rw], per_year=4)
+    tg12 = dt.target_index([rw], per_year=12)
+    # At 10 weeks (~0.192 yr), quarter bucket is 0 while monthly bucket is 2.
+    assert tg4["q"].tolist() == [0, 0]
+    assert tg12["q"].tolist() == [0, 2]

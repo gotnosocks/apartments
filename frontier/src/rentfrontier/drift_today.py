@@ -222,6 +222,9 @@ KEPT_MARKS = (
     "mark:floor_1",
     "mark:large_01br",
     "mark:income_restricted",
+    "mark:attr_chg_1",
+    "mark:attr_chg_2",
+    "mark:attr_chg_3p",
 )
 # The marks set for `--day` (`cell_today`), besides the lease phase and the year.
 DAY_MARKS = (
@@ -1316,7 +1319,14 @@ def load(run_dir: Path, draws: int = DRAWS, log=print) -> Fit:
     if any(g != "building" for g in groups):
         raise SystemExit(f"{name}'s local-drift terms are not supported here")
     sites = len(drift.site_zone(d))
-    lay = layout(d.site[rows], d.unit[rows], t_all[rows], 4 if groups else None, sites)
+    per_year = (
+        int(
+            ((record.get("local") or {}).get("building") or {}).get("steps_per_year", 4)
+        )
+        if groups
+        else None
+    )
+    lay = layout(d.site[rows], d.unit[rows], t_all[rows], per_year, sites)
     if lines:
         lay = with_lines(lay, d.site[rows], d.line[rows], int(d.lines))
     Bc, _ = drift.wave_matrix(SimpleNamespace(site=d.site[train], surfaces=d.surfaces))
@@ -1447,12 +1457,12 @@ class Rows:
     line: np.ndarray | None = None
 
 
-def target_index(rows_list: list[Rows]) -> dict:
+def target_index(rows_list: list[Rows], per_year: int | None = 4) -> dict:
     """The rows of every set laid end to end, as `targets` reads them."""
     cat = lambda k: np.concatenate([getattr(rw, k) for rw in rows_list])  # noqa: E731
     unit, site = cat("unit").astype(np.int64), cat("site").astype(np.int64)
     t = (cat("week").astype(float) + cat("frac")) / drift.YEAR_WEEKS
-    q = np.floor(t * 4).astype(np.int64)
+    q = np.floor(t * (per_year or 4)).astype(np.int64)
     keys, pair = pairs(site, q)
     out = dict(unit=unit, site=site, t=t, q=q, pair_keys=keys, pair=pair)
     if rows_list and all(rw.line is not None for rw in rows_list):
@@ -1479,7 +1489,7 @@ def predict(
     """The predictive mixture of each set of rows in `rows_list`: a dict of `loc` and
     `usd` (components, rows), and the components' `nu`, `sigma` (components, groups) and
     `phase` factors, from KEEP sweeps of each kept draw."""
-    tg = target_index(rows_list)
+    tg = target_index(rows_list, fit.lay.get("per_year"))
     _STATE.update(fit=fit, tg=tg)
     jobs = [(i, seed * 100_003 + i) for i in range(len(fit.pick))]
     sizes = [len(rw.unit) for rw in rows_list]
@@ -1728,26 +1738,39 @@ def cell_today(fit: Fit, rows: np.ndarray, day: pd.Timestamp) -> np.ndarray:
 
 
 def cell_index(fit: Fit, v: np.ndarray) -> np.ndarray:
-    """The cell of each row of 0/1 factors `v` (rows, factors), as its place in the fit's
+    """The cell of each row of factors `v` (rows, factors), as its place in the fit's
     phases. A cell the fit never saw is appended to them, with its factor at each kept draw
     exp(v log f), which the cells' factors fix when v lies in the span of their rows."""
     cl = fit.full.cells
-    uniq, inv = np.unique(np.asarray(v).astype(np.int8), axis=0, return_inverse=True)
-    known = {tuple(r): i for i, r in enumerate(cl.pmap.astype(np.int8))}
+    is_binary = bool(np.all((cl.pmap == 0) | (cl.pmap == 1)))
+    if is_binary:
+        key_v = np.asarray(v).astype(np.int8)
+        key_pmap = cl.pmap.astype(np.int8)
+    else:
+        key_v = np.round(np.asarray(v, float), 6)
+        key_v[key_v == 0.0] = 0.0
+        key_pmap = np.round(np.asarray(cl.pmap, float), 6)
+        key_pmap[key_pmap == 0.0] = 0.0
+    uniq, inv = np.unique(key_v, axis=0, return_inverse=True)
+    known = {tuple(r): i for i, r in enumerate(key_pmap)}
     place = np.asarray([known.get(tuple(r), -1) for r in uniq], np.int64)
     fresh = np.flatnonzero(place < 0)
     if len(fresh):
         add = uniq[fresh].astype(float)
         span = add @ np.linalg.pinv(cl.pmap) @ cl.pmap
-        if not np.allclose(span, add, rtol=0, atol=1e-8):
+        if not np.allclose(span, add, rtol=0, atol=1e-6):
             raise SystemExit(
                 "an apartment's cell today has a factor the fit's cells leave free"
             )
         place[fresh] = len(cl.pmap) + np.arange(len(fresh))
         cl.pmap = np.vstack([cl.pmap, add])
-        fit.full.phases = tuple(fit.full.phases) + tuple(
-            "|".join(n for n, on in zip(cl.names, r) if on) or "ref" for r in add
-        )
+        if is_binary:
+            new_names = tuple(
+                "|".join(n for n, on in zip(cl.names, r) if on) or "ref" for r in add
+            )
+        else:
+            new_names = tuple(f"c{len(fit.full.phases) + k}" for k in range(len(add)))
+        fit.full.phases = tuple(fit.full.phases) + new_names
         fit.kept["phase_scale"] = np.concatenate(
             [fit.kept["phase_scale"], np.exp(cl.log_factor @ add.T)], axis=1
         )
