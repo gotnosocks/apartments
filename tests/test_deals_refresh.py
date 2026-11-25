@@ -5,6 +5,7 @@ import os
 import shutil
 import stat
 import subprocess
+import sys
 from datetime import date
 from pathlib import Path
 
@@ -676,3 +677,56 @@ def test_registry_glob_picks_newer_same_day_extend_hhmmss_by_mtime(tmp_path):
     assert (
         "/*-extend*/registry.parquet" in (ROOT / "ops" / "market-dataset").read_text()
     )
+
+
+@pytest.mark.parametrize(
+    ("subcmd", "split", "wants_backtest"),
+    [
+        ("publish", "market", True),
+        ("publish", "onefit", False),
+        ("publish-all", "market", True),
+        ("publish-all", "unified", False),
+    ],
+)
+def test_publish_steps_pass_backtest_unless_onefit_or_unified(
+    tmp_path, subcmd, split, wants_backtest
+):
+    """Deals publishes with the fit's backtest; only onefit/unified runs omit it."""
+    _repo, data, _log, run, read_log = _setup_sandbox(tmp_path)
+    run_dir = data / "frontier" / "runs" / "r1"
+    run_dir.mkdir(parents=True)
+    (run_dir / "result.json").write_text(json.dumps({"split": split}))
+    stub = tmp_path / "bin" / "deals-python"
+    _write_exec(
+        stub,
+        f"""#!/usr/bin/env python3
+import json, os, sys
+from pathlib import Path
+
+args = sys.argv[1:]
+if args[0] == "-c":
+    os.execv({sys.executable!r}, [{sys.executable!r}, *args])
+with open(os.environ["TEST_LOG"], "a") as fh:
+    fh.write(json.dumps({{"cmd": args[1], "args": args[2:]}}) + "\\n")
+if args[2] == "texts":
+    out = Path(args[args.index("--out") + 1])
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(b"texts")
+""",
+    )
+    res = run(
+        [subcmd, "r1"],
+        env={
+            "DEALS_PY": str(stub),
+            "DEALS_SCRATCH": str(tmp_path / "scratch"),
+            "REGISTRY": str(tmp_path / "registry.parquet"),
+        },
+    )
+    assert res.returncode == 0, res.stderr
+    deals = [
+        c
+        for c in read_log()
+        if c["cmd"] == "rentfrontier.drift_deals" and c["args"][0] == "publish"
+    ]
+    assert len(deals) == 1
+    assert ("--backtest" in deals[0]["args"]) is wants_backtest

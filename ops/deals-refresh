@@ -74,8 +74,8 @@ pipeline=$data/pipeline/datasets
 external=$data/external
 datasets=$data/frontier/datasets
 py=/data1/apartments/venvs/sim-recovery/bin/python
-deals_py=/data1/apartments/venvs/bridge-frontier/bin/python
-scratch=/data1/apartments/tmp/deals-refresh
+deals_py=${DEALS_PY:-/data1/apartments/venvs/bridge-frontier/bin/python}
+scratch=${DEALS_SCRATCH:-/data1/apartments/tmp/deals-refresh}
 model=${MODEL:-drift-building-bedtext-layout-range}
 baseline=${BASELINE:-drift-building-b0-market-67d14e17-n9}
 scales=${SCALES:-base-n9}
@@ -83,6 +83,20 @@ backtest=${BACKTEST:-drift-building-bedtext-layout-range-b0-market-d9028c57-rang
 onefit_model=${ONEFIT_MODEL:-drift-building-phase-unitkn-ablate}
 onefit_variant=${ONEFIT_VARIANT:-layrng,size,sv_gp_mo,marks,seg_add,floor_poly,ad_core,scalar_sigma,biweekly_walk}
 closing_raise=${CLOSING_RAISE:-0}
+# Sets bt_args for a Deals publish. Unified and onefit runs validate on their own closed
+# held-out rows, so they take no legacy backtest unless BACKTEST is set in the environment;
+# every other run publishes with its backtest.
+set_backtest_args() {
+    local run_split
+    run_split=$("$deals_py" -c 'import json, pathlib, sys
+p = pathlib.Path(sys.argv[1]) / "result.json"
+print(json.loads(p.read_text()).get("split", "") if p.exists() else "")' "$data/frontier/runs/$1")
+    bt_args=()
+    if [[ -n ${BACKTEST:-} ]] || [[ $run_split != onefit && $run_split != unified ]]; then
+        bt_args=(--backtest "$backtest")
+    fi
+}
+
 case $closing_raise in
 0) cr_suffix="" ;;
 1) cr_suffix="-closingraise" ;;
@@ -238,15 +252,7 @@ sys.exit("deposit" not in pq.read_schema(sys.argv[1]).names)' "$texts"; then
         rm "$texts"
     fi
     [[ -e $texts ]] || "$deals_py" -m rentfrontier.drift_deals texts "$run" --out "$texts"
-    # Unified / onefit runs validate on their own closed held-out rows; omit legacy BACKTEST
-    # unless explicitly overridden via BACKTEST in the environment.
-    bt_args=()
-    run_split=$("$deals_py" -c 'import json, pathlib, sys
-p = pathlib.Path(sys.argv[1]) / "result.json"
-print(json.loads(p.read_text()).get("split", "") if p.exists() else "")' "$data/frontier/runs/$run")
-    if [[ -n ${BACKTEST:-} ]] || [[ $run_split != onefit && $run_split != unified ]]; then
-        bt_args=(--backtest "$backtest")
-    fi
+    set_backtest_args "$run"
     "$deals_py" -m rentfrontier.drift_deals publish "$run" --out "$out" \
         --registry "$registry" "${bt_args[@]}" --texts "$texts"
     echo "== published to $out"
@@ -265,8 +271,9 @@ sys.exit("deposit" not in pq.read_schema(sys.argv[1]).names)' "$texts"; then
         rm "$texts"
     fi
     [[ -e $texts ]] || "$deals_py" -m rentfrontier.drift_deals texts "$run" --out "$texts"
+    set_backtest_args "$run"
     "$deals_py" -m rentfrontier.drift_deals publish "$run" --out "$out_root/deals" \
-        --registry "$registry" --texts "$texts"
+        --registry "$registry" "${bt_args[@]}" --texts "$texts"
     "$deals_py" -m rentfrontier.drift_estimates publish "$run" --out "$out_root/estimates" \
         --registry "$registry"
     "$deals_py" -m rentfrontier.drift_diagnostics publish "$run" --out "$out_root/diagnostics" \
