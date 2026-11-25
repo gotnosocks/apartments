@@ -67,8 +67,9 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def catalog_entry(root: Path | None = None) -> dict:
-    """The newest complete line of `root`'s catalog from a clean checkout.
+def catalog_entry(root: Path | None = None, ads_sha256: str | None = None) -> dict:
+    """The newest complete line of `root`'s catalog from a clean checkout, or when
+    `ads_sha256` is given, the newest clean line whose `ads_file` matches that SHA-256.
 
     The pipeline appends a build's line with its line break, so a last line without one is still
     being written, and I read the lines before it. A build from a checkout with changes can write
@@ -82,6 +83,17 @@ def catalog_entry(root: Path | None = None) -> dict:
     ]
     if not clean:
         raise ValueError(f"{catalog} lists no build from a clean checkout")
+    if ads_sha256 is not None:
+        matched = [
+            entry
+            for entry in clean
+            if (entry.get("ads_file") or {}).get("sha256") == ads_sha256
+        ]
+        if not matched:
+            raise ValueError(
+                f"{catalog} lists no clean build with ads_file sha256 {ads_sha256}"
+            )
+        return matched[-1]
     return clean[-1]
 
 
@@ -102,10 +114,10 @@ def checked(entry: dict, key: str, root: Path | None = None) -> dict:
     }
 
 
-def records_file(root: Path | None = None) -> dict:
-    """The records file of the newest clean build under `root`, checked, with the same build's
-    ads file, checked, under `ads`."""
-    entry = catalog_entry(root)
+def records_file(root: Path | None = None, ads_sha256: str | None = None) -> dict:
+    """The records file of the newest clean build under `root` (or matching `ads_sha256`),
+    checked, with the same build's ads file, checked, under `ads`."""
+    entry = catalog_entry(root, ads_sha256=ads_sha256)
     source = checked(entry, "records", root)
     source["ads"] = checked(entry, "ads_file", root)
     return source

@@ -318,12 +318,13 @@ def test_history_layer_v18():
     assert list(v18[history]) == ["v:1", "v:1", "v:3", "v:4", "v:5", "v:6"]
 
 
-def test_label_key_v18_trailing_apt_unit_and_zero_ph():
-    assert labels.label_key_v18("garden-apt") == "GARDEN"
-    assert labels.label_key_v18("3apt") == "3"
-    assert labels.label_key_v18("5c-unit") == "5C"
-    assert labels.label_key_v18("0phb") == "PHB"
-    assert labels.label_key_v18("apt") == ""
+def test_label_key_v19_trailing_apt_unit_and_zero_ph():
+    """`unit-labels-v19` strips trailing APT/UNIT and leading-zero PH while leaving v17 and v18 frozen."""
+    assert labels.label_key_v19("garden-apt") == "GARDEN"
+    assert labels.label_key_v19("3apt") == "3"
+    assert labels.label_key_v19("5c-unit") == "5C"
+    assert labels.label_key_v19("0phb") == "PHB"
+    assert labels.label_key_v19("apt") == ""
     rows = pd.DataFrame(
         [
             ("w:1", "b9", "garden-apt", 1.0),
@@ -333,7 +334,15 @@ def test_label_key_v18_trailing_apt_unit_and_zero_ph():
         ],
         columns=["unit_id", "building", "label", "bedrooms"],
     )
+    sp = labels.spelling_keys(rows)
     v17 = labels.layers(rows, [], [])
-    v18 = labels.layers(rows, [], [], labels.spelling_keys(rows))
+    v18 = labels.layers(rows, [], [], sp)
+    v19 = labels.layers(rows, [], [], sp, extended_keys=True)
     assert list(v17[0]) == ["w:1", "w:2", "w:3", "w:4"]
-    assert list(v18[0]) == ["w:1", "w:1", "w:3", "w:3"]
+    assert list(v18[0]) == ["w:1", "w:2", "w:3", "w:4"]
+    assert list(v19[0]) == ["w:1", "w:1", "w:3", "w:3"]
+
+    # Also verify SQLMesh model accepts `unit-labels-v19` cleanly.
+    table = run_model({"label_rule": "unit-labels-v19"})
+    found = {r.unit_id: (r.label_unit, r.units, r.layer) for r in table.itertuples()}
+    assert found == {u: v for u, v in EXPECTED.items() if u not in ("u:30", "u:31")}

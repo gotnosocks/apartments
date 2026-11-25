@@ -40,7 +40,11 @@ and 3 GB of swap, and an RTX 2060 Super with 8 GB. A Gibbs fit keeps the GPU bus
 Cores are assigned with CPU affinity (`taskset`), because the user systemd manager on thelio has
 no cpuset controller (`AllowedCPUs=` needs root). Affinity only binds the jobs `ops/job` starts:
 agent sessions, the crawler and the site server can still run on the fit's cores. They use little
-CPU, and each run record measures them (below).
+CPU, and each run record measures them (below). Note that `ops/job light`'s 6-core `taskset`
+changes OpenBLAS / XLA:CPU float32 reduction order relative to the full 12-core host where the
+`frontier/tests/test_drift_*` SHA-256 golden draw hashes were pinned (~`1e-8` after 68 sweeps),
+so verify golden-hash tests with `JAX_PLATFORMS=cpu` and full CPU affinity rather than inside
+`ops/job light`.
 
 The GPU lock is `/data1/apartments/tmp/locks/gpu.lock`, a symlink to the old `heavy.lock`. A script
 that still takes `heavy.lock` therefore queues with GPU jobs and never runs beside them, so

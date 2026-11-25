@@ -247,8 +247,12 @@ def texts(run_dir: Path, records: dict | None = None) -> pd.DataFrame:
     dataset was made from is refused: its ads are not these."""
     from . import api_records, descriptions
 
-    records = records or api_records.records_file()
     market = _manifest(run_dir)
+    if records is None:
+        try:
+            records = api_records.records_file(ads_sha256=market["ads_sha256"])
+        except ValueError:
+            records = api_records.records_file()
     if records["ads"]["sha256"] != market["ads_sha256"]:
         raise SystemExit(
             f"the records file {records['path']} is of another build than the dataset of "
@@ -302,9 +306,12 @@ def _cautions(
     # apartment, the pieces of a split unit read together (`layout.changes`).
     marks = layout.changes(frame, ~np.asarray(held, bool))[eval_mask]
     more = (marks[:, MORE_ROOMS] > 0).any(axis=1)
+    inc_col = (
+        "income_restricted_v2" if "income_restricted_v2" in h else "income_restricted"
+    )
     flagged = (
-        h.income_restricted.fillna(False).astype(bool).to_numpy()
-        if "income_restricted" in h
+        h[inc_col].fillna(False).astype(bool).to_numpy()
+        if inc_col in h
         else np.zeros(len(h), bool)
     )
     off = (h.status.astype(str) == cautions_module.OFF_MARKET).to_numpy()

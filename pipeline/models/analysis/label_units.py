@@ -46,7 +46,10 @@ can move a StreetEasy property record from one apartment to the next, and the re
 then lists the ads of both, so v18 joins the two units of a pair only when a label of one
 unit's pages and a label of the other's agree up to spelling, by `spelling_key`. A unit whose
 pages have no label, or only labels of words such as "unit", agrees with no unit. The other
-layers run as in v17.
+layers run as in v17. With `unit-labels-v19`, layer 1 also uses `label_key_v19`, which strips
+trailing APT/UNIT suffixes ("garden-apt" -> "GARDEN", "3apt" -> "3", "5c-unit" -> "5C") and
+leading zeros before penthouse ("0phb" -> "PHB") while keeping `unit-labels-v17` and
+`unit-labels-v18` bit-for-bit frozen.
 """
 
 import re
@@ -65,7 +68,7 @@ COLUMNS = {
 }
 LAYERS = ("labels", "aliases", "words", "history", "swapped", "word_letters", "spelled")
 # The label rules the model runs, the default first.
-RULES = ("unit-labels-v17", "unit-labels-v18")
+RULES = ("unit-labels-v17", "unit-labels-v18", "unit-labels-v19")
 
 # The patterns stay strings, as SQLMesh stores a Python model's globals and cannot store a
 # compiled pattern. `re` compiles each once and keeps it.
@@ -132,10 +135,11 @@ def label_key(label: str) -> str:
     return re.sub(r"^0+(?=\d)", "", label)
 
 
-def label_key_v18(label: str) -> str:
-    """Extended label key for `unit-labels-v18`: adds trailing/internal APT/UNIT stripping
+def label_key_v19(label: str) -> str:
+    """Extended label key for `unit-labels-v19`: adds trailing APT/UNIT stripping
     ("garden-apt" -> "GARDEN", "3apt" -> "3", "5c-unit" -> "5C") and leading-zero stripping
-    before penthouse ("0phb" -> "PHB") while leaving `unit-labels-v17` bit-for-bit frozen."""
+    before penthouse ("0phb" -> "PHB") while leaving `unit-labels-v17` and `unit-labels-v18`
+    bit-for-bit frozen."""
     key = label_key(label)
     stripped = re.sub(r"(?:APT|UNIT)$", "", key)
     if stripped:
@@ -292,7 +296,9 @@ def medians(beds: np.ndarray, units: np.ndarray, n: int) -> np.ndarray:
     return found
 
 
-def coded_layers(rows: pd.DataFrame, pairs, groups, spellings=None) -> tuple:
+def coded_layers(
+    rows: pd.DataFrame, pairs, groups, spellings=None, extended_keys: bool = False
+) -> tuple:
     """The sorted unit IDs of `rows` and `groups`, and the code of each row's unit after each
     of the seven layers, as a list of arrays. A unit's code is its place among the sorted IDs,
     so the least code of a set of units is the code of its least ID.
@@ -301,8 +307,8 @@ def coded_layers(rows: pd.DataFrame, pairs, groups, spellings=None) -> tuple:
     `bedrooms`, in the order of the rows' ads. `pairs` gives (unit_id, unit_id) tuples and
     `groups` tuples of unit IDs, from `alias_groups`. Layer 3 follows v17 in taking the rows'
     word labels in order, so the order of `rows` matters there. Given `spellings`, the sets of
-    `spelling_keys`, layer 4 runs as v18 does: it skips a pair unless the two units' sets share
-    a key."""
+    `spelling_keys`, layer 4 runs as v18/v19 do: it skips a pair unless the two units' sets
+    share a key. With `extended_keys=True` (`unit-labels-v19`), layer 1 uses `label_key_v19`."""
     ids = np.array(sorted(set(rows.unit_id).union(*groups)), dtype=object)
     n = len(ids)
     index = pd.Index(ids)
@@ -314,9 +320,10 @@ def coded_layers(rows: pd.DataFrame, pairs, groups, spellings=None) -> tuple:
     lower = [text.lower() for text in distinct]
 
     # Each distinct label's key, as a code among the distinct keys, and each row's key code.
-    # Under `unit-labels-v18` (`spellings is not None`), use `label_key_v18` so trailing
-    # APT/UNIT ("garden-apt", "3apt", "5c-unit") and leading-zero penthouses ("0phb") join.
-    key_fn = label_key_v18 if spellings is not None else label_key
+    # Under `unit-labels-v19` (`extended_keys=True`), use `label_key_v19` so trailing
+    # APT/UNIT ("garden-apt", "3apt", "5c-unit") and leading-zero penthouses ("0phb") join,
+    # leaving `unit-labels-v17` and `unit-labels-v18` bit-for-bit frozen.
+    key_fn = label_key_v19 if extended_keys else label_key
     key_of, keys = pd.factorize(pd.Series([key_fn(x) for x in distinct], dtype=object))
     key_code = {k: i for i, k in enumerate(keys)}
     key = np.full(len(rows), -1)
@@ -465,10 +472,12 @@ def coded_layers(rows: pd.DataFrame, pairs, groups, spellings=None) -> tuple:
     return ids, unit, out
 
 
-def layers(rows: pd.DataFrame, pairs, groups, spellings=None) -> list:
+def layers(
+    rows: pd.DataFrame, pairs, groups, spellings=None, extended_keys: bool = False
+) -> list:
     """The unit of each row of `rows` after each of the seven layers, as a list of Series, from
     `coded_layers`."""
-    ids, _, steps = coded_layers(rows, pairs, groups, spellings)
+    ids, _, steps = coded_layers(rows, pairs, groups, spellings, extended_keys)
     return [pd.Series(ids[step], index=rows.index) for step in steps]
 
 
@@ -540,7 +549,7 @@ def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
         )"""
     )
     spellings = None
-    if rule == "unit-labels-v18":
+    if rule in ("unit-labels-v18", "unit-labels-v19"):
         # The label of every page of each page unit, as a unit ledger join gives a page unit
         # the pages of several.
         spellings = spelling_keys(
@@ -550,7 +559,13 @@ def execute(context: ExecutionContext, start, end, execution_time, **kwargs):
                 FROM {placed} WHERE page_unit IS NOT NULL"""
             )
         )
-    ids, unit, steps = coded_layers(rows, pairs, alias_groups(pages, pairs), spellings)
+    ids, unit, steps = coded_layers(
+        rows,
+        pairs,
+        alias_groups(pages, pairs),
+        spellings,
+        extended_keys=(rule == "unit-labels-v19"),
+    )
     found = label_units(ids, unit, steps)
     if not found.empty:
         yield found

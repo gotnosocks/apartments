@@ -940,3 +940,125 @@ def test_textflags_v2_swaps_income_and_shared_flags(screen_rows):
         d_new.x[:, i_shr], (np.arange(n) % 13 == 0).astype(float)
     )
     assert not np.array_equal(d_old.x[:, i_shr], d_new.x[:, i_shr])
+
+
+def test_fisher_hmc_preserves_exact_noise_posterior(screen_rows):
+    """Joint Fisher-preconditioned HMC in `update_noise` must match the exact coordinate-slice
+    stationary distribution p(log sigma, log phase_factor | r, nu) on a continuous phase_map."""
+    import jax
+    import jax.numpy as jnp
+
+    sframe, sheld = screen_rows
+    sframe = sframe.copy()
+    n = len(sframe)
+    # Build a compact continuous phase_map with 3 correlated noise factors (including a smooth mode).
+    rng = np.random.default_rng(7)
+    t_grid = np.linspace(-1.0, 1.0, n)
+    f0 = (np.arange(n) % 3 == 0).astype(float)
+    f1 = (np.arange(n) % 5 == 0).astype(float)
+    f2 = np.sin(np.pi * t_grid)  # continuous mode, correlated with sigma
+    d0 = ablate.design(sframe, held=sheld, variant="layrng,size,marks,floor_poly")
+    pmap = np.vstack([np.zeros((1, 3)), np.column_stack([f0, f1, f2])])
+    d = dataclasses.replace(
+        d0,
+        phase=np.arange(1, n + 1, dtype=np.int32),
+        phases=("ref", *(f"c{i}" for i in range(n))),
+        phase_map=pmap,
+    )
+    d_tr = ablate.subset(d, ~sheld)
+    priors = ablate.Priors()
+    settings = ablate.Settings(chains=1, warmup=2, draws=2, keep_every=1, seed=1)
+
+    _, init_hmc, _, parts_hmc = drift.make_sampler(
+        d_tr,
+        priors,
+        settings,
+        row_dof_fixed=2.0,
+        phase_collapsed=True,
+        scalar_sigma=True,
+        scales_no_phase=True,
+    )
+    _, init_slc, _, parts_slc = drift.make_sampler(
+        d_tr,
+        priors,
+        settings,
+        row_dof_fixed=2.0,
+        phase_collapsed=True,
+        scalar_sigma=True,
+        scales_no_phase=False,
+    )
+
+    # Generate fixed Student-t(nu=2) residuals aligned to sampler row order.
+    n_tr = len(d_tr.y)
+    ord_ = parts_hmc["order"]
+    true_lf = np.array([0.25, -0.20, 0.30])
+    true_sd = 0.12 * np.exp(d_tr.phase_map[d_tr.phase[ord_]] @ true_lf)
+    r_fixed = jnp.asarray(true_sd * rng.standard_t(df=2.0, size=n_tr))
+
+    def sample_noise(parts, init_fn, n_warm=100, n_draws=600, seed=11):
+        st = jax.tree_util.tree_map(
+            lambda a: a[0], init_fn(jax.random.PRNGKey(seed)[None])
+        )
+        D = parts["data"]
+        upd = parts["update_noise"]
+
+        def step(st_c, k):
+            _, sig, _, pf = upd(k, st_c, r_fixed, D)
+            st_n = st_c | {"sigma": sig, "phase_scale": pf}
+            return st_n, jnp.concatenate([jnp.log(sig[:1]), jnp.log(pf)])
+
+        keys = jax.random.split(jax.random.PRNGKey(seed + 1), n_warm + n_draws)
+        _, draws = jax.jit(lambda s, ks: jax.lax.scan(step, s, ks))(st, keys)
+        return np.asarray(draws[n_warm:])
+
+    draws_hmc = sample_noise(parts_hmc, init_hmc, seed=11)
+    draws_slc = sample_noise(parts_slc, init_slc, seed=29)
+
+    mean_hmc, sd_hmc = draws_hmc.mean(axis=0), draws_hmc.std(axis=0, ddof=1)
+    mean_slc, sd_slc = draws_slc.mean(axis=0), draws_slc.std(axis=0, ddof=1)
+    se_mean = np.sqrt(sd_hmc**2 / 250.0 + sd_slc**2 / 250.0)
+    assert np.all(np.abs(mean_hmc - mean_slc) <= 4.0 * se_mean), (
+        mean_hmc,
+        mean_slc,
+        se_mean,
+    )
+    np.testing.assert_allclose(sd_hmc, sd_slc, rtol=0.20, atol=0.015)
+
+
+def test_em_warm_disperses_chain_starts(screen_rows, monkeypatch):
+    """em_warm runs deterministic EM to reach the basin, then disperses per-chain starts."""
+    from rentfrontier import drift_scales
+
+    scales_all, _ = drift_scales.resolve("c2mo-j-all")
+    sframe, sheld = screen_rows
+    sframe = sframe.copy()
+    sframe["price_at"] = pd.date_range(
+        "2018-01-01", periods=len(sframe), freq="7D", tz="UTC"
+    )
+    var = "layrng,size,sv_gp_mo,marks,seg_add,floor_poly,scalar_sigma,biweekly_walk,fast_scales_p6,slow_trim,seg_slow,em_warm"
+    d = ablate.design(sframe, held=sheld, variant=var)
+    monkeypatch.setattr(ablate, "ACTIVE_VARIANT", ablate.parse_variant(var))
+    n_gp = len(ablate.gp_spec(d.names))
+    sub_scales = dict(scales_all)
+    sub_scales["phase_scale"] = scales_all["phase_scale"][: d.phase_map.shape[1]]
+    sub_scales["gp_amp"] = scales_all["gp_amp"][:n_gp]
+    sub_scales["gp_ls"] = scales_all["gp_ls"][:n_gp]
+    monkeypatch.setitem(drift_scales.SETS, "_test_em_warm", sub_scales)
+    monkeypatch.setitem(drift_scales.SOURCES, "_test_em_warm", "tiny em_warm test")
+
+    out = ablate.run(
+        ablate.subset(d, ~sheld),
+        ablate.Priors(),
+        ablate.Settings(
+            chains=2,
+            warmup=0,
+            draws=2,
+            keep_every=1,
+            seed=3,
+            budget_seconds=None,
+            scales_fixed="_test_em_warm",
+        ),
+        log=lambda _: None,
+    )
+    # Even at draw 0 with warmup=0, chains must have distinct dispersed states.
+    assert not np.allclose(out["trace"]["beta"][0, 0], out["trace"]["beta"][1, 0])
