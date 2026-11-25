@@ -13,6 +13,8 @@ from rentfrontier import cautions
         ("This is an income-restricted apartment", ["income"]),
         ("This home is INCOME RESTRICTED", ["income"]),
         ("Affordable Income HPD restricted", ["income"]),
+        ("Moderate income unit, restrictions apply -- please inquire", ["income"]),
+        ("Requires approval from HDC; income caps apply.", ["income"]),
         (
             "Give your practice its own front door. Three private offices",
             ["not_home"],
@@ -70,6 +72,8 @@ from rentfrontier import cautions
         ("Income qualifications: 40 times the rent, or a guarantor at 80x.", []),
         ("optional for\n  income restricted units", []),
         ("No HPD violations. Steps from Mon Ami cafe. Not for commercial use.", []),
+        ("Steps from Bon Ami Cafe. Email Ami Rothschild or Jonathan Ben-Ami.", []),
+        ("Building requires income restriction: must earn 40x rent.", []),
         ("Residential only, no commercial use allowed.", []),
         (
             "Income qualifications are simple and the building is friendly to guarantors "
