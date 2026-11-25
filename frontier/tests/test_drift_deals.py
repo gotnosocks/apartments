@@ -709,3 +709,45 @@ def test_income_restricted_v2_preferred_over_v1_for_unread_ads(tmp_path):
     table1 = drift_deals.deals(run1, ads1, reg1).set_index("listing_id")
     assert "income" in table1.loc["2", "cautions"]
     assert "income" not in table1.loc["3", "cautions"]
+
+
+def test_texts_matches_earlier_clean_build_in_catalog(
+    tmp_path, records_catalog, monkeypatch
+):
+    """When a newer pipeline build lands in catalog.ndjson, `drift_deals.texts` resolves
+    the run's own ads build from the catalog instead of failing against the newest line."""
+    from rentfrontier import api_records, descriptions
+
+    run, ads_path, _ = _run(tmp_path / "run")
+    # Write two clean builds to the catalog: build 1 has the run's ads file; build 2 is newer.
+    build1 = records_catalog(
+        [{"listing_id": 2, "collected_at": 1.0, "record": {"description": AFFORDABLE}}],
+        ads=[{"listing_id": 2}],
+    )
+    # Point the run's market manifest to build 1's exact ads file and sha256.
+    manifest_path = run.parent.parent / "data" / "manifest.json"
+    m = json.loads(manifest_path.read_text())
+    m["market"]["ads"] = str(api_records.DATASETS / build1["ads_file"]["path"])
+    m["market"]["ads_sha256"] = build1["ads_file"]["sha256"]
+    manifest_path.write_text(json.dumps(m))
+    # Append a newer clean build with a different ads file.
+    records_catalog(
+        [
+            {"listing_id": 2, "collected_at": 2.0, "record": {"description": "newer"}},
+            {"listing_id": 9, "collected_at": 2.0, "record": {"description": "extra"}},
+        ],
+        ads=[{"listing_id": 2}, {"listing_id": 9}],
+    )
+    seen = {}
+
+    def fake_desc(records, wanted):
+        seen["ads_sha256"] = records["ads"]["sha256"]
+        return pd.DataFrame(
+            {"description": [AFFORDABLE], "record": ["latest"], "deposit": [np.nan]},
+            index=["2"],
+        )
+
+    monkeypatch.setattr(descriptions, "record_descriptions", fake_desc)
+    table = drift_deals.texts(run)
+    assert seen["ads_sha256"] == build1["ads_file"]["sha256"]
+    assert set(table.ads_sha256) == {build1["ads_file"]["sha256"]}

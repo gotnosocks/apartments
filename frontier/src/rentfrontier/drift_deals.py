@@ -247,8 +247,12 @@ def texts(run_dir: Path, records: dict | None = None) -> pd.DataFrame:
     dataset was made from is refused: its ads are not these."""
     from . import api_records, descriptions
 
-    records = records or api_records.records_file()
     market = _manifest(run_dir)
+    if records is None:
+        try:
+            records = api_records.records_file(ads_sha256=market["ads_sha256"])
+        except ValueError:
+            records = api_records.records_file()
     if records["ads"]["sha256"] != market["ads_sha256"]:
         raise SystemExit(
             f"the records file {records['path']} is of another build than the dataset of "
