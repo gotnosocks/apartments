@@ -316,3 +316,24 @@ def test_history_layer_v18():
     v18 = labels.layers(rows, pairs, [], labels.spelling_keys(rows))
     assert list(v17[history]) == ["v:1", "v:1", "v:3", "v:3", "v:5", "v:5"]
     assert list(v18[history]) == ["v:1", "v:1", "v:3", "v:4", "v:5", "v:6"]
+
+
+def test_label_key_v18_trailing_apt_unit_and_zero_ph():
+    assert labels.label_key_v18("garden-apt") == "GARDEN"
+    assert labels.label_key_v18("3apt") == "3"
+    assert labels.label_key_v18("5c-unit") == "5C"
+    assert labels.label_key_v18("0phb") == "PHB"
+    assert labels.label_key_v18("apt") == ""
+    rows = pd.DataFrame(
+        [
+            ("w:1", "b9", "garden-apt", 1.0),
+            ("w:2", "b9", "garden", 1.0),
+            ("w:3", "b9", "0phb", 3.0),
+            ("w:4", "b9", "phb", 3.0),
+        ],
+        columns=["unit_id", "building", "label", "bedrooms"],
+    )
+    v17 = labels.layers(rows, [], [])
+    v18 = labels.layers(rows, [], [], labels.spelling_keys(rows))
+    assert list(v17[0]) == ["w:1", "w:2", "w:3", "w:4"]
+    assert list(v18[0]) == ["w:1", "w:1", "w:3", "w:3"]
