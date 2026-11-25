@@ -128,7 +128,7 @@ def parse(argv):
         "--lean",
         action="store_true",
         help="with --large, for a baseline's fit with no --score: a container with "
-        "48 GiB of host memory in place of 192 (app.LEAN_FITS; H100 or H200)",
+        "48 GiB of host memory in place of 192 (app.LEAN_FITS; A100-40GB, A100-80GB, H100 or H200)",
     )
     p.add_argument(
         "--no-summary",
