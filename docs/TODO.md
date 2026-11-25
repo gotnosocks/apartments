@@ -63,11 +63,24 @@ stood before 2026-11-10, with the Chelsea pilot's and the frontier line's items,
     shrinkage (`--level-dof 8`), finer-than-quarterly building AR(1) paths (coarsening to
     semi-annual lost `-518 ± 48` at k5 in `#1537`), and new-unit / size-scale structure (`U1`
     size-dependent unit scale, `LN1`/`U3` building × bedroom level after fixing `unit_sd` ridge).
-  - *Open for next data version:* import ~410 unique audited ledger drafts (254 commercial/
-    placeholder excludes + 68 building-level rows with 31 overlap = 291 excludes, plus 119
-    zero-bed bedroom sets — separate from the 123-row whole-dataset audit batch merged in
-    `#1529`), plus `unit-labels-v18`, `b0chains`, `b0textflags`, `b0freetext`/`net_ask`
-    gross-up, and `b0bedtext` fixes.
+  - *Landed for next data version (2026-11-24–25 dual-model DQ sprint Pass 1 + Pass 2,
+    [docs/notes/data-quality-sprint-2026-11-24.html](notes/data-quality-sprint-2026-11-24.html),
+    [docs/notes/data-quality-sprint-pass2-2026-11-25.md](notes/data-quality-sprint-pass2-2026-11-25.md)):*
+    Pass 1 (`890efa6de1b99396`): imported all **404** queued audited rows, added **758** new
+    ledger entries, fixed `b0bedtext.py`, added `label_key_v18`, and added deterministic nulling
+    of rent-pasted `square_feet >= 2000 == ask` in `ledger_rows.sql`; validated across both
+    downstream refits (`dq-live-c2mo-of` `$1.95` `+1,058.4 ± 89.1` ELPD `z = +11.88`, `max bld
+    R-hat 8.61 -> 1.70`; CPU `T4v2_SuperBlend` `+1,820.2 ± 155.4` closed / `+322.1 ± 47.0` live
+    open ELPD). Pass 2 (`6187fa654ce1fa3b`, mined from those new refits): added **354** live
+    corrections ledger entries (`65` wrong-borough Manhattan collisions incl. `360-broadway`,
+    `54` commercial/short-term/room-share/0-day rent-roll dump/spam excludes incl.
+    `675-manhattan-ave` `rhat=2.99`, `206` peer-backed bath repairs incl. live CPU `#1` fake deal
+    `5207594`, `29` peer-backed zero-bed repairs incl. live `5167879`), **4** live unit-ledger
+    entries (splitting `bridgeview-dumbo/26c` to fix live Bayes `#1` fake deal `5205605` and
+    joining `toren-condominium` `3091`/`309`), and surgical `b0textflags.py` + `cautions.py`
+    refinements; rebuilt & verified `b0-6187fa654ce1fa3b-*` market and `asof-20251110` datasets.
+  - *Remaining for next data version:* `unit-labels-v18` activation, `b0chains`, and
+    `b0freetext`/`net_ask` gross-up.
 - [ ] **Smaller, cheaper experiments & faster real fits (information gain per unit time)**:
   - [x] **Modal Cloud GPU Fast Screening Harness** (2026-11-22, #1533;
     [docs/notes/fast-screening-harness-2026-11-22.html](notes/fast-screening-harness-2026-11-22.html)):
@@ -89,11 +102,15 @@ stood before 2026-11-10, with the Chelsea pilot's and the frontier line's items,
   > — Charlie O'Neill (`@oneill_c`), quoting Will Brown (`@willcb`, *"for whatever amount of
   > compute you have, you will get much more research done if you can just make your
   > experiments smaller"*, Nov 2026).
-- [ ] **Whole-dataset outlier & data-issue investigation**: systematically audit worst misses
+- [x] **Whole-dataset outlier & data-issue investigation**: systematically audit worst misses
   and data anomalies across the entire ~1.9M-row dataset (not only active listings or one
   backtest year), following the Bayesian Workflow and Murphy's Model Discovery Agent loop.
-  *(First 123-entry audit ledger batch merged in #1529; ~410 separate drafted rows from the
-  Nov 20–21 reads wait for the next data version.)*
+  *(First 123-entry audit ledger batch merged in #1529. Completed 2026-11-24 at $0.00 Modal
+  spend via dual-model `c1-live-of` / `pf2-c2mo` / `pf2-em-c2mo` + `T4v2` + 5-fold GroupKFold
+  Student-t LSS OOF across all 1,901,222 rows: imported 404 queued rows + 758 new verified
+  ledger entries across 730 listings, fixed `b0bedtext` & `label_key_v18`, and validated on
+  shared rows across `onefit2026` and `asof2025`; see
+  [docs/notes/data-quality-sprint-2026-11-24.html](notes/data-quality-sprint-2026-11-24.html).)*
 - [x] **Explanatory Covid-19 macro covariates** (2026-11-22, `#1534`, `#1536`): tested causal
   14-day-lagged NYC DOHMH Covid-19 hospitalization covariates on `screen-k5`. `covid_mean` was
   flat (`+20 ± 89`); `covid_vol` was a real `GO` (`+578 ± 127`, 41% of `Y1` with 2 degrees of
@@ -270,12 +287,14 @@ ruled out Modal fits for the rest of the sprint, so these wait for after it.
   large 0-1-bedroom mark, +8.6 of it on the filled ads (`docs/notes/large-one-beds-asof-2026-11-21.md`).
   - **2026-11-22–23 outcome (`#1534`, `#1538`, `#1549`):** included in `size` (`+186 ± 91`,
     `2022+ z = +3.01` on `screen-k5`) and live in `c1-compact` (`c1-live-of`).
-- [ ] For Modeling: extend `label_key` in `pipeline/models/analysis/label_units.py` to
+- [x] For Modeling: extend `label_key` in `pipeline/models/analysis/label_units.py` to
   labels with "apt" or "unit" typed after or inside the unit ("garden-apt", "3apt",
   "5c-unit") and to penthouse labels with a leading zero ("0phb"). Of 19,481 page pairs
   with variant labels, 93.7% are joined already; these two cases cover most of the 280
   unjoined pairs with fit rows on both pages
   (`/data1/apartments/tmp/outlier-sprint/s2/F3/results.md`).
+  *(Done 2026-11-24 as `label_key_v18` strictly under `unit-labels-v18`, leaving `v17` frozen;
+  22/22 unit tests passing in `pipeline/tests/test_label_units.py`.)*
 - [ ] For Modeling: have the history layer of `analysis.label_units` join two pages only
   when their labels agree up to spelling. It joins pages through StreetEasy's page history,
   which follows a property id, and brokers move a property record from one apartment to

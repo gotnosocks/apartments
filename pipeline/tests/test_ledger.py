@@ -787,3 +787,71 @@ def test_quarantine_evidence(note, source, first):
     assert importer().quarantine_evidence({"reason": "a reason"}) == [
         {"kind": "read", "detail": "a reason"}
     ]
+
+
+def test_ledger_rows_nulls_sqft_equal_to_ask():
+    """analysis.ledger_rows nulls square_feet >= 2000 copied from the ask when no ledger set applies,
+    while preserving real small-sqft ask typos, far-below-gross first asks, and ledger set repairs."""
+    import duckdb
+
+    sql = (PROJECT / "models" / "analysis" / "ledger_rows.sql").read_text()
+    body = sql[sql.index("WITH live AS") :]
+    con = duckdb.connect(":memory:")
+    con.execute("CREATE SCHEMA ledger; CREATE SCHEMA analysis;")
+    con.execute("""
+        CREATE TABLE ledger.entries (
+            entry VARCHAR, listing_id VARCHAR, change VARCHAR, field VARCHAR,
+            bedrooms DOUBLE, full_baths BIGINT, half_baths BIGINT,
+            square_feet DOUBLE, latest_ask DOUBLE
+        );
+        CREATE TABLE ledger.status (
+            entry VARCHAR, listing_id VARCHAR, change VARCHAR, field VARCHAR, status VARCHAR
+        );
+        CREATE TABLE analysis.kept (
+            listing_id VARCHAR, unit_id VARCHAR, asking_rent DOUBLE,
+            bedrooms DOUBLE, full_baths BIGINT, half_baths BIGINT, square_feet DOUBLE
+        );
+        CREATE TABLE analysis.latest_ask (listing_id VARCHAR, latest_ask DOUBLE, how VARCHAR);
+        CREATE TABLE analysis.concessions (
+            listing_id VARCHAR, net_effective_rent DOUBLE, factor DOUBLE,
+            gross_prices DOUBLE[], net_prices DOUBLE[], months_free DOUBLE, lease_term DOUBLE
+        );
+        CREATE TABLE analysis.relist_units (unit_id VARCHAR, relist_unit VARCHAR);
+
+        INSERT INTO analysis.kept VALUES
+            ('1', 'u1', 4995, 2, 1, 0, 4995),   -- sqft == latest_gross >= 2000 -> NULL
+            ('2', 'u2', 3035, 2, 2, 0, 3035),   -- sqft == asking_rent within 30% of gross 2970 -> NULL
+            ('3', 'u3', 2000, 4, 2, 0, 2000),   -- sqft == asking_rent far below gross 5750 -> KEEP 2000
+            ('4', 'u4',  768, 1, 1, 0,  768),   -- sqft < 2000 == asking_rent -> KEEP 768
+            ('5', 'u5', 4441, 1, 1, 0, 4441),   -- ledger set overrides -> KEEP 652
+            ('6', 'u6', 3200, 1, 1, 0, 2400);   -- sqft == net latest_ask after 3/12 free -> NULL
+
+        INSERT INTO analysis.latest_ask VALUES
+            ('1', 4995, 'page price'),
+            ('2', 2970, 'page price'),
+            ('3', 5750, 'page price'),
+            ('4', 3700, 'page price'),
+            ('5', 4505, 'page price'),
+            ('6', 3200, 'page price');
+
+        INSERT INTO analysis.concessions VALUES
+            ('6', NULL, 0.75, [3200.0], [], 3.0, 12.0);
+
+        INSERT INTO ledger.entries VALUES
+            ('e5', '5', 'set', 'square_feet', NULL, NULL, NULL, 652, NULL);
+        INSERT INTO ledger.status VALUES
+            ('e5', '5', 'set', 'square_feet', 'live');
+    """)
+    got = dict(
+        con.execute(
+            f"SELECT listing_id, square_feet FROM ({body}) ORDER BY listing_id"
+        ).fetchall()
+    )
+    assert got == {
+        "1": None,
+        "2": None,
+        "3": 2000.0,
+        "4": 768.0,
+        "5": 652.0,
+        "6": None,
+    }
