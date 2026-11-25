@@ -132,6 +132,18 @@ def label_key(label: str) -> str:
     return re.sub(r"^0+(?=\d)", "", label)
 
 
+def label_key_v18(label: str) -> str:
+    """Extended label key for `unit-labels-v18`: adds trailing/internal APT/UNIT stripping
+    ("garden-apt" -> "GARDEN", "3apt" -> "3", "5c-unit" -> "5C") and leading-zero stripping
+    before penthouse ("0phb" -> "PHB") while leaving `unit-labels-v17` bit-for-bit frozen."""
+    key = label_key(label)
+    stripped = re.sub(r"(?:APT|UNIT)$", "", key)
+    if stripped:
+        key = stripped
+    key = re.sub(r"^0+(?=PH)", "", key)
+    return key
+
+
 def spelled_key(label: str) -> str:
     """A unit label's short spelling, by SPELLED_WORD and SPELLED_LABELS."""
     key = re.sub(SPELLED_WORD, lambda m: SPELLED_WORDS[m[1]], label_key(label))
@@ -302,9 +314,10 @@ def coded_layers(rows: pd.DataFrame, pairs, groups, spellings=None) -> tuple:
     lower = [text.lower() for text in distinct]
 
     # Each distinct label's key, as a code among the distinct keys, and each row's key code.
-    key_of, keys = pd.factorize(
-        pd.Series([label_key(x) for x in distinct], dtype=object)
-    )
+    # Under `unit-labels-v18` (`spellings is not None`), use `label_key_v18` so trailing
+    # APT/UNIT ("garden-apt", "3apt", "5c-unit") and leading-zero penthouses ("0phb") join.
+    key_fn = label_key_v18 if spellings is not None else label_key
+    key_of, keys = pd.factorize(pd.Series([key_fn(x) for x in distinct], dtype=object))
     key_code = {k: i for i, k in enumerate(keys)}
     key = np.full(len(rows), -1)
     key[has] = key_of[label[has]]

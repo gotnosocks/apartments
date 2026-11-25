@@ -76,14 +76,26 @@ _WORDS = {
     "six": 6,
     "a": 1,
     "single": 1,
+    "2nd": 2,
+    "second": 2,
+    "3rd": 3,
+    "third": 3,
+    "4th": 4,
+    "fourth": 4,
+    "5th": 5,
+    "fifth": 5,
+    "6th": 6,
+    "sixth": 6,
 }
 _N = r"(?:[1-6]|one|two|three|four|five|six)"
+_ORD = r"(?:2nd|second|3rd|third|4th|fourth|5th|fifth|6th|sixth)"
 _BEDW = r"(?:bed ?rooms?|beds?|br'?s?|bd'?s?|bdrm?s?|bedrms?)"
 _SEP = r"(?:- and |- or |-, |- to | ?, ?| ?& ?| and | ?/ ?| or | to |, and |, or | ?- ?| ?\+ ?)"
 
 FLEX = re.compile(
     rf"\b(?:flex(?:ed|ible)?|conv(?:erted|ertible|ertable|\.)?|junior|jr\.?)[- ]?(?P<a>{_N})\b"
     r"(?! ?(?:min|block|month|year|car|person|people|closet|bath|famil|unit|stor|floor|\.5|1/2))"
+    rf"|\b(?:flex(?:ed|ible)?|convertible|convertable)[- ]+(?P<ord>{_ORD})[- ]+{_BEDW}\b"
     rf"|\bconvert(?:ed|s|ible|able)? (?:in)?to (?:an? |a true |a real )?(?:\w+ )?"
     rf"(?P<b>{_N})[- ]?{_BEDW}"
     rf"|\b(?P<c>{_N})[- ]?(?:{_BEDW})?[ /-]*(?:flex|convertible|convertable|conversion)\b"
@@ -108,13 +120,14 @@ AMENITY = re.compile(
     r"photo|photography|design|boxing|ballet|barre|artist|artists|artist's|podcast|rehearsal|"
     r"training|exercise|pottery|movement|sound|production|peloton|pet|grooming|craft|maker|"
     r"film|tv|television|universal|chelsea|silvercup|kaufman|steiner|broadway|meditation|"
-    r"wellness|workout|aerobics|aerobic|cycle|gym|creative|painting|ceramics|flex|performance|"
-    r"practice|screening|teaching|karaoke|jam|band|game|gaming|kids|children's|demo|"
-    r"demonstration|cooking|culinary|private|coworking|work|working|content|stretching|"
+    r"wellness|wellbeats|workout|aerobics|aerobic|cycle|gym|creative|painting|ceramics|flex|"
+    r"performance|practice|screening|teaching|karaoke|jam|band|game|gaming|kids|children's|"
+    r"demo|demonstration|cooking|culinary|private|coworking|work|working|content|stretching|"
     r"stretch|mma|karate|trx|hiit|kickboxing|pilates/yoga|yoga/pilates|rumble|equinox|"
     r"soulcycle|orangetheory|architecture|architectural|interior|tattoo|hair|beauty|nail|"
     r"makeup|portrait|rental|leasing) $"
 )
+STUDIO_SIZE_OF = re.compile(r"\bsize of (?:a |an )?(?:[\w-]+ ){0,3}$")
 STUDIO_BEFORE = re.compile(
     r"\b(?:this|spacious|large|huge|bright|sunny|renovated|beautiful|charming|cozy|massive|"
     r"true|oversized|big|lovely|gorgeous|stunning|floor|luxury|modern|furnished|quiet|corner|"
@@ -235,7 +248,11 @@ def stated_sizes(masked: str) -> tuple[set[int], set[int]]:
             STUDIO_BEFORE.search(before) or STUDIO_AFTER.match(after)
         ):
             continue
-        if STUDIO_FIRM.search(before) or AMENITY.search(before):
+        if (
+            STUDIO_FIRM.search(before)
+            or AMENITY.search(before)
+            or STUDIO_SIZE_OF.search(before)
+        ):
             continue
         if "~" in masked[max(0, m.start() - 8) : m.end() + 8]:
             continue
@@ -251,16 +268,35 @@ def stated_sizes(masked: str) -> tuple[set[int], set[int]]:
     return own, offered
 
 
+def _lead_line(text: str) -> str:
+    """First non-empty line or opening sentence (up to 160 chars) of `text`."""
+    for line in text.splitlines():
+        s = line.strip()
+        if s:
+            m = re.search(r"[.!?](?:\s|$)", s)
+            return s[: m.end()] if m and m.end() <= 160 else s[:160]
+    return ""
+
+
 def read(text: str) -> tuple[list[int], list[int], bool]:
     """For a description `text`: the sorted sizes it states for its own unit (empty when it
-    offers any size of another unit), the sorted counts of its flex wording, and whether it
-    has flex wording. A text no longer than MIN_DESCRIPTION characters gives two empty lists
-    and False."""
+    offers any size of another unit, unless the opening line/sentence states a clean unit
+    size on its own before a later building-inventory list), the sorted counts of its flex
+    wording, and whether it has flex wording. A text no longer than MIN_DESCRIPTION
+    characters gives two empty lists and False."""
     if not isinstance(text, str) or len(text.lower()) <= MIN_DESCRIPTION:
         return [], [], False
     flex, found, masked = flex_counts(plain(text))
     own, offered = stated_sizes(masked)
-    return ([] if offered else sorted(own)), sorted(flex), found
+    if offered:
+        lead = _lead_line(text)
+        if lead:
+            _, _, lead_masked = flex_counts(plain(lead))
+            lead_own, lead_offered = stated_sizes(lead_masked)
+            if lead_own and not lead_offered:
+                return sorted(lead_own), sorted(flex), found
+        return [], sorted(flex), found
+    return sorted(own), sorted(flex), found
 
 
 def code(own: list[int], flex: list[int], found: bool, bedrooms: float) -> dict:
@@ -351,6 +387,7 @@ def bedtext(src: Path, out: Path) -> dict:
                 "bed": BED.pattern,
                 "studio": STUDIO.pattern,
                 "amenity": AMENITY.pattern,
+                "studio_size_of": STUDIO_SIZE_OF.pattern,
                 "studio_before": STUDIO_BEFORE.pattern,
                 "studio_after": STUDIO_AFTER.pattern,
                 "studio_firm": STUDIO_FIRM.pattern,

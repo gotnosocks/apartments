@@ -3,9 +3,11 @@
 #
 #   ops/deals-refresh datasets [HASH]
 #   ops/deals-refresh backtest-datasets [HASH]
+#   ops/deals-refresh onefit NAME [HASH]
 #   ops/deals-refresh fit NAME [HASH]
 #   ops/deals-refresh backtest-fit NAME [HASH]
 #   ops/deals-refresh publish RUN [OUT]
+#   ops/deals-refresh publish-all RUN [OUT_ROOT]
 #
 # Run it from /data1/apartments/serve/master at origin/master. HASH is the hash of a
 # pipeline rows file, as in rows-HASH.parquet, and defaults to the newest rows file. Before
@@ -57,7 +59,7 @@
 set -euo pipefail
 
 usage() {
-    sed -n '2,9p' "$0" >&2
+    sed -n '2,11p' "$0" >&2
     exit 2
 }
 
@@ -72,13 +74,29 @@ pipeline=$data/pipeline/datasets
 external=$data/external
 datasets=$data/frontier/datasets
 py=/data1/apartments/venvs/sim-recovery/bin/python
-deals_py=/data1/apartments/venvs/bridge-frontier/bin/python
-scratch=/data1/apartments/tmp/deals-refresh
+deals_py=${DEALS_PY:-/data1/apartments/venvs/bridge-frontier/bin/python}
+scratch=${DEALS_SCRATCH:-/data1/apartments/tmp/deals-refresh}
 model=${MODEL:-drift-building-bedtext-layout-range}
 baseline=${BASELINE:-drift-building-b0-market-67d14e17-n9}
 scales=${SCALES:-base-n9}
 backtest=${BACKTEST:-drift-building-bedtext-layout-range-b0-market-d9028c57-range-j}
+onefit_model=${ONEFIT_MODEL:-drift-building-phase-unitkn-ablate}
+onefit_variant=${ONEFIT_VARIANT:-layrng,size,sv_gp_mo,marks,seg_add,floor_poly,ad_core,scalar_sigma,biweekly_walk}
 closing_raise=${CLOSING_RAISE:-0}
+# Sets bt_args for a Deals publish. Unified and onefit runs validate on their own closed
+# held-out rows, so they take no legacy backtest unless BACKTEST is set in the environment;
+# every other run publishes with its backtest.
+set_backtest_args() {
+    local run_split
+    run_split=$("$deals_py" -c 'import json, pathlib, sys
+p = pathlib.Path(sys.argv[1]) / "result.json"
+print(json.loads(p.read_text()).get("split", "") if p.exists() else "")' "$data/frontier/runs/$1")
+    bt_args=()
+    if [[ -n ${BACKTEST:-} ]] || [[ $run_split != onefit && $run_split != unified ]]; then
+        bt_args=(--backtest "$backtest")
+    fi
+}
+
 case $closing_raise in
 0) cr_suffix="" ;;
 1) cr_suffix="-closingraise" ;;
@@ -93,6 +111,14 @@ newest_hash() {
     f=$(ls -t "$pipeline"/rows-*.parquet | head -1)
     f=${f##*/rows-}
     echo "${f%.parquet}"
+}
+
+newest_registry() {
+    ls -t "$external"/registry/*-extend*/registry.parquet | head -1
+}
+
+newest_nj_registry() {
+    ls -t "$external"/registry-nj/*/registry.parquet | head -1
 }
 
 capped() {
@@ -118,7 +144,7 @@ case $step in
 datasets)
     hash=${1:-$(newest_hash)}
     base=$datasets/b0-$hash-alldata
-    nj=$(ls -d "$external"/registry-nj/* | sort | tail -1)/registry.parquet
+    nj=${NJ_REGISTRY:-$(newest_nj_registry)}
     [[ -e $pipeline/rows-$hash.parquet ]] || { echo "no rows-$hash.parquet" >&2; exit 1; }
     [[ -e $nj ]] || { echo "no NJ registry at $nj" >&2; exit 1; }
     echo "build $hash, NJ registry $nj"
@@ -128,7 +154,8 @@ datasets)
         /data1/apartments/venvs/pipeline/bin/python -m rentfrontier.b0data "$base" \
         --state /data1/apartments/pipeline/state/pipeline.duckdb
     echo "== b0data done"
-    [[ -e $base-dense ]] || capped "$py" -m rentfrontier.b0trim "$base" "$base-dense"
+    [[ -e $base-dense ]] || capped "$py" -m rentfrontier.b0trim --allow-thin-last \
+        "$base" "$base-dense"
     echo "== b0trim done"
     [[ -e $base-dense-nyc ]] ||
         capped "$py" -m rentfrontier.b0nyc "$base-dense" "$base-dense-nyc" --registry "$nj"
@@ -160,6 +187,34 @@ EOF
     echo "== market-dataset done"
     finish_dataset "$target"
     ;;
+onefit)
+    name=${1:?usage: ops/deals-refresh onefit NAME [HASH]}
+    hash=${2:-$(newest_hash)}
+    commit=${COMMIT:-$(git rev-parse HEAD)}
+    dataset=$datasets/b0-$hash-alldata-dense-nyc-market$cr_suffix-bedtext
+    [[ -e $dataset/rows.parquet ]] || { echo "no dataset $dataset" >&2; exit 1; }
+    git merge-base --is-ancestor "$commit" origin/master ||
+        { echo "commit $commit is not on origin/master" >&2; exit 1; }
+    echo "onefit build $hash, commit $commit, run $name, variant $onefit_variant"
+    if [[ -n ${SCALES_FIXED:-} ]]; then
+        exec ops/modal-fit --outside-budget --gpu "${GPU:-H100}" --large --lean \
+            --dataset "$dataset" --input "$pipeline/rows-$hash.parquet" --split onefit \
+            "$commit" "$name" "$onefit_model" b0 2 "${WARMUP:-200}" "${DRAWS:-2600}" "${KEEP:-30}" \
+            --seed "${SEED:-1}" --variant "$onefit_variant" \
+            --scales-fixed "$SCALES_FIXED" --budget-seconds "${BUDGET_SECONDS:-3600}" \
+            --no-summary --no-loo --no-heldout
+    fi
+    for shard_seed in "a:1" "b:2"; do
+        shard=${shard_seed%:*}
+        seed=${shard_seed#*:}
+        ops/modal-fit --outside-budget --gpu "${GPU:-H200}" --large --lean \
+            --dataset "$dataset" --input "$pipeline/rows-$hash.parquet" --split onefit \
+            "$commit" "$name-$shard" "$onefit_model" b0 2 "${WARMUP:-500}" "${DRAWS:-2600}" "${KEEP:-30}" \
+            --seed "$seed" --variant "$onefit_variant" \
+            --budget-seconds "${BUDGET_SECONDS:-4800}" \
+            --no-summary --no-loo --no-heldout
+    done
+    ;;
 fit | backtest-fit)
     name=${1:?usage: ops/deals-refresh $step NAME [HASH]}
     hash=${2:-$(newest_hash)}
@@ -184,7 +239,7 @@ fit | backtest-fit)
 publish)
     run=${1:?usage: ops/deals-refresh publish RUN [OUT]}
     out=${2:-$scratch/$run/staging}
-    registry=${REGISTRY:-$(ls -d "$external"/registry/*-extend | sort | tail -1)/registry.parquet}
+    registry=${REGISTRY:-$(newest_registry)}
     mkdir -p "$scratch/$run"
     echo "registry $registry"
     texts=$scratch/$run/texts.parquet
@@ -197,9 +252,33 @@ sys.exit("deposit" not in pq.read_schema(sys.argv[1]).names)' "$texts"; then
         rm "$texts"
     fi
     [[ -e $texts ]] || "$deals_py" -m rentfrontier.drift_deals texts "$run" --out "$texts"
+    set_backtest_args "$run"
     "$deals_py" -m rentfrontier.drift_deals publish "$run" --out "$out" \
-        --registry "$registry" --backtest "$backtest" --texts "$texts"
+        --registry "$registry" "${bt_args[@]}" --texts "$texts"
     echo "== published to $out"
+    ;;
+publish-all)
+    run=${1:?usage: ops/deals-refresh publish-all RUN [OUT_ROOT]}
+    out_root=${2:-$scratch/$run/site-staging}
+    registry=${REGISTRY:-$(newest_registry)}
+    mkdir -p "$out_root" "$scratch/$run"
+    echo "registry $registry"
+    texts=$scratch/$run/texts.parquet
+    export JAX_PLATFORMS=cpu PYTHONPATH=frontier/src TMPDIR=/data1/apartments/tmp
+    if [[ -e $texts ]] && ! "$deals_py" -c 'import sys, pyarrow.parquet as pq
+sys.exit("deposit" not in pq.read_schema(sys.argv[1]).names)' "$texts"; then
+        echo "rewriting $texts: it has no deposit column"
+        rm "$texts"
+    fi
+    [[ -e $texts ]] || "$deals_py" -m rentfrontier.drift_deals texts "$run" --out "$texts"
+    set_backtest_args "$run"
+    "$deals_py" -m rentfrontier.drift_deals publish "$run" --out "$out_root/deals" \
+        --registry "$registry" "${bt_args[@]}" --texts "$texts"
+    "$deals_py" -m rentfrontier.drift_estimates publish "$run" --out "$out_root/estimates" \
+        --registry "$registry"
+    "$deals_py" -m rentfrontier.drift_diagnostics publish "$run" --out "$out_root/diagnostics" \
+        --registry "$registry" --features "$external"
+    echo "== staged deals, estimates, diagnostics under $out_root"
     ;;
 *)
     usage

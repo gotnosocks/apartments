@@ -108,13 +108,15 @@ _FORTY = r"(?![^.\n]{0,90}(?:\d ?x\b|\btimes\b))"
 TEXT = {
     "income": (
         # A fee schedule several buildings quote: "optional for income restricted units".
-        r"(?<!optional for )income[- ]restrict"
+        r"(?<!optional for )income[- ]restrict(?![^.\n]{0,35}(?:40\s*x|times\s+the\s+rent))"
         rf"|income (?:requirement|qualif)\w*+{_FORTY}"
-        r"|income (?:range|limit|eligib)"
+        r"|income (?:range|limit|eligib|caps?\b)"
         r"|(?:maximum|max)\.? (?:annual |household |allowable |allowed )?income"
-        r"|\bhpd\b(?! violation)"
+        r"|\bhpd\b(?! violation)|\bhdc\b"
         r"|affordable (?:unit|housing|income)"
-        r"|housing connect|housing lottery|(?<!mon )(?<!bel )\bami\b"
+        r"|(?:low|middle|moderate)[- ]income"
+        r"|housing connect|housing lottery"
+        r"|(?<!mon )(?<!bel )(?<!bon )(?<!ben-)(?<!ben )\bami\b(?! (?:rothschild|ray)\b)"
     ),
     "not_home": r"professional suite|your practice|(?<!not for )(?<!no )commercial use",
     "owners_only": r"only to (?:current )?(?:owners|shareholders)",

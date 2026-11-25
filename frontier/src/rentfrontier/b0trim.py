@@ -36,42 +36,61 @@ from .b0data import sha256
 MIN_ROWS = 100
 
 
-def dense_start(day: pd.Series, min_rows: int = MIN_ROWS) -> pd.Timestamp:
+def dense_start(
+    day: pd.Series, min_rows: int = MIN_ROWS, *, allow_thin_last: bool = False
+) -> pd.Timestamp:
     """The Monday of the earliest week from which every week through the last holds at least
-    `min_rows` of the days in `day`."""
+    `min_rows` of the days in `day`.
+
+    When `allow_thin_last` is True, a single incomplete final week (such as an early Monday
+    morning scrape with fewer than `min_rows` rows so far) is ignored while checking density,
+    provided at least one earlier week exists and the preceding week holds at least `min_rows`.
+    """
     week = ((pd.to_datetime(day) - b0.EPOCH).dt.days // 7).to_numpy()
     lo = week.min()
     n = np.bincount(week - lo)
-    thin = np.flatnonzero(n < min_rows)
+    check = n[:-1] if (allow_thin_last and len(n) >= 2 and n[-1] < min_rows) else n
+    thin = np.flatnonzero(check < min_rows)
     first = 0 if len(thin) == 0 else thin[-1] + 1
-    if first >= len(n):
+    if first >= len(check):
         raise ValueError(f"the last week holds fewer than {min_rows} rows")
     return b0.EPOCH + pd.Timedelta(weeks=int(lo + first))
 
 
-def trim(src: Path, out: Path, min_rows: int = MIN_ROWS) -> dict:
+def trim(
+    src: Path,
+    out: Path,
+    min_rows: int = MIN_ROWS,
+    *,
+    allow_thin_last: bool = False,
+) -> dict:
     frame = pd.read_parquet(src / "rows.parquet")
     manifest = json.loads((src / "manifest.json").read_text())
-    start = dense_start(frame.latest_day, min_rows)
+    start = dense_start(frame.latest_day, min_rows, allow_thin_last=allow_thin_last)
     keep = (pd.to_datetime(frame.latest_day) >= start).to_numpy()
     out.mkdir(parents=True, exist_ok=False)
     frame[keep].to_parquet(out / "rows.parquet", index=False)
     frame[~keep].to_parquet(out / "set_aside.parquet", index=False)
     kept = frame[keep]
+    week = ((pd.to_datetime(kept.latest_day) - b0.EPOCH).dt.days // 7).to_numpy()
+    last_week_rows = int((week == week.max()).sum()) if len(week) else 0
+    trim_meta = {
+        "source": str(src),
+        "source_rows_sha256": manifest["rows_sha256"],
+        "rule": f"every week from the start holds at least {min_rows} rows",
+        "min_rows": min_rows,
+        "allow_thin_last": bool(allow_thin_last),
+        "last_week_rows": last_week_rows,
+        "dense_start": str(start.date()),
+        "set_aside": int((~keep).sum()),
+        "set_aside_sha256": sha256(out / "set_aside.parquet"),
+    }
     manifest |= {
         "rows": int(keep.sum()),
         "latest_day_how": kept.latest_day_how.value_counts().to_dict(),
         "flags": {name: int(kept[name].sum()) for name in manifest.get("flags", {})},
         "rows_sha256": sha256(out / "rows.parquet"),
-        "trim": {
-            "source": str(src),
-            "source_rows_sha256": manifest["rows_sha256"],
-            "rule": f"every week from the start holds at least {min_rows} rows",
-            "min_rows": min_rows,
-            "dense_start": str(start.date()),
-            "set_aside": int((~keep).sum()),
-            "set_aside_sha256": sha256(out / "set_aside.parquet"),
-        },
+        "trim": trim_meta,
     }
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str))
     return manifest
@@ -84,8 +103,23 @@ def main(argv=None):
     p.add_argument("src", type=Path)
     p.add_argument("out", type=Path)
     p.add_argument("--min-rows", type=int, default=MIN_ROWS)
+    p.add_argument(
+        "--allow-thin-last",
+        action="store_true",
+        help="ignore an incomplete final week (< min_rows) when the preceding week is dense",
+    )
     args = p.parse_args(argv)
-    print(json.dumps(trim(args.src, args.out, args.min_rows), indent=2))
+    print(
+        json.dumps(
+            trim(
+                args.src,
+                args.out,
+                args.min_rows,
+                allow_thin_last=args.allow_thin_last,
+            ),
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":
