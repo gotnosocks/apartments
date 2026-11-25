@@ -166,7 +166,11 @@ ALL_TOKENS = (
     "scale_2x",
     "fast_scales",
     "fast_scales_p6",
+    "fast_scales_p7",
     "slow_trim",
+    "seg_slow",
+    "em_laplace",
+    "em_warm",
     # Track B1/B2 (2026-11-24): A1 audit discoveries & finer building AR(1) paths
     "mark_changed_bed",
     "mark_floor_unk",
@@ -1547,7 +1551,8 @@ def diagnostics(trace: dict, names: list[str]) -> dict:
         return out
     rows = out["per_quantity"]
     for n, x in extras.items():
-        rows[n] = {"rhat": split_rhat(x), "ess": ess(x)}
+        if np.ptp(x) > 0:
+            rows[n] = {"rhat": split_rhat(x), "ess": ess(x)}
     worst = max(rows, key=lambda n: rows[n]["rhat"])
     least = min(rows, key=lambda n: rows[n]["ess"])
     return out | {
@@ -1580,11 +1585,33 @@ def _active_groups(d: Design, tok: set[str]) -> list[dict] | None:
     return out
 
 
+def _scales_phase_idx(d: Design, tok: set[str]) -> tuple[int, ...] | None:
+    """Indices into `phase_scale` retained inside collapsed `update_scales` for `fast_scales_p7`
+    (lease-gap phases plus the first continuous SV-GP mode `sv:m00`, which has corr ~ +0.8 with sigma)."""
+    if "fast_scales_p7" not in tok or d.phase_map is None:
+        return None
+    pmap = np.asarray(d.phase_map, float)
+    n_ph = 5 if "phase_compact" in tok else 6
+    idx = list(range(min(n_ph, pmap.shape[1])))
+    cont = np.flatnonzero(np.any((pmap != 0.0) & (pmap != 1.0), axis=0))
+    if len(cont) and int(cont[0]) not in idx:
+        idx.append(int(cont[0]))
+    return tuple(idx)
+
+
 def run(d: Design, priors: Priors, settings: Settings, log=print, checkpoint=None):
     """Run the L2-unitkn sweep with active simplification tokens."""
     tok = set(ACTIVE_VARIANT)
     if "slow_trim" in tok and settings.slow_within == 0.0:
         settings = dataclasses.replace(settings, slow_within=0.001)
+    if "seg_slow" in tok:
+        add_cols = tuple(
+            c for c in ("seg:zone:outer:", "flag:") if c not in settings.slow_columns
+        )
+        if add_cols:
+            settings = dataclasses.replace(
+                settings, slow_columns=(*settings.slow_columns, *add_cols)
+            )
     return drift.run(
         d,
         priors,
@@ -1603,6 +1630,10 @@ def run(d: Design, priors: Priors, settings: Settings, log=print, checkpoint=Non
         scale_passes=2 if "scale_2x" in tok else 1,
         scales_no_phase=("fast_scales" in tok),
         scales_phase_k=6 if "fast_scales_p6" in tok else None,
+        scales_phase_idx=_scales_phase_idx(d, tok),
+        slow_gps=("seg_slow" in tok),
+        em_laplace=("em_laplace" in tok),
+        em_warm=15 if "em_warm" in tok else 0,
     )
 
 

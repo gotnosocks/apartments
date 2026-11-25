@@ -848,3 +848,67 @@ def test_fast_scales_p6_and_scales_fixed_c2mo(screen_rows, monkeypatch):
     assert np.allclose(
         out_fix["trace"]["phase_factor"], np.asarray(sub_scales["phase_scale"])
     )
+
+
+def test_seg_slow_em_laplace_and_c2mo_j_all(screen_rows, monkeypatch):
+    """seg_slow collapses GP blocks in update_slow; em_laplace runs deterministic EM +
+    stochastic-Gamma Laplace draws; diagnostics skips held gp_amp/gp_ls."""
+    from rentfrontier import drift_scales
+
+    scales_all, _ = drift_scales.resolve("c2mo-j-all")
+    assert "amp" in scales_all and "gp_amp" in scales_all and "gp_ls" in scales_all
+
+    sframe, sheld = screen_rows
+    sframe = sframe.copy()
+    sframe["price_at"] = pd.date_range(
+        "2018-01-01", periods=len(sframe), freq="7D", tz="UTC"
+    )
+    var = "layrng,size,sv_gp_mo,marks,seg_add,floor_poly,scalar_sigma,biweekly_walk,fast_scales_p6,slow_trim,seg_slow,em_laplace"
+    d = ablate.design(sframe, held=sheld, variant=var)
+    monkeypatch.setattr(ablate, "ACTIVE_VARIANT", ablate.parse_variant(var))
+    n_gp = len(ablate.gp_spec(d.names))
+    sub_scales = dict(scales_all)
+    sub_scales["phase_scale"] = scales_all["phase_scale"][: d.phase_map.shape[1]]
+    sub_scales["gp_amp"] = scales_all["gp_amp"][:n_gp]
+    sub_scales["gp_ls"] = scales_all["gp_ls"][:n_gp]
+    monkeypatch.setitem(drift_scales.SETS, "_test_c2mo_all", sub_scales)
+    monkeypatch.setitem(drift_scales.SOURCES, "_test_c2mo_all", "tiny em test")
+
+    settings = ablate.Settings(
+        chains=2,
+        warmup=3,
+        draws=4,
+        keep_every=1,
+        seed=1,
+        budget_seconds=None,
+        scales_fixed="_test_c2mo_all",
+    )
+    out = ablate.run(
+        ablate.subset(d, ~sheld), ablate.Priors(), settings, log=lambda _: None
+    )
+    assert out["trace"]["beta"].shape[:2] == (2, 4)
+    assert np.all(np.isfinite(out["trace"]["beta"]))
+    diag = ablate.diagnostics(out["trace"], d.names)
+    # Held gp_amp/gp_ls are constant and must be skipped rather than reporting ESS=0.
+    assert not any(k.startswith(("gp_amp[", "gp_ls[")) for k in diag["per_quantity"])
+
+    # Verify fast_scales_p7 includes lease-gap factors + sv:m00 (first continuous column).
+    var_p7 = "layrng,size,sv_gp_mo,marks,seg_add_lr12,floor_poly,scalar_sigma,biweekly_walk,fast_scales_p7,slow_trim"
+    d_p7 = ablate.design(sframe, held=sheld, variant=var_p7)
+    monkeypatch.setattr(ablate, "ACTIVE_VARIANT", ablate.parse_variant(var_p7))
+    p7_idx = ablate._scales_phase_idx(d_p7, set(ablate.ACTIVE_VARIANT))
+    assert (
+        p7_idx is not None
+        and len(p7_idx) == 7
+        and ablate._ACTIVE_SCALE_FACTORS[p7_idx[-1]] == "sv:m00"
+    )
+    out_p7 = ablate.run(
+        ablate.subset(d_p7, ~sheld),
+        ablate.Priors(),
+        ablate.Settings(
+            chains=2, warmup=4, draws=4, keep_every=2, seed=1, budget_seconds=None
+        ),
+        log=lambda _: None,
+    )
+    assert len(out_p7["result"]["gibbs"]["hyp_dirs"]) == 4 + len(p7_idx)
+    assert np.all(np.isfinite(out_p7["trace"]["phase_factor"]))

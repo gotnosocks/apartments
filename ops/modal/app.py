@@ -454,11 +454,14 @@ def _fit(spec):
     # the same GPU skip the ~110-125 s cold compile. Committed alongside /vol/out at save time.
     jax_cache = Path("/vol/jax-cache")
     jax_cache.mkdir(parents=True, exist_ok=True)
+    b0_design_cache = Path("/vol/b0-design-cache")
+    b0_design_cache.mkdir(parents=True, exist_ok=True)
     jax_cache_before = sum(1 for p in jax_cache.iterdir() if p.is_file())
     env = dict(
         os.environ,
         PYTHONPATH=f"{WORK}/frontier/src",
         FRONTIER_DATASET=spec["dataset"],
+        FRONTIER_B0_DESIGN_CACHE_DIR=str(b0_design_cache),
         XLA_PYTHON_CLIENT_PREALLOCATE="false",
         # JAX caps its allocator at 75% of the card unless told otherwise; the fit is the only
         # process on it.

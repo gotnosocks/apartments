@@ -735,6 +735,10 @@ def make_sampler(
     scale_passes: int = 1,
     scales_no_phase: bool = False,
     scales_phase_k: int | None = None,
+    scales_phase_idx: tuple[int, ...] | None = None,
+    slow_gps: bool = False,
+    em_laplace: bool = False,
+    em_warm: int = 0,
 ):
     """The jitted sweep, the initial state, the jitted prediction step and the sampler's
     parts for design `d`. The sweep, the initial state and the prediction step are vmapped
@@ -790,6 +794,9 @@ def make_sampler(
     assert scales_phase_k is None or scales_phase_k >= 0, "scales_phase_k must be >= 0"
     assert scales_phase_k is None or phase_collapsed, (
         "scales_phase_k needs phase_collapsed so omitted phase_scale factors are still sampled"
+    )
+    assert scales_phase_idx is None or phase_collapsed, (
+        "scales_phase_idx needs phase_collapsed so omitted phase_scale factors are still sampled"
     )
     nu_free = row_dof_fixed is None
     n_sigma = 1 if scalar_sigma else 4
@@ -871,15 +878,20 @@ def make_sampler(
     else:
         free = len(d.phases) - 1
     phased = free > 0
-    k_ph = (
-        0
-        if not phased
-        else (
-            min(free, int(scales_phase_k))
-            if scales_phase_k is not None
-            else (0 if scales_no_phase else free)
+    if not phased:
+        ph_idx_np = np.zeros(0, dtype=int)
+    elif scales_phase_idx is not None:
+        ph_idx_np = np.array(
+            [int(j) for j in scales_phase_idx if 0 <= int(j) < free], dtype=int
         )
-    )
+    elif scales_phase_k is not None:
+        ph_idx_np = np.arange(min(free, int(scales_phase_k)), dtype=int)
+    elif scales_no_phase:
+        ph_idx_np = np.zeros(0, dtype=int)
+    else:
+        ph_idx_np = np.arange(free, dtype=int)
+    k_ph = len(ph_idx_np)
+    ph_idx_j = jnp.asarray(ph_idx_np)
     use_fisher_hmc = phased and (k_ph < free) and phase_collapsed and pmap is not None
     assert not phase_collapsed or phased, "phase_collapsed needs phases"
     if "noise" in fixed_steps and phased:
@@ -962,7 +974,7 @@ def make_sampler(
             )
             col = cell_layout(site_sorted, step, lay["pi"], lay["pj"], S, T)
     # The collapsed term's slow columns, as places among theta's coefficients.
-    held = {int(k) for pos, *_ in gps for k in pos}
+    held = set() if slow_gps else {int(k) for pos, *_ in gps for k in pos}
     named = {
         k: within_share(d.x[:, j], d.site)
         for k, j in enumerate(others)
@@ -975,6 +987,19 @@ def make_sampler(
         [k for k, share in named.items() if share >= settings.slow_within], dtype=int
     )
     slow_shares = {d.names[others[k]]: share for k, share in named.items()}
+    # Map any GP blocks wholly contained inside `slow` so `update_slow` includes their exact GP prior.
+    slow_pos = {int(k): idx for idx, k in enumerate(slow)}
+    slow_gp_blocks = []
+    if slow_gps and len(slow):
+        for gk, (pos, xk, _, _) in enumerate(gps):
+            inside = [int(p) in slow_pos for p in pos]
+            # A block only partly in `slow` would lose its GP prior in both steps.
+            assert all(inside) or not any(inside), (
+                f"GP block {gk} is only partly among the slow columns"
+            )
+            if all(inside):
+                sub = np.array([slow_pos[int(p)] for p in pos], dtype=int)
+                slow_gp_blocks.append((gk, sub, xk))
     # Each block's part of every bucket. A unit's rows share a building, so a unit never
     # spans two blocks, and a bucket lists its units in row order, so a block's units are a
     # slice of it. `blk_part[j]` holds (bucket, first unit, last unit + 1) for block j,
@@ -1697,7 +1722,7 @@ def make_sampler(
         if k_ph == free and phased:
             p_scale = jnp.exp(x[pf : pf + free])
         elif k_ph > 0:
-            p_scale = jnp.concatenate([jnp.exp(x[pf : pf + k_ph]), phase_scale[k_ph:]])
+            p_scale = phase_scale.at[ph_idx_j].set(jnp.exp(x[pf : pf + k_ph]))
         else:
             p_scale = phase_scale
         c = lam / row_sd(D, sig, p_scale) ** 2
@@ -1748,7 +1773,7 @@ def make_sampler(
         lf = x[pf : pf + k_ph]
         return (
             out
-            - jnp.sum(phase_rows[:k_ph] * lf)
+            - jnp.sum(phase_rows[ph_idx_j] * lf)
             - jnp.sum(lf**2) / (2 * PHASE_PRIOR**2)
         )
 
@@ -1762,7 +1787,11 @@ def make_sampler(
         lnu = jnp.log(st["nu"])[None] if nu_free else jnp.zeros(0)
         ls_vec = jnp.log(st["sigma"][:1]) if scalar_sigma else jnp.log(st["sigma"])
         x = jnp.concatenate([st["hyp"], ls_vec, lnu])
-        x = jnp.concatenate([x, jnp.log(st["phase_scale"][:k_ph])]) if k_ph > 0 else x
+        x = (
+            jnp.concatenate([x, jnp.log(st["phase_scale"][ph_idx_j])])
+            if k_ph > 0
+            else x
+        )
         x = jnp.concatenate([x, jnp.log(st["unit_dof"])[None]]) if dof_free else x
         return jnp.concatenate([x, jnp.log(st["unit_tau"])[None]]) if unit_slow else x
 
@@ -1807,8 +1836,8 @@ def make_sampler(
         if k_ph == free and phased:
             new["phase_scale"] = jnp.exp(x[pf : pf + free])
         elif k_ph > 0:
-            new["phase_scale"] = jnp.concatenate(
-                [jnp.exp(x[pf : pf + k_ph]), st["phase_scale"][k_ph:]]
+            new["phase_scale"] = (
+                st["phase_scale"].at[ph_idx_j].set(jnp.exp(x[pf : pf + k_ph]))
             )
         if dof_free:
             m_u, sd_u = lam_moments(x[-1])
@@ -1911,6 +1940,278 @@ def make_sampler(
 
         _, path = jax.lax.scan(step, last, (mf[:-1], pf[:-1], z[:-1]), reverse=True)
         return jnp.concatenate([path, last[None]], axis=0).T
+
+    def ar_mean(par, mf, pf):
+        """Rauch-Tung-Striebel smoother mean of every process's path given the filter's
+        output (ar_draw with zero noise), (groups, steps)."""
+        s2 = jnp.exp(2 * par[0])
+        rho = jax.nn.sigmoid(par[1])
+        q = s2 * (1 - rho * rho)
+        last = mf[-1]
+
+        def step(nxt, x):
+            m, p = x
+            pp = rho * rho * p + q
+            J = rho * p / pp
+            cur = m + J * (nxt - rho * m)
+            return cur, cur
+
+        _, path = jax.lax.scan(step, last, (mf[:-1], pf[:-1]), reverse=True)
+        return jnp.concatenate([path, last[None]], axis=0).T
+
+    def fill_path_mean(par, at, active):
+        C = jnp.where(active, PIN, 0.0)
+        _, mf, pf = ar_filter(par, C, C * at)
+        return jnp.where(active, at, ar_mean(par, mf, pf))
+
+    def unit_moments(D, hyp, c, w1, Wb, e, ukap):
+        """Deterministic posterior mean and marginal variance of (u, s_unit) given e
+        for exact variational-EM E-steps of Student-t mixing weights."""
+        ss, sd, _ = scales(hyp)
+        one = D["single"]
+        if ukap is None:
+            k0 = ss**2 + sd**2
+            u = jnp.where(one, k0 * w1 * e, 0.0)
+            var_u = jnp.where(one, k0 / (1 + c * k0), 0.0)
+            s_unit = jnp.zeros(U)
+            var_s = jnp.zeros(U)
+            for W, idx, mask, tb in zip(Wb, D["b_idx"], D["b_mask"], D["b_t"]):
+                eb = jnp.where(mask, e[idx], 0.0)
+                We = jnp.einsum("bij,bj->bi", W, eb)
+                Kb = kernel(hyp, tb[:, :, None], tb[:, None, :])
+                ub = jnp.einsum("bij,bj->bi", Kb, We)
+                vub = jnp.maximum(k0 - jnp.einsum("bij,bjk,bik->bi", Kb, W, Kb), 0.0)
+                u = (
+                    u
+                    + seg(
+                        jnp.where(mask, ub, 0.0).ravel(),
+                        jnp.where(mask, idx, n).ravel(),
+                        num_segments=n + 1,
+                    )[:n]
+                )
+                var_u = (
+                    var_u
+                    + seg(
+                        jnp.where(mask, vub, 0.0).ravel(),
+                        jnp.where(mask, idx, n).ravel(),
+                        num_segments=n + 1,
+                    )[:n]
+                )
+            return u, var_u, s_unit, var_s
+        vr, vb = lasting(D, hyp, ukap)
+        k0r = vr + sd**2
+        u = jnp.where(one, k0r * w1 * e, 0.0)
+        var_u = jnp.where(one, k0r / (1 + c * k0r), 0.0)
+        s_unit = seg(jnp.where(one, vr * w1 * e, 0.0), D["unit"], num_segments=U)
+        var_s = seg(
+            jnp.where(one, jnp.maximum(vr - vr * vr * w1, 0.0), 0.0),
+            D["unit"],
+            num_segments=U,
+        )
+        for W, idx, mask, tb, v, bu in zip(
+            Wb, D["b_idx"], D["b_mask"], D["b_t"], vb, D["b_unit"]
+        ):
+            eb = jnp.where(mask, e[idx], 0.0)
+            We = jnp.einsum("bij,bj->bi", W, eb)
+            Kb = kernel(hyp, tb[:, :, None], tb[:, None, :], v[:, None, None])
+            ub = jnp.einsum("bij,bj->bi", Kb, We)
+            vub = jnp.maximum(
+                (v[:, None] + sd**2) - jnp.einsum("bij,bjk,bik->bi", Kb, W, Kb), 0.0
+            )
+            u = (
+                u
+                + seg(
+                    jnp.where(mask, ub, 0.0).ravel(),
+                    jnp.where(mask, idx, n).ravel(),
+                    num_segments=n + 1,
+                )[:n]
+            )
+            var_u = (
+                var_u
+                + seg(
+                    jnp.where(mask, vub, 0.0).ravel(),
+                    jnp.where(mask, idx, n).ravel(),
+                    num_segments=n + 1,
+                )[:n]
+            )
+            s_unit = s_unit.at[bu].add(v * jnp.sum(We, axis=1))
+            var_s = var_s.at[bu].add(
+                jnp.maximum(v - (v * v) * jnp.sum(W, axis=(1, 2)), 0.0)
+            )
+        return u, var_u, s_unit, var_s
+
+    def em_step(D, st):
+        """One deterministic variational-EM fixed-point iteration with scales held."""
+        hyp = unit_hyp(st)
+        c = weights(D, st)
+        w1, Wb = unit_W(D, hyp, c, st.get("ukap"))
+        y_eff = D["y"] - offsets(D, st)
+        A, h, _ = global_system(D, st, c, w1, Wb, y_eff)
+        s = 1 / jnp.sqrt(jnp.diag(A))
+        Cf = jnp.linalg.cholesky(A * s[:, None] * s[None, :])
+        theta = jax.scipy.linalg.cho_solve((Cf, True), h * s) * s
+        F = D["Bc"] @ theta[sl_w]
+        e0 = y_eff - all_means(D, theta)
+        om_d, om_off = pair_weights(D, w1, Wb)
+        if col is None:
+            ctil = om_d + seg(om_off, D["pi"], num_segments=n)
+            C = seg(ctil, D["site"], num_segments=S)
+            Rs = seg(apply_W(D, om_d, om_off, e0), D["site"], num_segments=S)
+            b2 = site_var(st["bld_sd"], st.get("kap"))
+            P = C + 1 / b2
+            lev = (Rs + F / b2) / P
+            var_lev = 1 / P
+            e = e0 - lev[D["site"]]
+            ar_new = st.get("ar", ())
+        else:
+            cell = D["ar_cell"][0]
+            tgt = e0 + st["ar"][0].ravel()[cell]
+            sums = cell_sums(D, om_d, om_off, tgt)
+            if len(slow):
+                As, lins, Gs = slow_system(D, st, om_d, om_off, sums, tgt, F)
+                cur = theta[sl_b][slow]
+                Qs = As + jnp.diag(prec_b[slow])
+                for gk, sub, xk in slow_gp_blocks:
+                    Lk = jnp.linalg.cholesky(
+                        _gp_cov(xk, st["gp_ls"][gk], *gp_kernels[gk])
+                    )
+                    Ki = jax.scipy.linalg.cho_solve((Lk, True), jnp.eye(len(sub)))
+                    Qs = Qs.at[np.ix_(sub, sub)].add(Ki / st["gp_amp"][gk] ** 2)
+                rhs = lins + As @ cur + lin_b[slow]
+                ss_q = 1 / jnp.sqrt(jnp.diag(Qs))
+                Cfs = jnp.linalg.cholesky(Qs * ss_q[:, None] * ss_q[None, :])
+                step = jax.scipy.linalg.cho_solve((Cfs, True), rhs * ss_q) * ss_q - cur
+                theta = theta.at[sl_b].set(theta[sl_b].at[slow].add(step))
+                tgt = tgt - jnp.concatenate([x[:, slow] @ step for x in D["xs"]])
+                sums = [(H, hv - Gb @ step) for (H, hv), Gb in zip(sums, Gs)]
+            par = st["ar_par"][0]
+            b2 = site_var(st["bld_sd"], st.get("kap"))
+            lev = F
+            var_lev = b2
+            a0 = ars[0]
+            cells = a0["size"] * a0["T"]
+            at = jnp.zeros(cells + 1)
+            for (H, hv), ids, gap, place in zip(
+                sums,
+                D["cells"]["sites"],
+                D["cells"]["gap"],
+                D["cells"]["cells"],
+            ):
+                L, x, _ = cell_system(par, b2[ids], F[ids], H, hv, gap)
+                z = jax.vmap(
+                    lambda Lk, bk: jax.scipy.linalg.solve_triangular(
+                        Lk.T, bk, lower=False
+                    )
+                )(L, x)
+                # Diagonal variance of building level (row 0 of L^{-1})
+                e0_vec = jnp.zeros_like(x).at[:, 0].set(1.0)
+                v0 = jax.vmap(
+                    lambda Lk, bk: jax.scipy.linalg.solve_triangular(Lk, bk, lower=True)
+                )(L, e0_vec)
+                lev = lev.at[ids].set(z[:, 0])
+                var_lev = var_lev.at[ids].set(jnp.sum(v0 * v0, axis=1))
+                at = at.at[place.ravel()].set(z[:, 1:].ravel())
+            active = D["cells"]["active"].reshape(a0["size"], a0["T"])
+            path = fill_path_mean(par, at[:cells].reshape(a0["size"], a0["T"]), active)
+            e = tgt - lev[D["site"]] - path.ravel()[cell]
+            ar_new = (path, *st["ar"][1:])
+        u, var_u, s_unit, var_s = unit_moments(
+            D, hyp, c, w1, Wb, e, st.get("ukap") if unit_t else None
+        )
+        r = e - u
+        rsd = row_sd(D, st["sigma"], st.get("phase_scale"))
+        lam = (st["nu"] + 1.0) / (st["nu"] + (r * r + var_u) / (rsd * rsd))
+        new = st | dict(theta=theta, lev=lev, lam=lam)
+        if ars:
+            new["ar"] = ar_new
+        if dof is not None:
+            z2 = ((lev - F) ** 2 + var_lev) / st["bld_sd"][zone_j] ** 2
+            new["kap"] = (dof + 1.0) / (dof + z2)
+        if unit_t:
+            ss_u = scales(hyp)[0]
+            new["ukap"] = (st["unit_dof"] + 1.0) / (
+                st["unit_dof"] + (s_unit * s_unit + var_s) / (ss_u * ss_u)
+            )
+        return new
+
+    def laplace_draw(D, key, st_map):
+        """One independent analytical Laplace draw around the converged EM state `st_map`:
+        re-draws Student-t mixing scales (lam, kap, ukap) from their conditional Gamma
+        around the EM residuals so tail uncertainty propagates cleanly, then draws
+        theta ~ N(theta*, A*^-1), slow_columns with (lev, path) integrated out,
+        (lev, path) ~ p(lev, path | theta, lam, kap, ukap), and fresh new-unit ukap."""
+        k1, k2, k3, k4, k5, k6, k7 = jax.random.split(key, 7)
+        hyp = unit_hyp(st_map)
+        # Re-draw Student-t mixing scales from their conditional Gamma given EM mean rate
+        # (since lam_map = (nu+1)/(nu + r2/sig2), Gamma((nu+1)/2, rate=(nu+1)/(2*lam_map)) has mean lam_map).
+        a_lam = (st_map["nu"] + 1.0) / 2.0
+        lam_d = jax.random.gamma(k6, a_lam, (n,)) * (st_map["lam"] / a_lam)
+        st_use = st_map | {"lam": lam_d}
+        if unit_t:
+            a_u_tr = (st_map["unit_dof"] + 1.0) / 2.0
+            st_use = st_use | {
+                "ukap": jax.random.gamma(k7, a_u_tr, (U,)) * (st_map["ukap"] / a_u_tr)
+            }
+        if dof is not None:
+            has_row = jnp.asarray(rows_per_site > 0)
+            a_k = (dof + 1.0) / 2.0
+            k4a, k4b = jax.random.split(k4)
+            kap_tr = jax.random.gamma(k4a, a_k, (S,)) * (st_map["kap"] / a_k)
+            kap_prior = jax.random.gamma(k4b, dof / 2.0, (S,)) / (dof / 2.0)
+            st_use = st_use | {"kap": jnp.where(has_row, kap_tr, kap_prior)}
+        c = weights(D, st_use)
+        w1, Wb = unit_W(D, hyp, c, st_use.get("ukap"))
+        y_eff = D["y"] - offsets(D, st_use)
+        theta, _ = draw_theta(D, k1, st_use, c, w1, Wb, y_eff)
+        w = theta[sl_w]
+        F = D["Bc"] @ w
+        e0 = y_eff - all_means(D, theta)
+        om_d, om_off = pair_weights(D, w1, Wb)
+        if col is None:
+            ctil = om_d + seg(om_off, D["pi"], num_segments=n)
+            C = seg(ctil, D["site"], num_segments=S)
+            Rs = seg(apply_W(D, om_d, om_off, e0), D["site"], num_segments=S)
+            bsd = st_use["bld_sd"]
+            b2 = site_var(bsd, st_use.get("kap"))
+            P = C + 1 / b2
+            lev = (Rs + F / b2) / P + jax.random.normal(k2, (S,)) / jnp.sqrt(P)
+            ar_out = st_use.get("ar", ())
+            par_out = st_use.get("ar_par")
+        else:
+            cell = D["ar_cell"][0]
+            tgt = e0 + st_map["ar"][0].ravel()[cell]
+            sums = cell_sums(D, om_d, om_off, tgt)
+            if len(slow):
+                theta, tgt, sums = update_slow(
+                    D, k3, st_use, theta, om_d, om_off, sums, tgt, F
+                )
+            bsd, lev, par, path = update_cells(D, k2, st_use, sums, F)
+            ar_out = (path, *st_map["ar"][1:])
+            par_out = st_map["ar_par"].at[0].set(par)
+        new = st_use | dict(theta=theta, lev=lev, bld_sd=bsd)
+        if ars:
+            new["ar"] = ar_out
+            new["ar_par"] = par_out
+        if unit_t:
+            a_u = st_map["unit_dof"] / 2.0
+            new["pred_ukap"] = jax.random.gamma(k5, a_u, (n_pred,)) / a_u
+        ss, sd, tu = scales(hyp)
+        out = outputs(theta, lev, F) | dict(unit_sd=ss, drift_sd=sd, drift_tau=tu)
+        if phased:
+            factor = st_map["phase_scale"]
+            if pmap_j is None:
+                out["phase_scale"] = phase_factors(factor)
+            else:
+                out["phase_factor"] = factor
+        if dof_free:
+            out["unit_dof"] = st_map["unit_dof"]
+        if unit_slow:
+            out["unit_tau"] = st_map["unit_tau"]
+        if ars:
+            for k, a in enumerate(ars):
+                out[a["name"] + "_ar_sd"] = jnp.exp(par_out[k][0])
+                out[a["name"] + "_ar_rho"] = jax.nn.sigmoid(par_out[k][1])
+        return new, out
 
     def update_ar(key, k, par, C, R):
         """One term's (log sd, logit rho) with its paths integrated out, by a slice update of
@@ -2029,6 +2330,12 @@ def make_sampler(
         )
         return L, x, ll
 
+    def apply_W_mat(D, om_d, om_off, X):
+        """W X for a (n, m) matrix X over rows."""
+        return om_d[:, None] * X + seg(
+            om_off[:, None] * X[D["pj"]], D["pi"], num_segments=n
+        )
+
     def slow_system(D, st, om_d, om_off, sums, tgt, F):
         """The likelihood's precision and linear term for a shift of the slow columns'
         coefficients from where `tgt` has them, with u, the buildings' levels and the
@@ -2038,13 +2345,23 @@ def make_sampler(
         each bucket's G = B' W X, (buildings, cells, columns)."""
         cl, xs = D["cells"], D["xs"]
         Wt = apply_W(D, om_d, om_off, tgt)
-
-        def one(k):
-            Wx = apply_W(D, om_d, om_off, jnp.concatenate([x[:, k] for x in xs]))
-            xtw = sum(x[:, slow].T @ Wx[r0:r1] for x, (_, _, r0, r1) in zip(xs, blocks))
-            return seg(Wx, cl["h"], num_segments=col["size_h"]), xtw
-
-        G, A = jax.lax.map(one, jnp.asarray(slow))
+        n_s = len(slow)
+        chunk_sz = 16
+        # Chunked batched W @ X_slow: avoids 1-column-at-a-time lax.map while capping peak VRAM.
+        G_parts = []
+        A_parts = []
+        for c0 in range(0, n_s, chunk_sz):
+            sl_c = slow[c0 : c0 + chunk_sz]
+            Xc = jnp.concatenate([x[:, sl_c] for x in xs], axis=0)
+            WXc = apply_W_mat(D, om_d, om_off, Xc)
+            G_parts.append(seg(WXc, cl["h"], num_segments=col["size_h"]).T)
+            A_parts.append(
+                sum(
+                    x[:, slow].T @ WXc[r0:r1] for x, (_, _, r0, r1) in zip(xs, blocks)
+                ).T
+            )
+        G = jnp.concatenate(G_parts, axis=0)
+        A = jnp.concatenate(A_parts, axis=0)
         lin = sum(x[:, slow].T @ Wt[r0:r1] for x, (_, _, r0, r1) in zip(xs, blocks))
         par = st["ar_par"][0]
         b2 = site_var(st["bld_sd"], st.get("kap"))
@@ -2077,6 +2394,10 @@ def make_sampler(
         A, lin, Gs = slow_system(D, st, om_d, om_off, sums, tgt, F)
         cur = theta[sl_b][slow]
         Q = A + jnp.diag(prec_b[slow])
+        for gk, sub, xk in slow_gp_blocks:
+            Lk = jnp.linalg.cholesky(_gp_cov(xk, st["gp_ls"][gk], *gp_kernels[gk]))
+            Ki = jax.scipy.linalg.cho_solve((Lk, True), jnp.eye(len(sub)))
+            Q = Q.at[np.ix_(sub, sub)].add(Ki / st["gp_amp"][gk] ** 2)
         rhs = lin + A @ cur + lin_b[slow]
         s = 1 / jnp.sqrt(jnp.diag(Q))
         Cf = jnp.linalg.cholesky(Q * s[:, None] * s[None, :])
@@ -2218,7 +2539,6 @@ def make_sampler(
             # `lam` integrated out. Eliminates the (sigma, phase:*, sv:m00) collinear ridge in
             # 5 row passes instead of ~290 coordinate-slice passes while preserving exact balance.
             k_hmc = jax.random.fold_in(key, PHASE_KEY)
-            k_mom, k_acc = jax.random.split(k_hmc)
             ls0 = jnp.log(st["sigma"][:1]) if scalar_sigma else jnp.log(st["sigma"])
             lf0 = jnp.log(factor)
             th0 = jnp.concatenate([ls0, lf0])
@@ -2269,28 +2589,33 @@ def make_sampler(
                 g_lf = pmap_j.T @ g_cell - lf_v / (PHASE_PRIOR**2)
                 return lp, jnp.concatenate([g_ls, g_lf])
 
-            eps = 0.28
-            p0 = jax.random.normal(k_mom, (d_th,))
-            lp0, g0 = logp_and_grad(th0)
-            p_cur = p0 + 0.5 * eps * (L_inv.T @ g0)
-            th_cur = th0
+            eps = 0.31
 
-            def leap(carry, _):
-                th_c, p_c = carry
-                th_n = th_c + eps * (L_inv @ p_c)
-                _, g_n = logp_and_grad(th_n)
-                p_n = p_c + eps * (L_inv.T @ g_n)
-                return (th_n, p_n), None
+            def hmc_proposal(th_in, k_step):
+                km, ka = jax.random.split(k_step)
+                p0 = jax.random.normal(km, (d_th,))
+                lp0, g0 = logp_and_grad(th_in)
+                p_cur = p0 + 0.5 * eps * (L_inv.T @ g0)
+                th_cur = th_in
 
-            (th_cur, p_cur), _ = jax.lax.scan(leap, (th_cur, p_cur), None, length=4)
-            th_prop = th_cur + eps * (L_inv @ p_cur)
-            lp_prop, g_prop = logp_and_grad(th_prop)
-            p_prop = p_cur + 0.5 * eps * (L_inv.T @ g_prop)
-            log_alpha = (lp_prop - 0.5 * jnp.sum(p_prop**2)) - (
-                lp0 - 0.5 * jnp.sum(p0**2)
-            )
-            accept = jnp.log(jax.random.uniform(k_acc)) < log_alpha
-            th_new = jnp.where(accept, th_prop, th0)
+                def leap(carry, _):
+                    th_c, p_c = carry
+                    th_n = th_c + eps * (L_inv @ p_c)
+                    _, g_n = logp_and_grad(th_n)
+                    p_n = p_c + eps * (L_inv.T @ g_n)
+                    return (th_n, p_n), None
+
+                (th_cur, p_cur), _ = jax.lax.scan(leap, (th_cur, p_cur), None, length=4)
+                th_prop = th_cur + eps * (L_inv @ p_cur)
+                lp_prop, g_prop = logp_and_grad(th_prop)
+                p_prop = p_cur + 0.5 * eps * (L_inv.T @ g_prop)
+                log_alpha = (lp_prop - 0.5 * jnp.sum(p_prop**2)) - (
+                    lp0 - 0.5 * jnp.sum(p0**2)
+                )
+                accept = jnp.log(jax.random.uniform(ka)) < log_alpha
+                return jnp.where(accept, th_prop, th_in), None
+
+            th_new, _ = jax.lax.scan(hmc_proposal, th0, jax.random.split(k_hmc, 2))
             sig_new = jnp.exp(th_new[:n_sigma])
             sigma = jnp.broadcast_to(sig_new, (4,)) if scalar_sigma else sig_new
             factor = jnp.exp(th_new[n_sigma:])
@@ -2806,12 +3131,26 @@ def make_sampler(
     swept = jax.jit(jax.vmap(sweep, in_axes=(None, 0, 0)))
     predicted = jax.jit(jax.vmap(predict, in_axes=(None, 0)))
     curved = jax.jit(jax.vmap(scales_curvature, in_axes=(None, 0)))
+    em_stepped = jax.jit(em_step) if (em_laplace or em_warm > 0) else None
+    laplaced = (
+        jax.jit(jax.vmap(laplace_draw, in_axes=(None, 0, None))) if em_laplace else None
+    )
     return (
         lambda keys, st: swept(data, keys, st),
         jax.jit(jax.vmap(init)),
         lambda st: predicted(data, st),
         dict(
             data=data,
+            em_step=(
+                (lambda st: em_stepped(data, st))
+                if (em_laplace or em_warm > 0)
+                else None
+            ),
+            laplace_draw=(
+                (lambda keys, st_map: laplaced(data, keys, st_map))
+                if em_laplace
+                else None
+            ),
             order=order,
             G=G,
             layout=lay,
@@ -2826,6 +3165,7 @@ def make_sampler(
             row_sd=row_sd,
             phased=phased,
             scales_k_ph=k_ph,
+            scales_ph_idx=ph_idx_np,
             phase_factors=phase_factors,
             scales_logp=scales_logp,
             scales_curvature=scales_curvature,
@@ -2926,6 +3266,10 @@ def run(
     scale_passes: int = 1,
     scales_no_phase: bool = False,
     scales_phase_k: int | None = None,
+    scales_phase_idx: tuple[int, ...] | None = None,
+    slow_gps: bool = False,
+    em_laplace: bool = False,
+    em_warm: int = 0,
 ):
     """Sample the posterior of design `d` with the sweep above and the floor curves' Gaussian
     process priors. The kept arrays hold `building_zones_gibbs`'s, the unit scales `unit_sd`
@@ -2971,6 +3315,10 @@ def run(
         scale_passes=scale_passes,
         scales_no_phase=scales_no_phase,
         scales_phase_k=scales_phase_k,
+        scales_phase_idx=scales_phase_idx,
+        slow_gps=slow_gps,
+        em_laplace=em_laplace,
+        em_warm=em_warm,
     )
     held = parts["held"]
     if held:
@@ -3113,6 +3461,80 @@ def run(
         )
     compile_seconds = 0.0
     t_first = time.perf_counter()
+    if em_laplace:
+        assert held, "em_laplace requires --scales-fixed"
+        st_map = jax.tree_util.tree_map(lambda a: a[0], st)
+        em_fn = parts["em_step"]
+        lap_fn = parts["laplace_draw"]
+        for i in range(settings.warmup):
+            st_prev_th = st_map["theta"]
+            st_map = em_fn(st_map)
+            if i == 0:
+                jax.block_until_ready(st_map)
+                compile_seconds = time.perf_counter() - t_first
+                t_first = time.perf_counter()
+                log(f"em_laplace first EM step (compile) {compile_seconds:.1f}s")
+            if (i + 1) % max(1, settings.warmup // 5) == 0 or i == settings.warmup - 1:
+                d_th = float(jnp.max(jnp.abs(st_map["theta"] - st_prev_th)))
+                log(
+                    f"em_laplace iter {i + 1}/{settings.warmup}: max|dtheta|={d_th:.2e}, "
+                    f"{time.perf_counter() - t_first:.1f}s"
+                )
+        jax.block_until_ready(st_map)
+        marks["warmup"] = time.perf_counter()
+        t_lap_comp = time.perf_counter()
+        for j in range(settings.draws):
+            key, sub = jax.random.split(key)
+            st_draw, out = lap_fn(jax.random.split(sub, settings.chains), st_map)
+            if j == 0:
+                jax.block_until_ready(st_draw)
+                log(
+                    f"em_laplace first Laplace draw (compile) "
+                    f"{time.perf_counter() - t_lap_comp:.1f}s"
+                )
+            full = out | {k: st_draw[k] for k in scale_names}
+            for k in traced:
+                trace[k].append(np.asarray(full[k]))
+            if (j + 1) % settings.keep_every == 0:
+                for k in kept_names:
+                    kept[k].append(np.asarray(full[k]))
+                if expand_phase is not None:
+                    kept["phase_scale"].append(
+                        np.asarray(expand_phase(full["phase_factor"]))
+                    )
+                if has_pred:
+                    loc, s, _ = predict(st_draw)
+                    preds["pred_loc"].append(np.asarray(loc))
+                    preds["pred_unit_sd"].append(np.asarray(s))
+            if (j + 1) % per == 0:
+                log(
+                    f"em_laplace draws {j + 1}/{settings.draws}: "
+                    f"{time.perf_counter() - marks['warmup']:.1f}s"
+                )
+        st = st_draw
+        return output(final=True)
+    if em_warm > 0:
+        t_em = time.perf_counter()
+        st_map = jax.tree_util.tree_map(lambda a: a[0], st)
+        em_fn = parts["em_step"]
+        for _ in range(em_warm):
+            st_map = em_fn(st_map)
+        jax.block_until_ready(st_map)
+        log(
+            f"em_warm: {em_warm} deterministic EM steps in {time.perf_counter() - t_em:.1f}s"
+        )
+        # Warm-start every chain's latent state at the EM mode while preserving scale inits.
+        for k_em in ("theta", "lev", "lam", "kap", "ukap"):
+            if k_em in st and k_em in st_map:
+                st = st | {k_em: jnp.broadcast_to(st_map[k_em][None], st[k_em].shape)}
+        if "ar" in st and "ar" in st_map:
+            st = st | {
+                "ar": tuple(
+                    jnp.broadcast_to(a[None], b.shape)
+                    for a, b in zip(st_map["ar"], st["ar"])
+                )
+            }
+        t_first = time.perf_counter()
     for i in range(total):
         key, sub = jax.random.split(key)
         st, out = sweep(jax.random.split(sub, settings.chains), st)
@@ -3134,7 +3556,7 @@ def run(
                 ]
                 + ([np.log(np.asarray(st["nu"]))[:, None]] if parts["nu_free"] else [])
                 + (
-                    [np.log(np.asarray(st["phase_scale"])[:, : parts["scales_k_ph"]])]
+                    [np.log(np.asarray(st["phase_scale"])[:, parts["scales_ph_idx"]])]
                     if parts["scales_k_ph"] > 0
                     else []
                 )

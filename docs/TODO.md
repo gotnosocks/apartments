@@ -42,10 +42,19 @@ stood before 2026-11-10, with the Chelsea pilot's and the frontier line's items,
   `OMP_NUM_THREADS=1` to `apartments-registry-extend.service`, and wired `ops/deals-refresh`
   for `onefit` (`2× --large --lean` H200 or 1-container `SCALES_FIXED`) and `publish-all`
   (18 passing tests).
-- [x] **Reconcile Modal spend ledger** (2026-11-24, PR `#1550` + Wave 4): reconciled
-  `/data1/apartments/modal/ledger.jsonl` (`$399.50` across 250 settled runs Nov 14–23 + `$11.71`
-  across 30 Wave 4 settlements on Nov 24 = `$411.21` settled since Nov 14; exact match to `$80.43`
-  for Nov 14–20; 5 stale unsettled reservations noted).
+- [x] **Reconcile Modal spend ledger** (2026-11-24, PR `#1550` + Wave 4 + Pareto Sprints 1–2): reconciled
+  `/data1/apartments/modal/ledger.jsonl` (`$411.21` through Wave 4 + `$19.35` Pareto Sprint 1 +
+  `$18.57` settled Sprint 2 [`<= $18.97` incl. interrupted `pf2-em-gibbs40`] = `$449.13` settled
+  since Nov 14).
+- [x] **Low-Cost Pareto Frontier Sprints 1 & 2** (2026-11-24, PRs `#1552` & Sprint 2,
+  `docs/notes/low-cost-pareto-sprint2-2026-11-24.html`): collapsed official 4-chain gate-passing
+  full 13-year NYC `c2-monthly` from `$24.90` (`u5`) / `$11.67` (`c1`) → `$2.29` (Sprint 1) →
+  **`$1.26`** (`pf2-c2mo-sub120`, `R=1.0077, ESS=551, ELPD 10,264.2, cov80 79.93%`, **`19.8×` cheaper**);
+  reached **`$1.02`** warm-cache 4ch (`min ESS=638`, `3.2s` prep via `/vol/b0-design-cache`, `9.1s` compile),
+  **`$0.53`** 2ch `em_warm` held-scales Gibbs, gate FAILED R-hat 1.038 / ESS 87 (`10,260.6` ELPD, `MAE 0.06689`, `80.10%` cov80, `47×` cheaper),
+  **`$0.45`** `em_laplace` (Laplace draws, no convergence test) (`10,118.8` ELPD, `+77` vs `$2.04` `range-j`), and **`$4.04`** free-scales
+  `c1-compact` via `fast_scales_p7` (`sv:m00` in collapsed `update_scales`) + 2-step Fisher-HMC
+  (`min ESS=503`, `465/466` params `<=1.0081`, `2.9×` cheaper than `$11.67`).
 - [ ] **Fold remaining data-investigation findings directly into `c1-compact` and data rules**
   rather than accumulating publish-time cautions (`cautions.py`). Status after `#1534`–`#1551`:
   - *Already live in `c1-compact` (`#1549`):* Student-t unit levels (`unitkn`), binary collapsed

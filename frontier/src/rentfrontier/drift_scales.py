@@ -127,6 +127,23 @@ SETS = {
         ],
     },
 }
+# Full-NYC c2-monthly backtest with wave amp and segment GP scales also held (for EM-Laplace / ultra-fast refreshes).
+SETS["c2mo-j-all"] = {
+    **SETS["c2mo-j"],
+    "amp": [0.8379816034092314, 0.4728971594497194],
+    "gp_amp": [
+        0.05479311538422436,
+        0.014387025600123112,
+        0.02266828995443265,
+        0.05365115140080262,
+    ],
+    "gp_ls": [
+        1.039026941269524,
+        0.7340111817686347,
+        0.7176299510934335,
+        0.7988080116893519,
+    ],
+}
 
 SOURCES = {
     "base-n9": "the pool drift-building-b0-market-67d14e17-n9 (market split, 17,360 draws)",
@@ -134,6 +151,8 @@ SOURCES = {
     "(dataset b0-ddd2fe8f5da041b8-alldata-dense-nyc-asof-20251110, 19,840 draws)",
     "c2mo-j": "run drift-building-phase-unitkn-ablate-b0-market-e87b2e2e-pf-full-c2mo "
     "(dataset b0-ddd2fe8f5da041b8-alldata-dense-nyc-asof-20251110-bedtext, 8,800 draws)",
+    "c2mo-j-all": "run drift-building-phase-unitkn-ablate-b0-market-e87b2e2e-pf-full-c2mo "
+    "(all scales incl. amp and gp_amp/gp_ls held, 8,800 draws)",
 }
 
 
