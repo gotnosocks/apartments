@@ -171,6 +171,7 @@ ALL_TOKENS = (
     "seg_slow",
     "em_laplace",
     "em_warm",
+    "textflags_v2",
     # Track B1/B2 (2026-11-24): A1 audit discoveries & finer building AR(1) paths
     "mark_changed_bed",
     "mark_floor_unk",
@@ -1165,6 +1166,21 @@ def design(
         else (tuple(variant) if variant is not None else ACTIVE_VARIANT)
     )
     tok = set(tokens)
+    if "textflags_v2" in tok:
+        missing = [
+            c
+            for c in ("income_restricted_v2", "shared_space_v2")
+            if c not in frame.columns
+        ]
+        if missing:
+            raise ValueError(
+                f"textflags_v2 requires columns {missing} from rentfrontier.b0textflags"
+            )
+        frame = frame.copy()
+        frame["income_restricted"] = (
+            frame["income_restricted_v2"].fillna(False).to_numpy(bool)
+        )
+        frame["shared_space"] = frame["shared_space_v2"].fillna(False).to_numpy(bool)
     drift_building_phase_unitkn_level_bedtext.check(frame)
     held = building_zones_floor_asof.held_out(frame, held)
     train = ~np.asarray(held, bool)
@@ -1173,6 +1189,13 @@ def design(
     d = drift_building_phase_unitkn_level.design(
         frame, start, held=held, same_bed_first=("sbf" in tok), **kw
     )
+    if "textflags_v2" in tok:
+        x_new = d.x.copy()
+        for f_col in ("income_restricted", "shared_space"):
+            cname = f"flag:{f_col}"
+            if cname in d.names:
+                x_new[:, d.names.index(cname)] = frame[f_col].to_numpy(float)
+        d = dataclasses.replace(d, x=x_new)
     base_phase = d.phase.copy()
 
     # 2. Bedtext baseline (or bedunit upgrade)

@@ -912,3 +912,31 @@ def test_seg_slow_em_laplace_and_c2mo_j_all(screen_rows, monkeypatch):
     )
     assert len(out_p7["result"]["gibbs"]["hyp_dirs"]) == 4 + len(p7_idx)
     assert np.all(np.isfinite(out_p7["trace"]["phase_factor"]))
+
+
+def test_textflags_v2_swaps_income_and_shared_flags(screen_rows):
+    """textflags_v2 swaps flag:income_restricted and flag:shared_space to *_v2 without adding columns."""
+    sframe, sheld = screen_rows
+    sframe = sframe.copy()
+    n = len(sframe)
+    sframe["income_restricted"] = np.arange(n) % 10 == 0
+    sframe["shared_space"] = np.arange(n) % 5 == 0
+    sframe["income_restricted_v2"] = np.arange(n) % 7 == 0
+    sframe["shared_space_v2"] = np.arange(n) % 13 == 0
+
+    d_old = ablate.design(
+        sframe, held=sheld, variant="layrng,size,marks,seg_add,floor_poly"
+    )
+    d_new = ablate.design(
+        sframe, held=sheld, variant="layrng,size,marks,seg_add,floor_poly,textflags_v2"
+    )
+    assert d_old.names == d_new.names
+    i_inc = d_new.names.index("flag:income_restricted")
+    i_shr = d_new.names.index("flag:shared_space")
+    np.testing.assert_array_equal(
+        d_new.x[:, i_inc], (np.arange(n) % 7 == 0).astype(float)
+    )
+    np.testing.assert_array_equal(
+        d_new.x[:, i_shr], (np.arange(n) % 13 == 0).astype(float)
+    )
+    assert not np.array_equal(d_old.x[:, i_shr], d_new.x[:, i_shr])
