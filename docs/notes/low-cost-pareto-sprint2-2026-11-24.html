@@ -19,6 +19,12 @@ th{background:var(--card);text-align:left}
 code{background:var(--code);padding:.15em .35em;border-radius:4px;font-size:90%}
 </style></head><body>
 <h1>Low-Cost Pareto Frontier — Sprint 2 Report (2026-11-24)</h1>
+<div style="border:2px solid #b45309;padding:12px 16px;margin:12px 0;border-radius:6px"><strong>Review corrections (2026-11-25, PR #1553).</strong> These override the claims below where they differ.<ul>
+<li><code>pf2-c2mo-sub120</code> had no prediction committed before launch. It reran <code>pf2-c2mo-segfix</code> after that fit missed the gate. Treat its PASS as post-hoc.</li>
+<li><code>pf2-em-c2mo</code> (<code>em_laplace</code>) has no convergence result. Its draws are independent Laplace draws, so R-hat ≈ 1 holds by construction, and its "4ch PASS" is withdrawn.</li>
+<li><code>em_warm</code> starts every chain from one EM state, so split R-hat has little power. It is not a production tier yet.</li>
+<li><code>pf2-em-gibbs50</code> fails the gate (R-hat 1.038, ESS 87). It is not an exact posterior, and its MAE is not a record.</li>
+</ul></div>
 <p><strong>Goal:</strong> Push the low-cost NYC rent-model Pareto frontier even further below Sprint 1's <code>$2.29</code> breakthrough — targeting sub-dollar exact posteriors, <code>~$1.00–$1.25</code> official 4-chain gate-passing <code>c2-monthly</code>, and sub-<code>$4.50</code> free-scales <code>c1-compact</code> — all scored on the exact same <strong>9,346 held-out open-market ads</strong> (<code>asof-20251110</code>).</p>
 <p><strong>Reconciled Modal Spend:</strong> Sprint 2 settled <code>$18.57 / $20.00</code> across 10 Modal runs (Sprint 1 settled <code>$19.35 / $20.00</code>). Technical log &amp; pre-fit predictions: <code>docs/notes/low-cost-pareto-sprint2-2026-11-24.md</code>.</p>
 

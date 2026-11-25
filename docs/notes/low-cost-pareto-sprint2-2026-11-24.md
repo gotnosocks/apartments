@@ -1,5 +1,13 @@
 # Low-Cost Pareto Frontier Sprint 2 — Pre-Fit Predictions & Results (2026-11-24)
 
+> **Review corrections (2026-11-25, PR #1553 review).** These override the claims below where they differ.
+> - `pf2-c2mo-sub120` had no prediction committed before launch. It reran `pf2-c2mo-segfix` (gate missed at 13:02) with more draws from 254cac24, whose note does not name it. Its PASS is real, but it is a rerun after a miss, which the rules forbid. Treat it as a post-hoc result until a fit with a committed prediction confirms it.
+> - `pf2-em-c2mo` (`em_laplace`) has no convergence result. Its draws are independent Laplace draws around one EM mode, so R-hat ≈ 1 holds by construction. The "4ch PASS" is withdrawn.
+> - `em_warm` starts every chain from the same EM state. With the scales held, split R-hat across those chains has little power, so `em_warm` fits are not a production tier until chains start dispersed.
+> - `pf2-em-gibbs50` fails the gate (R-hat 1.038, ESS 87, 357 of 374 quantities failing). It is not an "exact posterior", and it would be exact only given the held scales. Its MAE (0.06689) is not a record, because only gate-passing fits count.
+> - `seg_slow` now asserts that no GP block lies only partly among the slow columns.
+
+
 ## 1. Objective & Authorized Budget
 
 - **Direction (Ben, 2026-11-24 12:13 ET):** *"Keep going, 4 more hours, $20 authorized"* (`12:13 → ~16:13 ET`, fresh **`$20.00`** Modal ceiling for Sprint 2, continuing on branch `feat/low-cost-pareto-sprint-2` stacked on PR `#1552`).
@@ -44,7 +52,7 @@ All runs evaluated on the **exact same `9,346` held-out open ads** of `asof-2025
 | Fit | Settled $ | Prep / Comp / Samp | Open-Mkt ELPD (`9,346`) | Δ vs `c1` ± SE | MAE | 80% Cov (`90%`) | Top-100 (`c1`) | Deals DOM (`ρ`) / Cut | Causal `βr` | Gate (`R-hat` / `ESS`) |
 |---|---:|---|---:|---:|---:|---:|---:|---|---|---|
 | **`pf2-c2mo-sub120`** | **`$1.26`** | `22.8s / 12.3s / 527s` | **`10,264.2`** | **`+44.1 ± 30.1`** | `0.06708` | **`79.93%` (`89.47%`)** | `79` | `27.5→72.0d (0.988)` / **`15.9→62.7%`** | **`0.9993`** | **PASS (`1.0077` / `551`)** |
-| **`pf2-em-c2mo`** | **`$0.45`** | **`4.1s` / `33.5s` / `100s`** | **`10,118.8`** | `-101.3 ± 35.4` | `0.06754` | `78.42%` (`88.26%`) | `73` | `29.0→71.0d (1.000)` / `17.0→62.1%` | `0.9993` | **PASS (`1.0082` / `441`)** |
+| **`pf2-em-c2mo`** | **`$0.45`** | **`4.1s` / `33.5s` / `100s`** | **`10,118.8`** | `-101.3 ± 35.4` | `0.06754` | `78.42%` (`88.26%`) | `73` | `29.0→71.0d (1.000)` / `17.0→62.1%` | `0.9993` | n/a: Laplace draws (`1.0082` / `441` by construction) |
 | `pf2-c2mo-segfix` | `$1.41` | `190.5s / 60.1s / 415s` | **`10,265.8`** | `+45.7 ± 30.3` | **`0.06704`** | `79.87%` (`89.52%`) | `75` | `27.0→71.5d (0.988)` / `16.5→62.8%` | `0.9993` | NEAR (`1.0111` / `519`) |
 | `pf2-full-c1-gate` | `$3.48` | `195.4s / 108s / 1518s` | `10,242.4` | `+22.3 ± 11.9` | `0.06721` | `78.59%` (`88.58%`) | `94` | `27.0→72.0d (0.988)` / `16.2→62.9%` | `0.9998` | NEAR (`1.0353` / `307` on `sv:m20` only) |
 
@@ -61,12 +69,12 @@ All runs evaluated on the **exact same `9,346` held-out open ads** of `asof-2025
 
 | Fit | Settled $ | Prep / Comp / Samp | Open-Mkt ELPD (`9,346`) | Δ vs `c1` ± SE | MAE | 80% Cov (`90%`) | Top-100 (`c1`) | Deals DOM (`ρ`) / Cut | Causal `βr` | Gate (`R-hat` / `ESS`) |
 |---|---:|---|---:|---:|---:|---:|---:|---|---|---|
-| **`pf2-em-gibbs50`** | **`$0.53`** | `13.0s / 58.6s / 83s` | **`10,260.6`** | **`+40.6 ± 30.7`** | **`0.06689`** | **`80.10%` (`89.41%`)** | `76` | `27.0→72.0d (0.985)` / **`16.4→63.3%`** | `0.9993` | 2ch ultra-low (`1.0384` / `87`) |
+| **`pf2-em-gibbs50`** | **`$0.53`** | `13.0s / 58.6s / 83s` | **`10,260.6`** | **`+40.6 ± 30.7`** | **`0.06689`** | **`80.10%` (`89.41%`)** | `76` | `27.0→72.0d (0.985)` / **`16.4→63.3%`** | `0.9993` | **FAIL** (`1.0384` / `87`) |
 | **`pf2-c2mo-sub100`** | **`$1.25`** | `4.2s / 77.1s / 403s` | **`10,265.5`** | **`+45.5 ± 30.4`** | **`0.06700`** | `79.73%` (`89.46%`) | `75` | `27.0→72.0d (0.988)` / `16.1→62.6%` | `0.9993` | NEAR (`1.01195` / **`569`**; `flag:` gone!) |
 | **`pf2-full-c2mo-gate`** | **`$5.09`** | `9.4s / 137s / 2483s` | **`10,264.3`** | **`+44.2 ± 30.1`** | `0.06709` | **`79.84%` (`89.52%`)** | `77` | `28.0→71.0d (0.988)` / `16.0→62.8%` | `0.9993` | NEAR (`1.0249` / `291` on `sigma[0]`) |
 
 **Key Phase 4 discoveries:**
-1. **`pf2-em-gibbs50` (`$0.53`, 2-chain exact Gibbs with 15-step `em_warm`):** Completely solved `pf2-em-c2mo`'s thin-building Student-t collapse, jumping **`+141.8` ELPD (`10,118.8 → 10,260.6`)**, setting a **NEW ALL-TIME BEST MAE (`0.06689`)**, bullseye **`80.10%`** 80% coverage, and steepest Deals Cut spread (`16.4→63.3%`) at **`47×` lower cost than `$24.90` `u5-svgpmo-mkt`!**
+1. **`pf2-em-gibbs50` (`$0.53`, 2-chain exact Gibbs with 15-step `em_warm`):** Completely solved `pf2-em-c2mo`'s thin-building Student-t collapse, jumping **`+141.8` ELPD (`10,118.8 → 10,260.6`)**, with MAE `0.06689` (not a record: the fit fails the gate), bullseye **`80.10%`** 80% coverage, and steepest Deals Cut spread (`16.4→63.3%`) at **`47×` lower cost than `$24.90` `u5-svgpmo-mkt`!**
 2. **Smoking-gun free-scales correlation (`pf2-full-c1-gate` & `pf2-full-c2mo-gate`):** Measuring posterior correlations across all 36–39 noise factors revealed **`corr(sigma[0], sv:m00) = +0.839` (`c1`) / `+0.797` (`c2-monthly`)**! Leaving `sv:m00` (`phase_factor[12]`) outside collapsed `update_scales` shrunk `sigma[0]`'s conditional variance `3.4×`, bottlenecking `sigma[0]` (`ESS = 291`), `sv:m00` (`352`), and `unit_sd` (`R = 1.025`).
 3. **Exact fix (`fast_scales_p7` + 2-step Fisher-HMC):** Added `scales_phase_idx` in `drift.py` and `fast_scales_p7` in `drift_building_phase_unitkn_ablate.py` (retaining `phase:0..5` **plus** the first continuous SV-GP mode `sv:m00`, `K = 11` instead of `40–43`, cache-safe via `b0.py`'s `_SAMPLER_ONLY`), plus 2 back-to-back exact Fisher-HMC proposals (`eps = 0.31`, `+0.008 s/sw`) in `update_noise`.
 
@@ -76,7 +84,7 @@ All runs evaluated on the **exact same `9,346` held-out open ads** of `asof-2025
 |---|---|---|---:|---:|---|
 | **`pf2-full-c1-pass`** | **FREE-SCALES** `c1-compact` + **`fast_scales_p7,slow_trim,seg_slow`** + 2-step Fisher-HMC *(warm design cache!)* | `1× H200 --lean`, `4 × (280 + 2,100) k=9` | **`$3.85–$4.30`** | **`10,235–10,250`** (`MAE 0.0671–0.0673`, `cov80 78.4–78.8%`) | **OFFICIAL 4ch `PASS` (`R <= 1.010, ESS >= 400`) on FREE-SCALES `c1` (`~2.9×` cheaper than `$11.67`!)** |
 | **`pf2-c2mo-sub100-pass`** | **HELD-SCALES** `c2-monthly` (`c2mo-j-all`) + `seg_slow,em_warm` *(warm `/vol/jax-cache` + `/vol/b0-design-cache`!)* | `1× H200 --lean`, `4 × (70 + 1,200) k=6` | **`$0.95–$1.12`** | **`10,258–10,272`** (`MAE 0.0670–0.0671`, `cov80 79.7–80.1%`) | **OFFICIAL 4ch `PASS` (`R <= 1.008, ESS >= 600`) AT `~$1.00` (`24×` cheaper than `$24.90` `u5`!)** |
-| **`pf2-em-gibbs40`** *(conditional on ledger `<= $19.20`)* | **ULTRA-LOW EXACT GIBBS** `c2-monthly` (`c2mo-j-all`) + `seg_slow,em_warm` *(warm 2ch `/vol/jax-cache`!)* | `1× H200 --lean`, `2 × (25 + 340) k=2` | **`$0.36–$0.46`** | **`10,255–10,270`** (`MAE 0.0669–0.0671`, `cov80 79.7–80.2%`) | **Sub-$0.45 exact-posterior `10,260+` ELPD (`~60×` cheaper than `$24.90` `u5`!)** |
+| **`pf2-em-gibbs40`** *(conditional on ledger `<= $19.20`)* | **ULTRA-LOW EXACT GIBBS** `c2-monthly` (`c2mo-j-all`) + `seg_slow,em_warm` *(warm 2ch `/vol/jax-cache`!)* | `1× H200 --lean`, `2 × (25 + 340) k=2` | **`$0.36–$0.46`** | **`10,255–10,270`** (`MAE 0.0669–0.0671`, `cov80 79.7–80.2%`) | **Sub-$0.45 held-scales Gibbs (gate unproven) `10,260+` ELPD (`~60×` cheaper than `$24.90` `u5`!)** |
 
 ---
 

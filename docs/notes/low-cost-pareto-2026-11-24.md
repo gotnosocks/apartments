@@ -160,7 +160,7 @@ Evaluated on all **`9,346` identical open ads** of `asof-20251110`, including ca
 2. **`pf-c2mo-lr12-fix` (`1× H200 --large --lean`, `4 × (150 + 1,250) keep=7`, `--scales-fixed c2mo-j`, `seg_add_lr12` replacing 52 raw quarterly segment knots with 12 smooth Matérn-3/2 eigenmodes):**
    - Settled cost: **`$1.30–$1.55`** (sub-`$1.50` full 13-year NYC!), ELPD: **`10,240–10,275`** (beats `$24.90` `u5-svgpmo-mkt` at `~17×` lower cost!), MAE: **`0.0670–0.0674`**, 80% cov: **`79.3–80.2%`**, causal `βr >= 0.998`, Gate: **PASS (`max R-hat <= 1.008, min ESS >= 450`)** by eliminating the `seg:zone:outer:2014q4` raw-knot bottleneck!
 
-*(Final results to be populated upon completion.)*
+*(Results below.)*
 
 ### Final Phase 3b Results & Reconciled Sprint Scorecard (`$19.35 / $20.00`, 20 Settled Modal Runs)
 
@@ -175,6 +175,13 @@ Evaluated on all **`9,346` identical open ads** of `asof-20251110`, including ca
 | **`pf-full-c2mo` (free)** | **`2014+` (`100%`)** | **`$4.61`** | **`10,263.5`** | **`+43.4 ± 30.5`** | **`0.06707`** | **`79.78%` (`89.50%`)** | `78` / `100` | NEAR (`1.0241` / `272`) | `28.0→72.0d` (`0.976`) | `16.0→62.6%` | `0.9994` |
 | `pf-yr19-c2mo` (free) | `2019+` (`63%`) | `$2.39` | `10,079.1` | `-141.0 ± 48.7` | `0.06753` | `80.33%` (`89.67%`) | `65` / `76` | FAIL (`1.0273` / `277`) | `28.0→73.0d` (`0.988`) | `16.5→62.3%` | `0.9791` |
 | `pf-yr22-c2mo` (free) | `2022+` (`31.5%`) | `$1.13` | `9,818.8` | `-401.3 ± 60.9` | `0.06979` | `78.60%` (`88.36%`) | `63` / `62` | FAIL (`1.0375` / `140`) | `30.0→71.0d` (`1.000`) | `17.5→61.4%` | `0.8961` |
+
+#### Review corrections (2026-11-25, PR #1552 review)
+
+- **Fisher-HMC has not produced a gate-passing fit.** `pf-c2mo-fix-gate` and `pf-c2mo-fixed` hold the scales fixed (`--scales-fixed c2mo-j`). That puts the noise scales in `fixed_steps` and skips the HMC path (`drift.py` ~2216), so `fast_scales_p6` and the HMC do nothing in those runs. The only free-scales HMC fit, `pf-full-c2mo`, **fails the gate** (`phase_factor[0]` R-hat `1.024`, ESS `272`).
+- **The held scales come from that failing fit.** `c2mo-j` in `drift_scales.SOURCES` is `pf-full-c2mo`. The `$2.29` gate pass is a pass *conditional on scales from a non-converged fit*. The true cost of the pipeline is `$4.61 + $2.29 = $6.90`, not `$2.29`.
+- **`pf-c2mo-fix-gate` reran a gate miss.** It repeats `pf-c2mo-fixed` (R-hat `1.0126`) on the same seed with a longer run (`150+2000 → 200+2400`). The project rule is that a fit missing the gate is not simply rerun, so treat this pass as weaker evidence than a first-try pass. Its predictions were committed before launch.
+- The HMC update itself is valid MCMC: the mass matrix is constant within the step, the leapfrog is correct, and the Metropolis correction is against the same density. There is no test that it preserves the posterior, only smoke tests.
 
 #### Honest Pre-Fit vs Realized Scorecard
 - **HIT — `pf-c2mo-fix-gate` (`$2.29`):** Passed the official 4-chain gate (`max R-hat = 1.00887`, `min ESS = 535.2`) right inside predicted `$2.20–$2.45`, scored **`10,264.4` ELPD** (`+44.3` vs `c1-compact-uni`, `+14.7` vs `$24.90` `u5-svgpmo-mkt`, `+222.3` vs `$2.04` `range-j`), new best **MAE `0.06705`**, bullseye **`79.90%` 80% / `89.51%` 90% coverage**, **`98/100` top-100 and `99.5%` bottom-10% deal overlap** with free-scales `pf-full-c2mo` (`ΔELPD = +0.90 ± 1.34`), and **causal `βr = 0.9994`**.

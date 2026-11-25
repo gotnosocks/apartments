@@ -31,6 +31,10 @@ INCOME_NO = [
     "Affordable luxury two bedroom in prime Williamsburg, steps to the L.",
     "Section 8 and CityFHEPS vouchers are accepted for this two bedroom.",
     "Contact Jonathan Ben-Ami to set up a viewing of this one bedroom.",
+    "Near galleries, Whole Foods, Bon Ami Cafe and top restaurants.",
+    "Come live your best life. Email Ami Rothschild to show this three bedroom.",
+    "To make an appointment please contact Ami Ray for this bright two bedroom.",
+    "Building requires income restriction: must earn 40x rent. Current rent is $6,800.",
     # A negation just before the only match, as in the ads of
     # docs/notes/income-flag-2026-11-14.md.
     "Rent-stabilized apartment. No income restrictions. No pets allowed.",
@@ -45,7 +49,9 @@ SHARED_YES = [
     "Small SRO unit with a private bath and no kitchen.",
     "An unfurnished single room occupancy apartment near the park.",
     "Each floor features an updated, shared bathroom cleaned every week.",
+    "Gut renovated rooms w/ all utilities included, 4 shared bathrooms per floor.",
     "A private room for rent in a three bedroom near the G train.",
+    "Renovated 4 bedroom apartment! We have 4 rooms for rent near the subway.",
     "Roommate matching provided. Room pricing: room 1 $1,350, room 2 $1,400.",
     "I'm looking for a roommate to take the second bedroom of my Astoria apartment.",
     "You will be living with two friendly housemates in a big brownstone.",
@@ -60,6 +66,7 @@ SHARED_NO = [
     "Spacious two bedroom with a dining/living room for rent in Crown Heights.",
     "Kitchen and bath are shared between the two bedrooms of this duplex.",
     "Roommate change fees apply. Two bedroom, one bath, heat included.",
+    "Two full bathrooms make daily living easier, especially in a shared home.",
 ]
 
 
@@ -87,7 +94,7 @@ def test_shared_v2_leaves_whole_apartments(text):
 # pattern starts from b0income.INCOME, so an edit to that Deals caution fails here before it
 # changes a rebuild.
 INCOME_V2_BUILT = (
-    r"(?<!optional for )income[- ]restrict"
+    r"(?<!optional for )income[- ]restrict(?![^.\n]{0,35}(?:40\s*x|times\s+the\s+rent))"
     r"|(?<!optional for income )restricted (?:unit|apartment|rental)"
     r"|income (?:limit|eligib)"
     r"|(?:maximum|max)\.? (?:annual |household |allowable |allowed )?income"
@@ -96,7 +103,7 @@ INCOME_V2_BUILT = (
     r"|housing connect"
     r"|(?:housing|hpd|affordable|421-?a) lottery"
     r"|lottery (?:unit|apartment|rental)"
-    r"|(?<!mon )(?<!bel )(?<!ben-)(?<!ben )\bami\b"
+    r"|(?<!mon )(?<!bel )(?<!bon )(?<!ben-)(?<!ben )\bami\b(?! (?:rothschild|ray)\b)"
     r"|(?:low|middle|moderate)[- ]income"
     r"|median income"
     r"|\bhdc\b"

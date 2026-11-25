@@ -85,7 +85,7 @@ for line in open(sys.argv[1]):
 )
 ads=$pipeline/$ads
 records=$pipeline/$records
-registry=${REGISTRY:-$(ls -d "$external"/registry/*-extend | sort | tail -1)/registry.parquet}
+registry=${REGISTRY:-$(ls -t "$external"/registry/*-extend*/registry.parquet | head -1)}
 src=$datasets/b0-$hash-alldata-dense-nyc
 market=$src-market
 backtest=$src-asof-${asof//-/}

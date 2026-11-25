@@ -118,7 +118,8 @@ All 6 Wave 2 `A100-40GB` runs completed cleanly (`$4.13` across 6 runs; total ov
 
 ### 5c. Headline Discovery & Recommendation for Next Full `onefit` Gate
 
-1. **Monthly building AR(1) (`bld_monthly`) closes over 60% of the open-market under-coverage gap AND adds ~`+2,000` full `latest` ELPD:**
+1. **Monthly building AR(1) (`bld_monthly`) adds ~`+1,800` full `latest` ELPD on its own; in combination the open-market 80% coverage rises about 3 pp:**
+   - *Correction (review, 2026-11-25):* the open-market figures below come from the combined `b4-m-c2-bimo` / `b4-m-c2-mo` screens (`attr_changes` + `u1_size_scale` + the building step). No open-market screen of `bld_monthly` alone was run. The lift closes about 59% of the gap to 80%, and the raw open-market ELPD gain (`+13.0 ± 17.0`) is not distinguishable from zero.
    - Moving building AR(1) from `4/yr -> 6/yr -> 12/yr` lifts open-market 80% coverage monotonically from **`75.2% -> 76.3% -> 78.1%`** (and 90% coverage `87.7% -> 87.9% -> 89.1%`), with every slice improving (`unit_ads>=1`: `77.2% -> 80.8%`, `unit_ads=0`: `71.6% -> 73.1%`, `bld_ads<=5`: `67.0% -> 69.7%`, `3+BR`: `73.1% -> 75.2%`), while adding **`+1,799 ± 318` (`z = +5.66`)** single-change and **`+2,104 ± 336` (`z = +6.27`)** combined full `latest` ELPD!
    - Why? Under quarterly AR(1), open listings sit up to 3 months past the last quarterly knot, compressing building-drift predictive uncertainty and blurring recent landlord repricing; monthly AR(1) propagates realistic month-to-month building momentum straight into open-market predictions.
 2. **Drop `u1_size_scale` from the production bundle:** `b4-u1-size` was marginal on `latest` (`+64 ± 74`, slightly worse RMSE `0.07820 -> 0.07850`) and `b4-m-attr-u1` was slightly negative on open market (`-4.1 ± 3.0`, MAE `0.07135 -> 0.07159`). Meanwhile `attr_changes` alone improved `latest` ELPD (`+216 ± 56`, `z = +3.86`, `2022+ z = +3.82`), MAE (`0.05430 -> 0.05428`), RMSE (`0.07820 -> 0.07810`), and ESS (`24.0 -> 29.4`) at zero speed cost.
@@ -126,4 +127,13 @@ All 6 Wave 2 `A100-40GB` runs completed cleanly (`$4.13` across 6 runs; total ov
    - **Recommended Ceiling (`c2-monthly` = `C1 + attr_changes,bld_monthly`, `432` params):** ~`+2,015` full `latest` ELPD, `+2.8–3.1 pp` open-market 80% coverage, `-4.6 bps` MAE. Estimated full 1.9M-row `onefit` cost on 2× H200 `--lean`: `~$20–$23` (can be cut ~25% first by adding intermediate `64, 96, 128` buckets to `drift.CELL_PADS`).
    - **Fast-Pareto Alternative (`c2-bimonthly` = `C1 + attr_changes,bld_bimonthly`, `432` params):** ~`+1,070` full `latest` ELPD, `+1.1–1.2 pp` open-market 80% coverage, only `+10%` sweep time (`~$14` full `onefit` on 2× H200 `--lean`).
 
+### 5d. Predictions scored
 
+- `b4-c2-bimo` (`+900` to `+1,400`): realized `+1,181 ± 286`, **inside** the range.
+- `b4-c2-mo` (`+1,700` to `+2,400`): realized `+2,104 ± 336`, **inside**.
+- `b4-m-anchor` (`0 ± 15` raw): `+0.0 ± 1.1`, **inside**.
+- `b4-m-attr-u1` (`+10` to `+35` raw; large-unit cov80 `+4` to `+10 pp`): `-4.1 ± 3.0`, **missed** (wrong sign).
+- `b4-m-c2-bimo` (`+15` to `+50` raw; MAE `-0.0002` to `-0.0008`): `+9.2 ± 15.0`, MAE worse (`0.07135 -> 0.07172`), **missed** on both.
+- `b4-m-c2-mo` (`+25` to `+75` raw; MAE `-0.0004` to `-0.0012`): `+13.0 ± 17.0`, MAE worse (`0.07135 -> 0.07145`), **missed** on both.
+
+The `latest` predictions held, and every open-market prediction missed. None of these screens pass the convergence gate (max R-hat up to `1.16`, min ESS as low as `9.9`), so they are screening evidence only, and the kills are weak evidence.
