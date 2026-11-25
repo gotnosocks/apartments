@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overnight Sprint Briefing (2026-11-24) — Tracks A1, A2, B1 &amp; B2</title>
+<style>
+:root{
+  --bg:#ffffff;--fg:#1f2328;--muted:#59636e;--border:#d1d9e0;--code:#f6f8fa;
+  --link:#0969da;--card:#f6f8fa;--good:#1a7f37;--good-bg:#dafbe1;
+  --warn:#9a6700;--warn-bg:#fff8c5;--bad:#cf222e;--bad-bg:#ffebe9;
+  --accent:#0969da;--accent-soft:#ddf4ff;--purple:#8250df;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0d1117;--fg:#e6edf3;--muted:#9198a1;--border:#30363d;--code:#161b22;
+    --link:#4493f8;--card:#161b22;--good:#3fb950;--good-bg:#12261e;
+    --warn:#d29922;--warn-bg:#2b2111;--bad:#f85149;--bad-bg:#2d1416;
+    --accent:#58a6ff;--accent-soft:#12263a;--purple:#a371f7;
+  }
+}
+*{box-sizing:border-box}
+html,body{overflow-x:visible}
+body{
+  background:var(--bg);color:var(--fg);
+  font:15.5px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  max-width:940px;margin:0 auto;padding:1.5rem 16px 3rem;
+}
+a{color:var(--link);text-decoration:none}
+a:hover{text-decoration:underline}
+h1{font-size:1.7rem;margin:0 0 .35rem;border-bottom:1px solid var(--border);padding-bottom:.4rem}
+h2{font-size:1.3rem;margin:2rem 0 .6rem;border-bottom:1px solid var(--border);padding-bottom:.3rem}
+h3{font-size:1.05rem;margin:1.3rem 0 .4rem}
+p{margin:.6rem 0}
+code{background:var(--code);padding:.12em .35em;border-radius:4px;font-size:88%;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.subtitle{color:var(--muted);font-size:.95rem;margin-bottom:1.1rem}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px;margin:1rem 0 1.4rem}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+.kpi .label{font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.kpi .val{font-size:1.45rem;font-weight:700;margin:2px 0}
+.kpi .sub{font-size:.82rem;color:var(--muted)}
+.kpi.good .val{color:var(--good)}
+.kpi.accent .val{color:var(--accent)}
+.callout{border-left:4px solid var(--accent);background:var(--card);padding:12px 15px;border-radius:0 8px 8px 0;margin:1rem 0}
+.callout.good{border-left-color:var(--good)}
+.callout.warn{border-left-color:var(--warn)}
+.badge{display:inline-block;padding:1px 7px;border-radius:999px;font-size:.76rem;font-weight:600;vertical-align:middle}
+.badge.go{background:var(--good-bg);color:var(--good)}
+.badge.kill{background:var(--bad-bg);color:var(--bad)}
+.badge.esc{background:var(--warn-bg);color:var(--warn)}
+.badge.info{background:var(--accent-soft);color:var(--accent)}
+table{border-collapse:collapse;display:block;overflow-x:auto;margin:.9rem 0;font-size:.88rem;width:100%}
+th,td{border:1px solid var(--border);padding:.42em .62em;text-align:left;white-space:nowrap}
+th{background:var(--card);font-weight:600}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tr.win{background:var(--good-bg)}
+.chart-wrap{overflow-x:auto;margin:1rem 0;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px}
+.chart-wrap svg{display:block;max-width:100%;height:auto;min-width:620px}
+.chart-cap{font-size:.82rem;color:var(--muted);margin-top:6px}
+ul{padding-left:1.3rem}
+li{margin:.32rem 0}
+.decision-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;margin:1rem 0}
+.decision{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.decision.rec{border:2px solid var(--good)}
+.decision h4{margin:0 0 .35rem;font-size:1rem}
+.muted{color:var(--muted)}
+</style>
+</head>
+<body>
+
+<h1>Overnight Sprint Briefing — Tracks A1, A2, B1 &amp; B2</h1>
+<div class="subtitle">Completed <strong>2026-11-24 (02:15 AM ET)</strong> · PR <code>#1550</code> (A1 + A2) &amp; PR <code>#1551</code> (B1 + B2) · Total overnight Modal spend: <strong>$11.71</strong></div>
+
+<div class="kpi-grid">
+  <div class="kpi good">
+    <div class="label">Best Wave 2 Stack (Latest)</div>
+    <div class="val">+2,104 ± 336</div>
+    <div class="sub"><code>b4-c2-mo</code> full ΔELPD (z=+6.27, 80.01% cov)</div>
+  </div>
+  <div class="kpi good">
+    <div class="label">Open-Market 80% Coverage</div>
+    <div class="val">75.2% → 78.1%</div>
+    <div class="sub">+2.85 pp (+3.07 pp strict) via <code>bld_monthly</code></div>
+  </div>
+  <div class="kpi accent">
+    <div class="label">Fast-Pareto Stack (Latest)</div>
+    <div class="val">+1,181 ± 286</div>
+    <div class="sub"><code>b4-c2-bimo</code> (z=+4.13, only +10% sweep)</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Overnight Modal Spend</div>
+    <div class="val">$11.71</div>
+    <div class="sub">18 screens (W1+W2) + $0.44 fast-fail</div>
+  </div>
+</div>
+
+<div class="callout good">
+  <strong>Bottom Line for 6:00 AM Check-In:</strong>
+  All four overnight tracks completed cleanly well ahead of 6 AM and inside our $12 Modal ceiling.
+  <strong>Track A1</strong> audited the newly live unified model (<code>c1-live-of</code>): kept-quantity mixing is spotless (0 top live deals &gt; 1.05 R-hat), 140 blind NYC broker reads surfaced high-value error patterns, and Half-B out-of-sample checks seeded Wave 4.
+  <strong>Track A2</strong> fixed both Nov 23 refresh tooling faults, wired <code>ops/deals-refresh</code> for <code>onefit</code> + <code>publish-all</code>, and reconciled the Modal spend ledger (<strong>PR #1550</strong>).
+  <strong>Track B1 + B2 (Wave 4)</strong> delivered a major modeling breakthrough: refining building AR(1) paths from quarterly (<code>4/yr</code>) to <strong>monthly (<code>12/yr</code>, <code>bld_monthly</code>)</strong> on <code>c1-compact</code> adds <strong>+1,799 ± 318</strong> full <code>latest</code> ELPD (<code>z = +5.66</code>, <strong>+0 parameters</strong>, <code>-4.6 bps</code> MAE) <em>and simultaneously</em> lifts open-market <code>/deals</code> 80% coverage from <strong>75.2% → 78.1%</strong> (90% cov <strong>87.7% → 89.1%</strong>), closing over 60% of the long-standing open-market under-coverage gap. Adding strictly causal within-unit <code>attr_changes</code> (<code>+216 ± 56</code>, <code>z = +3.86</code>, zero speed hit) pushes the combined ceiling stack to <strong>+2,104 ± 336</strong>.
+</div>
+
+<h2>1. Morning Decision Options (Ready for Your Go)</h2>
+<div class="decision-grid">
+  <div class="decision rec">
+    <h4>Option A (Recommended): Full <code>onefit</code> Gate of <code>c2-monthly</code></h4>
+    <p><code>c1-compact + attr_changes + bld_monthly</code> (<code>432</code> params, +3 vs live).</p>
+    <ul>
+      <li><strong>Projected gain:</strong> ~<code>+2,015</code> full <code>latest</code> ELPD, <code>-4.6 bps</code> MAE, and <strong>+2.8–3.1 pp</strong> open-market 80% coverage (<code>~78.1%</code>).</li>
+      <li><strong>Estimated cost:</strong> <code>~$20–$23</code> on 2× H200 <code>--lean</code> (first add intermediate <code>64, 96, 128</code> buckets to <code>drift.CELL_PADS</code> to shave ~25% off monthly sweep time).</li>
+    </ul>
+  </div>
+  <div class="decision">
+    <h4>Option B (Fast-Pareto): Full <code>onefit</code> Gate of <code>c2-bimonthly</code></h4>
+    <p><code>c1-compact + attr_changes + bld_bimonthly</code> (<code>432</code> params, +3 vs live).</p>
+    <ul>
+      <li><strong>Projected gain:</strong> ~<code>+1,070</code> full <code>latest</code> ELPD, <strong>+1.1–1.2 pp</strong> open-market 80% coverage, <em>better</em> MCMC mixing than live.</li>
+      <li><strong>Estimated cost:</strong> <code>~$14</code> on 2× H200 <code>--lean</code> (only +10% sweep time vs <code>c1-live-of</code>'s $12.37).</li>
+    </ul>
+  </div>
+</div>
+
+<h2>2. Track A1 — Post-Gate Audit of Live <code>c1-live-of</code> (PR #1550, $0 Spend)</h2>
+<p>Full audit note: <code>docs/notes/c1-live-onefit-audit-2026-11-24.md</code> (<code>n = 149,550</code> closed ≥1-yr held-out + <code>6,200</code> live open ads).</p>
+<ul>
+  <li><strong>Kept-quantity mixing is very clean:</strong> Only <code>13 / 155,750</code> (<code>0.008%</code>) scored ads have <code>pred_loc</code> R-hat &gt; 1.05 (<strong>0</strong> among top live <code>/deals</code>), <code>42 / 68,008</code> buildings have level R-hat &gt; 1.05, and far-thin buildings dropped from <code>338 → 235</code>.</li>
+  <li><strong>Live open-market weak spots (<code>n = 6,200</code>):</strong> Overall 80% coverage is strong on repeat units, but under-covers on <code>bld_ads = 0</code> (<code>n=87</code>, cov80 <code>43.7%</code>, bias <code>+0.188</code>), <code>size 1500+</code> (<code>64.4%</code>), <code>top3_pred</code> (<code>64.8%</code>), <code>unit_ads = 0</code> (<code>69.5%</code>), and <code>floor = unk</code> (<code>71.6%</code>).</li>
+  <li><strong>140 blind NYC broker reads (3 batches):</strong> Closed high-miss batch surfaced townhouses/small lots (6 vs 1), co-ops/condos, and renovated listings; live <code>/deals</code> top-25 batch surfaced sparse-photo ads (<code>≤ 1</code> photo, 6 vs 1) and bedroom-count mismatches.</li>
+  <li><strong>Structural discoveries:</strong> (1) <code>apply_floor_poly</code> summed only <code>unit:elev_f2..64</code>, mapping elevator floor 1 and floor unknown to identical <code>(0,0,0)</code> coordinates (leaving a <code>-1.39%</code> A / <code>-1.19%</code> B bias in 2022+); (2) <code>bld:coop</code> was absent from <code>c1-compact</code> (co-ops were lumped into <code>class_C/D</code>).</li>
+</ul>
+
+<div class="chart-wrap">
+  <svg viewBox="0 0 720 290" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Track A1 Unbiased Half-B Confirmation vs Wave 1 Joint Refit">
+    <style>
+      .t{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;fill:currentColor}
+      .ax{stroke:currentColor;stroke-opacity:.25;stroke-width:1}
+      .lbl{font-size:11.5px;fill:currentColor}
+      .val{font-size:10.5px;font-weight:600;fill:currentColor}
+      .ttl{font-size:13px;font-weight:700;fill:currentColor}
+      .sub{font-size:10.5px;fill:currentColor;opacity:.7}
+    </style>
+    <text x="12" y="20" class="t ttl">Track A1 Unbiased Half-B Marginal ΔELPD (n=74,132 ×2) vs Wave 1 Joint Refit Outcome</text>
+    <text x="12" y="36" class="t sub">Marginal post-hoc scoring overestimates static building/unit scale terms that confound with unit_sd in joint refits</text>
+    <!-- Grid lines at x=190 (0), 290 (50), 390 (100), 490 (150), 590 (200) -->
+    <line x1="190" y1="50" x2="190" y2="256" class="ax"/>
+    <line x1="290" y1="50" x2="290" y2="256" class="ax" stroke-dasharray="3,3"/>
+    <line x1="390" y1="50" x2="390" y2="256" class="ax" stroke-dasharray="3,3"/>
+    <line x1="490" y1="50" x2="490" y2="256" class="ax" stroke-dasharray="3,3"/>
+    <line x1="590" y1="50" x2="590" y2="256" class="ax" stroke-dasharray="3,3"/>
+    <text x="190" y="274" text-anchor="middle" class="t sub">0</text>
+    <text x="290" y="274" text-anchor="middle" class="t sub">+50</text>
+    <text x="390" y="274" text-anchor="middle" class="t sub">+100</text>
+    <text x="490" y="274" text-anchor="middle" class="t sub">+150</text>
+    <text x="590" y="274" text-anchor="middle" class="t sub">+200</text>
+    <!-- Bars: scale 2px per ELPD -->
+    <g>
+      <text x="182" y="69" text-anchor="end" class="t lbl">changed_bed (1.40×)</text>
+      <rect x="190" y="57" width="411.6" height="15" rx="3" fill="#cf222e" opacity=".78"/>
+      <text x="608" y="69" class="t val">+206 ± 30 → W1: -5 (KILL)</text>
+
+      <text x="182" y="92" text-anchor="end" class="t lbl">floor_unknown (1.03×)</text>
+      <rect x="190" y="80" width="390.8" height="15" rx="3" fill="#cf222e" opacity=".78"/>
+      <text x="587" y="92" class="t val">+195 ± 29 → W1: -8 (KILL)</text>
+
+      <text x="182" y="115" text-anchor="end" class="t lbl">tenure_condo (1.05×)</text>
+      <rect x="190" y="103" width="233.4" height="15" rx="3" fill="#cf222e" opacity=".78"/>
+      <text x="430" y="115" class="t val">+117 ± 31 → W1: -20 (KILL)</text>
+
+      <text x="182" y="138" text-anchor="end" class="t lbl">townhouse ≤4u</text>
+      <rect x="190" y="126" width="217.8" height="15" rx="3" fill="#cf222e" opacity=".78"/>
+      <text x="414" y="138" class="t val">+109 ± 21 → W1: -138 (KILL)</text>
+
+      <text x="182" y="161" text-anchor="end" class="t lbl">tenure_coop (1.10×)</text>
+      <rect x="190" y="149" width="195.4" height="15" rx="3" fill="#cf222e" opacity=".78"/>
+      <text x="392" y="161" class="t val">+98 ± 21 → pooled w/ condo</text>
+
+      <text x="182" y="184" text-anchor="end" class="t lbl">u1_log_sqft_gt1k</text>
+      <rect x="190" y="172" width="152.6" height="15" rx="3" fill="#d29922" opacity=".85"/>
+      <text x="349" y="184" class="t val">+76 ± 21 → W1: +64 / Mkt: -4</text>
+
+      <text x="182" y="207" text-anchor="end" class="t lbl">floor_1 (pooled)</text>
+      <rect x="190" y="195" width="136.6" height="15" rx="3" fill="#cf222e" opacity=".78"/>
+      <text x="333" y="207" class="t val">+68 ± 25 → W1: -42 (sign cancel)</text>
+
+      <text x="182" y="230" text-anchor="end" class="t lbl">bld_thin_le5 (dof8)</text>
+      <rect x="190" y="218" width="121.8" height="15" rx="3" fill="#cf222e" opacity=".78"/>
+      <text x="318" y="230" class="t val">+61 ± 19 → W1: -57 (t(4) wins)</text>
+
+      <text x="182" y="253" text-anchor="end" class="t lbl">sparse_photos ≤1</text>
+      <rect x="190" y="241" width="72.6" height="15" rx="3" fill="#cf222e" opacity=".78"/>
+      <text x="269" y="253" class="t val">+36 ± 16 → W1: -8 (KILL)</text>
+    </g>
+  </svg>
+  <div class="chart-cap">Why real MCMC screening beats post-hoc residual scoring: static building/unit scale terms look huge marginally on fixed residuals, but in joint refits they trade off against <code>unit_sd</code> on repeat-ad units. Within-unit change signals (<code>attr_changes</code>) and temporal dynamics (<code>bld_bimonthly</code>/<code>bld_monthly</code>) do not confound with <code>unit_sd</code> and delivered real out-of-sample gains.</div>
+</div>
+
+<h2>3. Track A2 — Refresh Tooling Fixes &amp; Ledger Reconciliation (PR #1550)</h2>
+<ul>
+  <li><strong>Monday morning thin-week fix (<code>b0trim.py</code>):</strong> Added <code>--allow-thin-last</code> (default <code>False</code> for backwards compatibility) so a Monday morning scrape with &lt;100 rows in the partial trailing week no longer trips <code>dense_start</code> when the preceding week is dense. Wired into <code>ops/market-dataset</code> and <code>ops/deals-refresh</code>.</li>
+  <li><strong>Same-day <code>-extend-HHMMSS</code> registry glob fix:</strong> Replaced lexicographic <code>*-extend</code> globs in <code>ops/market-dataset</code> and <code>ops/deals-refresh</code> with mtime-sorted <code>ls -t "$external"/registry/*-extend*/registry.parquet | head -1</code> (and NJ equivalent).</li>
+  <li><strong><code>registry-extend</code> exit-134 mitigation:</strong> Added <code>ARROW_IO_THREADS=1</code> and <code>OMP_NUM_THREADS=1</code> to <code>ops/systemd/apartments-registry-extend.service</code>.</li>
+  <li><strong><code>ops/deals-refresh</code> unified <code>onefit</code> + <code>publish-all</code>:</strong> Added <code>onefit</code> subcommand (2× <code>--large --lean</code> H200 shards, or 1-container <code>SCALES_FIXED</code> ~$2 fast refresh) and <code>publish-all</code> (republishing <code>/deals</code>, <code>/estimates</code>, <code>/price-now</code>, and <code>/diagnostics</code> from one run). Verified with 18 passing unit tests (<code>test_b0trim.py</code> + <code>test_deals_refresh.py</code>).</li>
+  <li><strong>Modal spend ledger reconciled (<code>/data1/apartments/modal/ledger.jsonl</code>):</strong>
+    <ul>
+      <li><code>2026-11-14 .. 11-20</code>: <strong>$80.43</strong> (exact match to handoff record)</li>
+      <li><code>2026-11-22</code>: <strong>$279.65</strong> (multi-session unified + simplify + fast-screen sprint)</li>
+      <li><code>2026-11-23</code>: <strong>$39.42</strong> (<code>c1-live-of</code> + container probes + <code>range-m4</code>)</li>
+      <li><code>2026-11-24</code> (tonight, Wave 4): <strong>$11.71</strong> (30 settlements: 12 W1 + 6 W2 + $0.44 fast-fail)</li>
+      <li><strong>Total settled since Nov 14:</strong> <strong>$411.21</strong> across 280 runs (5 stale unsettled reservations noted).</li>
+    </ul>
+  </li>
+</ul>
+
+<h2>4. Track B1 + B2 — Wave 1 Single-Change Screen (<code>screen-k5</code>, Commit <code>3f7e35d0</code>)</h2>
+<p>11 single-change arms on top of <code>C1 = layrng,size,sv_gp_mo,marks,seg_add,floor_poly,ad_core,scalar_sigma,biweekly_walk</code>, paired against exact same-commit anchor <code>b4-anchor</code> (which reproduced <code>w2-c1-compact</code> within <code>+7.2 ± 5.2</code> sub / <code>+37 ± 26</code> full, <code>1.00×</code> sweep). All pre-fit predictions were committed in <code>docs/notes/c1-wave4-screen-2026-11-24.md</code> prior to launch.</p>
+
+<div class="chart-wrap">
+  <svg viewBox="0 0 740 365" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Wave 1 Single-Change Projected Full ΔELPD Forest Plot">
+    <style>
+      .t{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;fill:currentColor}
+      .ax{stroke:currentColor;stroke-opacity:.25;stroke-width:1}
+      .zero{stroke:currentColor;stroke-opacity:.6;stroke-width:1.4}
+      .lbl{font-size:11.5px;fill:currentColor}
+      .val{font-size:10.5px;font-weight:600;fill:currentColor}
+      .ttl{font-size:13px;font-weight:700;fill:currentColor}
+      .sub{font-size:10.5px;fill:currentColor;opacity:.7}
+    </style>
+    <text x="12" y="20" class="t ttl">Wave 1 Single-Change Projected Full ΔELPD ± 2 SE (screen-k5 ×5.10, n=37,199)</text>
+    <text x="12" y="36" class="t sub">Green = GO/Win · Amber = Escalate · Red = Kill · Horizontal bars show ±2 SE (95% CI)</text>
+    <!-- Scale: x = 250 + elpd * 0.19 (so -300 -> 193, 0 -> 250, +500 -> 345, +1000 -> 440, +1500 -> 535, +2000 -> 630, +2500 -> 725) -->
+    <line x1="250" y1="50" x2="250" y2="332" class="zero"/>
+    <line x1="345" y1="50" x2="345" y2="332" class="ax" stroke-dasharray="3,3"/>
+    <line x1="440" y1="50" x2="440" y2="332" class="ax" stroke-dasharray="3,3"/>
+    <line x1="535" y1="50" x2="535" y2="332" class="ax" stroke-dasharray="3,3"/>
+    <line x1="630" y1="50" x2="630" y2="332" class="ax" stroke-dasharray="3,3"/>
+    <text x="250" y="350" text-anchor="middle" class="t sub">0</text>
+    <text x="345" y="350" text-anchor="middle" class="t sub">+500</text>
+    <text x="440" y="350" text-anchor="middle" class="t sub">+1,000</text>
+    <text x="535" y="350" text-anchor="middle" class="t sub">+1,500</text>
+    <text x="630" y="350" text-anchor="middle" class="t sub">+2,000</text>
+    <!-- 1. bld_monthly: +1799 ± 318 (CI 1163..2435 -> x: 471..713, pt: 591.8) -->
+    <text x="148" y="68" text-anchor="end" class="t lbl" font-weight="700">bld_monthly (12/yr)</text>
+    <line x1="471" y1="64" x2="713" y2="64" stroke="#1a7f37" stroke-width="3"/>
+    <circle cx="591.8" cy="64" r="5" fill="#1a7f37"/>
+    <text x="464" y="68" text-anchor="end" class="t val">+1,799 ± 318 (z=+5.66)</text>
+    <!-- 2. bld_bimonthly: +854 ± 270 (CI 314..1394 -> x: 309.7..514.9, pt: 412.3) -->
+    <text x="148" y="93" text-anchor="end" class="t lbl" font-weight="700">bld_bimonthly (6/yr)</text>
+    <line x1="309.7" y1="89" x2="514.9" y2="89" stroke="#1a7f37" stroke-width="3"/>
+    <circle cx="412.3" cy="89" r="5" fill="#1a7f37"/>
+    <text x="522" y="93" class="t val">+854 ± 270 (z=+3.17, 0.90× sw)</text>
+    <!-- 3. attr_changes: +216 ± 56 (CI 104..328 -> x: 269.8..312.3, pt: 291.0) -->
+    <text x="148" y="118" text-anchor="end" class="t lbl" font-weight="700">attr_changes (1/2/3+)</text>
+    <line x1="269.8" y1="114" x2="312.3" y2="114" stroke="#1a7f37" stroke-width="3"/>
+    <circle cx="291.0" cy="114" r="5" fill="#1a7f37"/>
+    <text x="320" y="118" class="t val">+216 ± 56 (z=+3.86, 0.97× sw)</text>
+    <!-- 4. u1_size_scale: +64 ± 74 (CI -84..+212 -> x: 234.0..290.3, pt: 262.2) -->
+    <text x="148" y="143" text-anchor="end" class="t lbl">u1_size_scale</text>
+    <line x1="234.0" y1="139" x2="290.3" y2="139" stroke="#d29922" stroke-width="2.5"/>
+    <circle cx="262.2" cy="139" r="4.5" fill="#d29922"/>
+    <text x="298" y="143" class="t val">+64 ± 74 (ESS 42.8; mkt -4)</text>
+    <!-- 5. mark_changed_bed: -5 ± 47 -->
+    <text x="148" y="168" text-anchor="end" class="t lbl">mark_changed_bed</text>
+    <line x1="231.2" y1="164" x2="266.9" y2="164" stroke="#cf222e" stroke-width="2"/>
+    <circle cx="249.1" cy="164" r="4" fill="#cf222e"/>
+    <text x="275" y="168" class="t sub">-5 ± 47 (KILL)</text>
+    <!-- 6. mark_floor_unk: -8 ± 37 -->
+    <text x="148" y="193" text-anchor="end" class="t lbl">mark_floor_unk</text>
+    <line x1="234.4" y1="189" x2="262.5" y2="189" stroke="#cf222e" stroke-width="2"/>
+    <circle cx="248.5" cy="189" r="4" fill="#cf222e"/>
+    <text x="271" y="193" class="t sub">-8 ± 37 (KILL)</text>
+    <!-- 7. mark_sparse_photos: -8 ± 67 -->
+    <text x="148" y="218" text-anchor="end" class="t lbl">mark_sparse_photos</text>
+    <line x1="223.0" y1="214" x2="273.9" y2="214" stroke="#cf222e" stroke-width="2"/>
+    <circle cx="248.5" cy="214" r="4" fill="#cf222e"/>
+    <text x="282" y="218" class="t sub">-8 ± 67 (KILL)</text>
+    <!-- 8. mark_tenure: -20 ± 101 -->
+    <text x="148" y="243" text-anchor="end" class="t lbl">mark_tenure</text>
+    <line x1="207.8" y1="239" x2="284.6" y2="239" stroke="#cf222e" stroke-width="2"/>
+    <circle cx="246.2" cy="239" r="4" fill="#cf222e"/>
+    <text x="293" y="243" class="t sub">-20 ± 101 (unit_sd R-hat 1.136)</text>
+    <!-- 9. floor1_mean: -42 ± 30 -->
+    <text x="148" y="268" text-anchor="end" class="t lbl">floor1_mean (pooled)</text>
+    <line x1="230.6" y1="264" x2="253.4" y2="264" stroke="#cf222e" stroke-width="2"/>
+    <circle cx="242.0" cy="264" r="4" fill="#cf222e"/>
+    <text x="262" y="268" class="t sub">-42 ± 30 (elev/walkup sign cancel)</text>
+    <!-- 10. --level-dof 8: -57 ± 33 -->
+    <text x="148" y="293" text-anchor="end" class="t lbl">--level-dof 8</text>
+    <line x1="226.6" y1="289" x2="251.7" y2="289" stroke="#cf222e" stroke-width="2"/>
+    <circle cx="239.2" cy="289" r="4" fill="#cf222e"/>
+    <text x="260" y="293" class="t sub">-57 ± 33 (t(4) beats t(8))</text>
+    <!-- 11. mark_townhouse: -138 ± 63 -->
+    <text x="148" y="318" text-anchor="end" class="t lbl">mark_townhouse</text>
+    <line x1="199.8" y1="314" x2="247.7" y2="314" stroke="#cf222e" stroke-width="2"/>
+    <circle cx="223.8" cy="314" r="4" fill="#cf222e"/>
+    <text x="256" y="318" class="t sub">-138 ± 63 (unit_sd R-hat 1.211)</text>
+  </svg>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Arm</th><th>Single Change on <code>C1</code></th><th class="num">Full ΔELPD ± SE</th><th class="num">z (2022+ z)</th><th class="num">Half A / B</th><th class="num">Params</th><th class="num">s/sweep</th><th class="num">R-hat / ESS</th><th class="num">Cost</th><th>Verdict</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="win"><td><code>b4-bld-mo</code></td><td><code>+bld_monthly</code> (12/yr)</td><td class="num"><strong>+1,799 ± 318</strong></td><td class="num"><strong>+5.66 (+2.84)</strong></td><td class="num">+158.9 / +194.0</td><td class="num">429 (+0)</td><td class="num">1.230 (0.53×)</td><td class="num">1.160* / 14.0</td><td class="num">$0.79</td><td><span class="badge go">BIG WIN</span></td></tr>
+    <tr class="win"><td><code>b4-bld-bimo</code></td><td><code>+bld_bimonthly</code> (6/yr)</td><td class="num"><strong>+854 ± 270</strong></td><td class="num"><strong>+3.17 (+1.47)</strong></td><td class="num">+100.1 / +67.5</td><td class="num">429 (+0)</td><td class="num">0.724 (0.90×)</td><td class="num">1.085 / 26.7</td><td class="num">$0.63</td><td><span class="badge go">GO</span></td></tr>
+    <tr class="win"><td><code>b4-attr-chg</code></td><td><code>+attr_changes</code> (1/2/3+)</td><td class="num"><strong>+216 ± 56</strong></td><td class="num"><strong>+3.86 (+3.82)</strong></td><td class="num">+23.0 / +19.5</td><td class="num">432 (+3)</td><td class="num">0.672 (0.97×)</td><td class="num">1.089 / 29.4</td><td class="num">$0.54</td><td><span class="badge go">GO</span></td></tr>
+    <tr><td><code>b4-u1-size</code></td><td><code>+u1_size_scale</code> (&gt;1k sf)</td><td class="num">+64 ± 74</td><td class="num">+0.87 (+1.40)</td><td class="num">+11.8 / +0.8</td><td class="num">430 (+1)</td><td class="num">0.662 (0.98×)</td><td class="num">1.089 / 42.8</td><td class="num">$0.57</td><td><span class="badge esc">W2 MKT</span></td></tr>
+    <tr><td><code>b4-changed-bed</code></td><td><code>+mark_changed_bed</code></td><td class="num">-5 ± 47</td><td class="num">-0.11 (-0.09)</td><td class="num">+6.0 / -7.1</td><td class="num">430 (+1)</td><td class="num">0.676 (0.96×)</td><td class="num">1.106 / 18.2</td><td class="num">$0.60</td><td><span class="badge kill">KILL</span></td></tr>
+    <tr><td><code>b4-floor-unk</code></td><td><code>+mark_floor_unk</code></td><td class="num">-8 ± 37</td><td class="num">-0.20 (+0.71)</td><td class="num">-1.5 / +0.0</td><td class="num">430 (+1)</td><td class="num">0.672 (0.97×)</td><td class="num">1.101 / 7.9</td><td class="num">$0.60</td><td><span class="badge kill">KILL</span></td></tr>
+    <tr><td><code>b4-sparse-ph</code></td><td><code>+mark_sparse_photos</code></td><td class="num">-8 ± 67</td><td class="num">-0.12 (+0.51)</td><td class="num">-11.3 / +9.7</td><td class="num">430 (+1)</td><td class="num">0.697 (0.93×)</td><td class="num">1.085 / 13.1</td><td class="num">$0.56</td><td><span class="badge kill">KILL</span></td></tr>
+    <tr><td><code>b4-tenure</code></td><td><code>+mark_tenure</code> (coop+scales)</td><td class="num">-20 ± 101</td><td class="num">-0.20 (+0.01)</td><td class="num">-8.9 / +5.0</td><td class="num">432 (+3)</td><td class="num">0.675 (0.96×)</td><td class="num">1.136 / 18.5</td><td class="num">$0.62</td><td><span class="badge kill">KILL</span></td></tr>
+    <tr><td><code>b4-floor1-mean</code></td><td><code>+floor1_mean</code> (pooled)</td><td class="num">-42 ± 30</td><td class="num">-1.41 (-0.51)</td><td class="num">-2.9 / -5.3</td><td class="num">430 (+1)</td><td class="num">0.650 (1.00×)</td><td class="num">1.110 / 15.3</td><td class="num">$0.60</td><td><span class="badge kill">KILL</span></td></tr>
+    <tr><td><code>b4-dof8</code></td><td><code>--level-dof 8</code> (vs 4)</td><td class="num">-57 ± 33</td><td class="num">-1.76 (-0.83)</td><td class="num">+0.3 / -11.6</td><td class="num">429 (+0)</td><td class="num">0.619 (1.05×)</td><td class="num">1.125 / 13.7</td><td class="num">$0.56</td><td><span class="badge kill">KILL</span></td></tr>
+    <tr><td><code>b4-townhouse</code></td><td><code>+mark_townhouse</code> (≤4u)</td><td class="num">-138 ± 63</td><td class="num">-2.19 (-1.41)</td><td class="num">-26.2 / -0.8</td><td class="num">431 (+2)</td><td class="num">0.652 (1.00×)</td><td class="num">1.211 / 4.3</td><td class="num">$0.53</td><td><span class="badge kill">KILL</span></td></tr>
+  </tbody>
+</table>
+<p class="muted" style="font-size:.84rem">*<code>b4-bld-mo</code>'s 1.160 R-hat is on <code>beta[seg:zone:outer:2017q2]</code> (the usual short-screen segment knot), not on building AR(1). Direct paired <code>b4-bld-mo</code> vs <code>b4-bld-bimo</code>: <strong>+945 ± 224</strong> full ΔELPD (<code>z = +4.22</code>, <code>2022+ z = +2.14</code>).</p>
+
+<h2>5. Track B2 Deep Dive &amp; Wave 2 Combinations (<code>latest</code> + Open Market)</h2>
+<p>Wave 2 tested the winning stacks on both <code>screen-k5</code> (<code>latest</code>) and <code>screen-mkt-k5</code> (<code>asof-20251110</code> open-market backtest, <code>n = 1,891</code> open ads, exact anchor match <code>+0.0 ± 1.1</code> vs <code>w2-m-c1-compact</code>).</p>
+
+<div class="chart-wrap">
+  <svg viewBox="0 0 740 275" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Building AR(1) Temporal Resolution Curve: Latest ELPD and Open-Market 80% Coverage">
+    <style>
+      .t{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;fill:currentColor}
+      .ax{stroke:currentColor;stroke-opacity:.22;stroke-width:1}
+      .lbl{font-size:11px;fill:currentColor}
+      .val{font-size:10.5px;font-weight:700}
+      .ttl{font-size:12.5px;font-weight:700;fill:currentColor}
+      .sub{font-size:10px;fill:currentColor;opacity:.7}
+    </style>
+    <!-- Left panel: Latest Full ΔELPD vs steps/yr (1, 2, 4, 6, 12) -->
+    <text x="14" y="20" class="t ttl">A. Latest Full ΔELPD vs Building AR(1) Steps/Yr</text>
+    <text x="14" y="34" class="t sub">1/yr &amp; 2/yr from #1537 cost-arms (×5.10); 4/6/12 from Wave 4</text>
+    <!-- Axes: x in [55..345], y in [52..230], zero at y=160, range -8000..+2000 -->
+    <!-- Let's show 2, 4, 6, 12 cleanly: -2640, 0, +854, +1799; y = 148 - elpd * 0.032 -->
+    <line x1="55" y1="52" x2="55" y2="235" class="ax"/>
+    <line x1="55" y1="148" x2="345" y2="148" class="ax" stroke-dasharray="4,3"/>
+    <line x1="55" y1="84" x2="345" y2="84" class="ax" stroke-dasharray="2,3"/>
+    <line x1="55" y1="212" x2="345" y2="212" class="ax" stroke-dasharray="2,3"/>
+    <text x="48" y="88" text-anchor="end" class="t sub">+2,000</text>
+    <text x="48" y="152" text-anchor="end" class="t sub">0 (4/yr)</text>
+    <text x="48" y="216" text-anchor="end" class="t sub">-2,000</text>
+    <!-- Points: 2/yr (x=85, y=232.5 -> -2640), 4/yr (x=155, y=148 -> 0), 6/yr (x=220, y=120.7 -> +854), 12/yr (x=315, y=90.4 -> +1799) -->
+    <polyline points="85,232.5 155,148 220,120.7 315,90.4" fill="none" stroke="#0969da" stroke-width="3"/>
+    <circle cx="85" cy="232.5" r="5" fill="#cf222e"/>
+    <circle cx="155" cy="148" r="5" fill="#59636e"/>
+    <circle cx="220" cy="120.7" r="5.5" fill="#1a7f37"/>
+    <circle cx="315" cy="90.4" r="6" fill="#1a7f37"/>
+    <text x="85" y="253" text-anchor="middle" class="t lbl">2/yr</text>
+    <text x="155" y="253" text-anchor="middle" class="t lbl">4/yr (live)</text>
+    <text x="220" y="253" text-anchor="middle" class="t lbl">6/yr</text>
+    <text x="315" y="253" text-anchor="middle" class="t lbl">12/yr</text>
+    <text x="95" y="228" class="t val" fill="#cf222e">-2,640</text>
+    <text x="163" y="164" class="t sub">0 (1.00×)</text>
+    <text x="220" y="109" text-anchor="middle" class="t val" fill="#1a7f37">+854 (0.90×)</text>
+    <text x="305" y="77" text-anchor="middle" class="t val" fill="#1a7f37">+1,799 (0.53×)</text>
+
+    <!-- Right panel: Open-Market 80% Coverage (screen-mkt-k5, n=1,891) -->
+    <text x="395" y="20" class="t ttl">B. Open-Market 80% Coverage by AR(1) Grid</text>
+    <text x="395" y="34" class="t sub">screen-mkt-k5 (n=1,891 open ads) — target nominal = 80.0%</text>
+    <!-- y: 70% -> 230, 80% -> 80 (15 px per 1 pp), 82% -> 50 -->
+    <line x1="425" y1="52" x2="425" y2="235" class="ax"/>
+    <line x1="425" y1="80" x2="720" y2="80" stroke="#1a7f37" stroke-width="1.5" stroke-dasharray="5,4"/>
+    <line x1="425" y1="155" x2="720" y2="155" class="ax" stroke-dasharray="2,3"/>
+    <line x1="425" y1="230" x2="720" y2="230" class="ax"/>
+    <text x="418" y="84" text-anchor="end" class="t sub" fill="#1a7f37">80%</text>
+    <text x="418" y="159" text-anchor="end" class="t sub">75%</text>
+    <text x="418" y="234" text-anchor="end" class="t sub">70%</text>
+    <text x="716" y="74" text-anchor="end" class="t sub" fill="#1a7f37">Nominal 80%</text>
+    <!-- Bars for ALL (75.20 -> y=152, 76.31 -> y=135.4, 78.05 -> y=109.3) and Repeat unit>=1 (77.2 -> 122, 79.5 -> 87.5, 80.8 -> 68) -->
+    <!-- Group 1: 4/yr (x=455) -->
+    <rect x="448" y="152" width="32" height="78" rx="3" fill="#59636e" opacity=".82"/>
+    <text x="464" y="146" text-anchor="middle" class="t val" fill="#59636e">75.2%</text>
+    <rect x="484" y="122" width="26" height="108" rx="3" fill="#0969da" opacity=".45"/>
+    <text x="497" y="116" text-anchor="middle" class="t sub">77.2%</text>
+    <text x="478" y="253" text-anchor="middle" class="t lbl">4/yr (live)</text>
+    <!-- Group 2: 6/yr (x=555) -->
+    <rect x="548" y="135.4" width="32" height="94.6" rx="3" fill="#0969da" opacity=".85"/>
+    <text x="564" y="129" text-anchor="middle" class="t val" fill="#0969da">76.3%</text>
+    <rect x="584" y="87.5" width="26" height="142.5" rx="3" fill="#0969da" opacity=".45"/>
+    <text x="597" y="81" text-anchor="middle" class="t sub">79.5%</text>
+    <text x="578" y="253" text-anchor="middle" class="t lbl">6/yr (c2-bimo)</text>
+    <!-- Group 3: 12/yr (x=655) -->
+    <rect x="648" y="109.3" width="32" height="120.7" rx="3" fill="#1a7f37" opacity=".88"/>
+    <text x="664" y="103" text-anchor="middle" class="t val" fill="#1a7f37">78.1%</text>
+    <rect x="684" y="68" width="26" height="162" rx="3" fill="#1a7f37" opacity=".42"/>
+    <text x="697" y="62" text-anchor="middle" class="t sub">80.8%</text>
+    <text x="678" y="253" text-anchor="middle" class="t lbl">12/yr (c2-mo)</text>
+    <!-- Legend -->
+    <rect x="448" y="261" width="10" height="8" rx="1" fill="#1a7f37" opacity=".88"/>
+    <text x="462" y="269" class="t sub">All open ads (n=1,891)</text>
+    <rect x="588" y="261" width="10" height="8" rx="1" fill="#1a7f37" opacity=".42"/>
+    <text x="602" y="269" class="t sub">Repeat units ≥1 ad (n=1,223)</text>
+  </svg>
+  <div class="chart-cap">Refining the building AR(1) grid from quarterly (4/yr) to monthly (12/yr) solves two problems at once with zero added parameters: +1,799 full <code>latest</code> ELPD and +2.85 pp open-market 80% coverage (bringing repeat open units right to nominal 80.8% and overall 90% coverage from 87.7% to 89.1%).</div>
+</div>
+
+<h3>Wave 2 Summary Tables</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Dataset</th><th>Label</th><th>Stack on <code>C1</code></th><th class="num">ΔELPD ± SE (Scaled)</th><th class="num">z</th><th class="num">Half A / B</th><th class="num">MAE</th><th class="num">80% Cov (90%)</th><th class="num">R-hat / ESS</th><th class="num">Cost</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>latest k5</code></td><td><code>b4-anchor</code></td><td><code>C1</code> (4/yr)</td><td class="num">0 (47,854 sub)</td><td class="num">—</td><td class="num">—</td><td class="num">0.05430</td><td class="num">79.87%</td><td class="num">1.085 / 24.0</td><td class="num">$0.54</td></tr>
+    <tr class="win"><td><code>latest k5</code></td><td><code>b4-c2-bimo</code></td><td><code>+attr,u1,bld_bimo</code></td><td class="num"><strong>+1,181 ± 286</strong></td><td class="num"><strong>+4.13</strong></td><td class="num">+132.9 / +98.8</td><td class="num">0.05413</td><td class="num"><strong>79.95%</strong></td><td class="num"><strong>1.078 / 38.1</strong></td><td class="num">$0.60</td></tr>
+    <tr class="win"><td><code>latest k5</code></td><td><code>b4-c2-mo</code></td><td><code>+attr,u1,bld_mo</code></td><td class="num"><strong>+2,104 ± 336</strong></td><td class="num"><strong>+6.27</strong></td><td class="num">+194.9 / +217.7</td><td class="num"><strong>0.05392</strong></td><td class="num"><strong>80.01%</strong></td><td class="num">1.159* / 11.3</td><td class="num">$0.88</td></tr>
+    <tr><td><code>mkt k5</code></td><td><code>b4-m-anchor</code></td><td><code>C1</code> (4/yr)</td><td class="num">0 (+0.0 vs w2-m)</td><td class="num">—</td><td class="num">+0.6 / -0.6</td><td class="num">0.07135</td><td class="num">75.20% (87.7%)</td><td class="num">1.131 / 14.0</td><td class="num">$0.57</td></tr>
+    <tr><td><code>mkt k5</code></td><td><code>b4-m-attr-u1</code></td><td><code>+attr,u1</code></td><td class="num">-4.1 ± 3.0 (-20)</td><td class="num">-1.35</td><td class="num">-2.4 / -1.7</td><td class="num">0.07159</td><td class="num">75.20% (87.4%)</td><td class="num">1.134 / 12.5</td><td class="num">$0.59</td></tr>
+    <tr class="win"><td><code>mkt k5</code></td><td><code>b4-m-c2-bimo</code></td><td><code>+attr,u1,bld_bimo</code></td><td class="num"><strong>+9.2 ± 15.0 (+46)</strong></td><td class="num">+0.62</td><td class="num">+2.6 / +6.7</td><td class="num">0.07172</td><td class="num"><strong>76.31%</strong> (87.9%)</td><td class="num"><strong>1.072</strong> / 9.9</td><td class="num">$0.62</td></tr>
+    <tr class="win"><td><code>mkt k5</code></td><td><code>b4-m-c2-mo</code></td><td><code>+attr,u1,bld_mo</code></td><td class="num"><strong>+13.0 ± 17.0 (+64)</strong></td><td class="num">+0.76</td><td class="num">+2.7 / +10.3</td><td class="num">0.07145</td><td class="num"><strong>78.05% (89.1%)</strong></td><td class="num">1.125 / 11.1</td><td class="num">$0.87</td></tr>
+  </tbody>
+</table>
+
+<h3>Why <code>u1_size_scale</code> &amp; Static Scale Terms Were Dropped</h3>
+<ul>
+  <li><strong>Clean pruning:</strong> On <code>latest</code>, <code>b4-attr-chg</code> improved ELPD (<code>+216 ± 56</code>, <code>z=+3.86</code>, monotone <code>1.13× / 1.18× / 1.28×</code>), MAE (<code>0.05430 → 0.05428</code>), RMSE (<code>0.07820 → 0.07810</code>), and ESS (<code>24.0 → 29.4</code>). By contrast, <code>b4-u1-size</code> slightly hurt RMSE (<code>0.07820 → 0.07850</code>) and <code>b4-m-attr-u1</code> scored <code>-4.1 ± 3.0</code> on open market — so we drop <code>u1_size_scale</code> and recommend the clean 2-token upgrade <strong><code>attr_changes + bld_monthly</code></strong> (or <code>bld_bimonthly</code>).</li>
+  <li><strong><code>floor1_mean</code> lesson:</strong> <code>floor_1_flag</code> pooled elevator floor 1 (a ground-floor penalty) with walkup floor 1 (the best, stair-free walkup floor!), canceling their opposite signs (<code>+0.0045</code>). An elevator-only <code>unit:elev_floor_1</code> term stays queued for a future micro-screen.</li>
+  <li><strong>Speed note for <code>bld_monthly</code>:</strong> In <code>drift.py</code>, <code>CELL_PADS</code> currently stops at <code>44</code>, so any building with 45–156 active months gets padded straight to ~156. Adding intermediate pads (<code>64, 96, 128</code>) is a 1-line speed win before launching a full 1.9M-row <code>c2-monthly</code> gate fit.</li>
+</ul>
+
+<h2>6. Artifacts &amp; Pull Requests</h2>
+<ul>
+  <li><strong>PR #1550 (<code>feat/a1-audit-a2-refresh-tooling</code>):</strong> Track A1 audit (<code>docs/notes/c1-live-onefit-audit-2026-11-24.md</code> + 140 blind broker reads &amp; Half-B confirmation) + Track A2 refresh fixes (<code>b0trim --allow-thin-last</code>, mtime <code>-extend*</code> registry glob, <code>ops/deals-refresh onefit</code> &amp; <code>publish-all</code>, systemd threading fix, 18 passing tests).</li>
+  <li><strong>PR #1551 (<code>feat/b1-b2-c1-compact-screen</code>):</strong> Track B1+B2 tokens in <code>drift_building_phase_unitkn_ablate.py</code> (24 passing tests), Wave 4 pre-fit &amp; full results note (<code>docs/notes/c1-wave4-screen-2026-11-24.md</code>), this self-contained HTML morning briefing (<code>docs/notes/overnight-2026-11-24.html</code>), and synced <code>docs/TODO.md</code>, <code>docs/research-record.md</code>, and <code>docs/handoff/project-owner.md</code>.</li>
+</ul>
+
+</body>
+</html>

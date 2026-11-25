@@ -37,6 +37,15 @@ Supported variant tokens (all strictly leak-free):
   (2020-2021 dip, 2022+ boom) path decoupling terms.
 - `income_scale`: adds noise scale mark for `income_restricted` ads.
 - `u4_bed`: adds per-bedroom new-unit (`phase == none`) noise scale marks for 2BR and 3+BR.
+- `mark_changed_bed`: adds separate noise scale mark for bedroom-count changes (`ad:beds_up_prev | ad:beds_down_prev`).
+- `mark_floor_unk`: adds noise scale mark for unknown floor (`unit:elev_floor_unknown | unit:walkup_floor_unknown`).
+- `mark_tenure`: adds MapPLUTO `bld:coop` mean col + `mark:condo` and `mark:coop` noise scale marks.
+- `floor1_mean`: adds explicit `unit:floor_1` mean col (restores discrete ground-floor penalty erased by `floor_poly`).
+- `u1_size_scale`: adds continuous `u1:log_size_gt1k = max(0, log(sqft / 1000))` noise scale factor.
+- `attr_changes`: adds strictly causal count of changed binary ad/unit attributes since prior training ad (`1`, `2`, `3+`).
+- `mark_sparse_photos`: adds noise scale mark for ads with `<= 1` photo (`ad:log1p_photos <= log(2)`).
+- `mark_townhouse`: adds MapPLUTO `bld:small_lot_le4` (`unitsres in 1..4`) mean col + `mark:small_lot_le4` scale mark.
+- `bld_bimonthly`, `bld_monthly`: refine building AR(1) step resolution from 4/yr to 6/yr or 12/yr.
 """
 
 from __future__ import annotations
@@ -118,6 +127,7 @@ SEG_TOKENS = (
 SV_TOKENS = ("sv_gp", "sv_gp_mo", "sv_gp_mo16", "sv_gp_mo12", "sv_gp_wk", "sv_gp_wk05")
 VEL_TOKENS = ("vel_gp", "vel_gp_wk")
 SPATIAL_TOKENS = ("spatial_k80", "spatial_k40")
+BLD_STEP_TOKENS = {"bld_bimonthly": 6, "bld_monthly": 12}
 
 ALL_TOKENS = (
     "sbf",
@@ -154,6 +164,16 @@ ALL_TOKENS = (
     "biweekly_walk",
     "no_bld_ar",
     "scale_2x",
+    # Track B1/B2 (2026-11-24): A1 audit discoveries & finer building AR(1) paths
+    "mark_changed_bed",
+    "mark_floor_unk",
+    "mark_tenure",
+    "floor1_mean",
+    "u1_size_scale",
+    "attr_changes",
+    "mark_sparse_photos",
+    "mark_townhouse",
+    *BLD_STEP_TOKENS,
 )
 
 # Anchored Matérn-3/2 stochastic volatility GP constants (`sv_gp*`).
@@ -748,6 +768,138 @@ def _building_bbl(buildings: pd.Series) -> pd.Series:
     return buildings.astype(str).map(bmap)
 
 
+def pluto_building_flags(
+    buildings: pd.Series, pluto_path: Path | None = None
+) -> tuple[np.ndarray, np.ndarray]:
+    """Static MapPLUTO building-level flags `(is_coop, is_small_lot_le4)` joined by BBL."""
+    ppath = pluto_path or building_attrs.PLUTO
+    pluto = pd.read_parquet(ppath, columns=["bbl", "bldgclass", "unitsres"])
+    pluto = pluto.dropna(subset=["bbl"]).copy()
+    pluto["bbl"] = pd.to_numeric(pluto["bbl"], errors="coerce")
+    pluto = pluto.dropna(subset=["bbl"]).drop_duplicates("bbl")
+    pluto["bbl"] = pluto["bbl"].astype("int64")
+    cls_map = pluto.set_index("bbl")["bldgclass"].fillna("").astype(str)
+    ur_map = pd.to_numeric(pluto.set_index("bbl")["unitsres"], errors="coerce")
+
+    bbl = _building_bbl(buildings)
+    bcls = bbl.map(cls_map).fillna("")
+    unitsres = bbl.map(ur_map).to_numpy(float)
+    is_coop = bcls.isin(building_attrs.COOP_CLASSES).to_numpy(float)
+    is_small_lot = ((unitsres >= 1.0) & (unitsres <= 4.0)).astype(float)
+    return is_coop, is_small_lot
+
+
+_U1_BED_MEDIAN_SQFT = {0: 480.0, 1: 700.0, 2: 950.0, 3: 1250.0, 4: 1650.0}
+
+
+def u1_size_scale_feature(d: Design, frame: pd.DataFrame) -> np.ndarray:
+    """Continuous size-dependent noise-scale covariate `max(0, log(sqft / 1000))`
+    reconstructed strictly as-of from `unit:log_size_rel` and `bedrooms`, rounded to 0.1
+    log-unit steps (capped at 2.0) to keep `phase_map` cells compact."""
+    lsr = _col(d, "unit:log_size_rel")
+    unk = _col(d, "unit:size_unknown") > 0.5
+    bd = np.clip(frame["bedrooms"].fillna(1).to_numpy(int), 0, 4)
+    med = np.array([_U1_BED_MEDIAN_SQFT[int(b)] for b in bd], dtype=float)
+    log_sqft_1k = lsr + np.log(med / 1000.0)
+    raw = np.where(unk, 0.0, np.clip(np.maximum(0.0, log_sqft_1k), 0.0, 2.0))
+    out = np.round(raw, 1)
+    out[out == 0.0] = 0.0
+    return out
+
+
+_ATTR_CHANGE_PREFIXES = (
+    "ad:exposure_",
+    "ad:feat_",
+    "ad:fireplace_",
+    "ad:pets_",
+    "ad:private_outdoor_",
+    "ad:views_",
+    "ad:lease_",
+    "unit:laundry_",
+    "flag:",
+)
+_ATTR_CHANGE_EXACT = frozenset(
+    {
+        "ad:floorplan",
+        "ad:tour3d",
+        "ad:video",
+        "ad:months_free",
+        "unit:dishwasher",
+        "unit:penthouse",
+        "unit:garden",
+    }
+)
+
+
+def attr_change_marks(
+    frame: pd.DataFrame, d: Design, train: np.ndarray
+) -> tuple[np.ndarray, list[str]]:
+    """Strictly causal count of binary ad/unit attribute flags that differ from the unit's
+    latest strictly earlier training ad (`1`, `2`, `3+` changed)."""
+    names = ["mark:attr_chg_1", "mark:attr_chg_2", "mark:attr_chg_3p"]
+    cols = [
+        j
+        for j, n in enumerate(d.names)
+        if n in _ATTR_CHANGE_EXACT or n.startswith(_ATTR_CHANGE_PREFIXES)
+    ]
+    n = len(frame)
+    if not cols or "unit_id" not in frame or "price_at" not in frame:
+        return np.zeros((n, 3), dtype=float), names
+
+    tr = np.asarray(train, bool)
+    mat = (d.x[:, cols] > 0.5).astype(np.uint8)
+    uid = frame["unit_id"]
+    has_uid = uid.notna().to_numpy(bool)
+    keys = (
+        frame["building"].astype(str) + "\x1f" + uid.fillna("").astype(str)
+    ).to_numpy()
+    ts = pd.to_datetime(frame["price_at"], utc=True).astype("int64").to_numpy()
+
+    # Sort by (unit_key, timestamp) so each unit's history is contiguous and time-ordered.
+    valid_idx = np.flatnonzero(has_uid)
+    order = valid_idx[np.lexsort((ts[valid_idx], keys[valid_idx]))]
+    prev_tr = np.full(n, -1, dtype=np.int64)
+
+    # Walk contiguous unit blocks; maintain last strictly-earlier training row index.
+    i = 0
+    m = len(order)
+    while i < m:
+        k = keys[order[i]]
+        j = i + 1
+        while j < m and keys[order[j]] == k:
+            j += 1
+        last_tr = -1
+        p = i
+        while p < j:
+            t_cur = ts[order[p]]
+            q = p + 1
+            while q < j and ts[order[q]] == t_cur:
+                q += 1
+            # All rows at timestamp t_cur see only training rows strictly before t_cur.
+            if last_tr >= 0:
+                prev_tr[order[p:q]] = last_tr
+            for r in range(p, q):
+                idx = order[r]
+                if tr[idx]:
+                    last_tr = idx
+            p = q
+        i = j
+
+    has_prev = prev_tr >= 0
+    diff_cnt = np.zeros(n, dtype=np.int32)
+    if has_prev.any():
+        hp = np.flatnonzero(has_prev)
+        diff_cnt[hp] = np.bitwise_xor(mat[hp], mat[prev_tr[hp]]).sum(axis=1)
+    out = np.column_stack(
+        [
+            (diff_cnt == 1).astype(float),
+            (diff_cnt == 2).astype(float),
+            (diff_cnt >= 3).astype(float),
+        ]
+    )
+    return out, names
+
+
 def _load_covid_daily(csv_path: Path = COVID_CSV) -> pd.DataFrame:
     df = pd.read_csv(csv_path)
     df["day"] = pd.to_datetime(df["date_of_interest"], format="%m/%d/%Y", utc=True)
@@ -1059,6 +1211,28 @@ def design(
         st_mat, st_names = rentstab_dhcr_features(frame)
         d = append(d, st_names, st_mat)
 
+    # Compute floor_1 and PLUTO building flags BEFORE floor_poly / ad_core pruning!
+    floor1_vec = (
+        drift_building_phase_unitkn_unified.floor_1_flag(d)
+        if ("floor1_mean" in tok or "mark:floor_1" in marks)
+        else None
+    )
+    if "floor1_mean" in tok:
+        assert floor1_vec is not None
+        d = append(d, ["unit:floor_1"], floor1_vec[:, None])
+
+    coop_vec = small_lot_vec = None
+    if "mark_tenure" in tok or "mark_townhouse" in tok:
+        coop_vec, small_lot_vec = pluto_building_flags(frame["building"])
+        if "mark_tenure" in tok:
+            d = append(d, ["bld:coop"], coop_vec[:, None])
+        if "mark_townhouse" in tok:
+            d = append(d, ["bld:small_lot_le4"], small_lot_vec[:, None])
+
+    attr_chg_mat, attr_chg_names = (
+        attr_change_marks(frame, d, train) if "attr_changes" in tok else (None, [])
+    )
+
     # 4. Additive noise-scale upgrades (only when any scale token is active)
     seg_active = [t for t in SEG_TOKENS if t in tok]
     if len(seg_active) > 1:
@@ -1074,6 +1248,11 @@ def design(
     spatial_active = [t for t in SPATIAL_TOKENS if t in tok]
     if len(spatial_active) > 1:
         raise ValueError(f"at most one spatial token allowed, got {spatial_active}")
+    bld_step_active = [t for t in BLD_STEP_TOKENS if t in tok]
+    if len(bld_step_active) > 1:
+        raise ValueError(
+            f"at most one building step token allowed, got {bld_step_active}"
+        )
 
     scale_tokens = tok & {
         "y1",
@@ -1084,6 +1263,13 @@ def design(
         "income_scale",
         "u4_bed",
         "phase_compact",
+        "mark_changed_bed",
+        "mark_floor_unk",
+        "mark_tenure",
+        "u1_size_scale",
+        "attr_changes",
+        "mark_sparse_photos",
+        "mark_townhouse",
     }
     global _ACTIVE_SCALE_FACTORS
     _ACTIVE_SCALE_FACTORS = ()
@@ -1123,9 +1309,8 @@ def design(
             mark_cols["mark:baths_2"] = fb == 2
             mark_cols["mark:baths_3p"] = fb >= 3
         if "mark:floor_1" in marks:
-            mark_cols["mark:floor_1"] = (
-                drift_building_phase_unitkn_unified.floor_1_flag(d)
-            )
+            assert floor1_vec is not None
+            mark_cols["mark:floor_1"] = floor1_vec
         if "mark:large_01br" in marks:
             mark_cols["mark:large_01br"] = l01
         if "mark:thin_first_ad" in marks:
@@ -1193,8 +1378,56 @@ def design(
             factor_names.extend(["mark:new_bed2", "mark:new_bed3p"])
             mats.append(np.column_stack([new_b2, new_b3p]))
 
+        if "mark_changed_bed" in tok:
+            if "layrng" in tok:
+                chg_bed = (
+                    (_col(d, "ad:beds_up_prev") > 0.5)
+                    | (_col(d, "ad:beds_down_prev") > 0.5)
+                ).astype(float)
+            else:
+                lay = drift_building_bedtext_layout.marks(frame, train)
+                chg_bed = ((lay[:, 0] > 0.5) | (lay[:, 1] > 0.5)).astype(float)
+            factor_names.append("mark:changed_bed")
+            mats.append(chg_bed[:, None])
+
+        if "mark_floor_unk" in tok:
+            f_unk = (
+                (_col(d, "unit:elev_floor_unknown") > 0.5)
+                | (_col(d, "unit:walkup_floor_unknown") > 0.5)
+            ).astype(float)
+            factor_names.append("mark:floor_unknown")
+            mats.append(f_unk[:, None])
+
+        if "mark_tenure" in tok:
+            assert coop_vec is not None
+            condo_vec = (_col(d, "bld:condo") > 0.5).astype(float)
+            factor_names.extend(["mark:condo", "mark:coop"])
+            mats.append(np.column_stack([condo_vec, coop_vec]))
+
+        if "u1_size_scale" in tok:
+            u1_vec = u1_size_scale_feature(d, frame)
+            factor_names.append("u1:log_size_gt1k")
+            mats.append(u1_vec[:, None])
+
+        if "attr_changes" in tok:
+            assert attr_chg_mat is not None
+            factor_names.extend(attr_chg_names)
+            mats.append(attr_chg_mat)
+
+        if "mark_sparse_photos" in tok:
+            sparse_ph = (_col(d, "ad:log1p_photos") <= np.log1p(1.0) + 1e-6).astype(
+                float
+            )
+            factor_names.append("mark:sparse_photos")
+            mats.append(sparse_ph[:, None])
+
+        if "mark_townhouse" in tok:
+            assert small_lot_vec is not None
+            factor_names.append("mark:small_lot_le4")
+            mats.append(small_lot_vec[:, None])
+
         full_mat = np.hstack(mats)
-        if sv_active or vel_active:
+        if sv_active or vel_active or "u1_size_scale" in tok:
             cell_idx, cell_names, pmap, kept_fnames = compact_continuous_phase_map(
                 factor_names, full_mat, train
             )
@@ -1233,10 +1466,18 @@ def design(
             and n not in AD_CORE_COLS
         )
     if "no_bld_ks" in tok:
-        drop_cols.update(n for n in d.names if n.startswith("bld:"))
+        drop_cols.update(
+            n
+            for n in d.names
+            if n.startswith("bld:") and n not in {"bld:coop", "bld:small_lot_le4"}
+        )
     elif "bld_core" in tok:
         drop_cols.update(
-            n for n in d.names if n.startswith("bld:") and n not in BLD_CORE_COLS
+            n
+            for n in d.names
+            if n.startswith("bld:")
+            and n not in BLD_CORE_COLS
+            and n not in {"bld:coop", "bld:small_lot_le4"}
         )
     if "no_phase_mean" in tok:
         drop_cols.update(n for n in d.names if n.startswith("phase:"))
@@ -1324,6 +1565,18 @@ def summarize(kept: dict, names: list[str]) -> dict:
     return out
 
 
+def _active_groups(d: Design, tok: set[str]) -> list[dict] | None:
+    if "no_bld_ar" in tok:
+        return None
+    out = drift.groups_of(d, GROUPS)
+    for step_tok, per_yr in BLD_STEP_TOKENS.items():
+        if step_tok in tok:
+            for g in out:
+                if g["name"] == "building":
+                    g["per_year"] = per_yr
+    return out
+
+
 def run(d: Design, priors: Priors, settings: Settings, log=print, checkpoint=None):
     """Run the L2-unitkn sweep with active simplification tokens."""
     tok = set(ACTIVE_VARIANT)
@@ -1334,7 +1587,7 @@ def run(d: Design, priors: Priors, settings: Settings, log=print, checkpoint=Non
         log,
         checkpoint,
         gp=gp_spec(d.names),
-        groups=None if "no_bld_ar" in tok else drift.groups_of(d, GROUPS),
+        groups=_active_groups(d, tok),
         unit_t=True,
         unit_dof_fixed=UNIT_DOF,
         unit_kap_collapsed=True,
@@ -1349,6 +1602,11 @@ def run(d: Design, priors: Priors, settings: Settings, log=print, checkpoint=Non
 def run_record(d: Design) -> dict:
     rec = drift_building_phase_unitkn_level.run_record(d)
     rec["ablate_variant"] = list(ACTIVE_VARIANT)
+    grps = _active_groups(d, set(ACTIVE_VARIANT))
+    if grps is not None and "local" in rec:
+        for g in grps:
+            if g["name"] in rec["local"]:
+                rec["local"][g["name"]]["steps_per_year"] = g["per_year"]
     if d.phase_map is not None:
         pmap = np.asarray(d.phase_map, float)
         counts = np.bincount(d.phase, minlength=len(d.phases))
