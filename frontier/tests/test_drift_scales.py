@@ -105,8 +105,10 @@ def test_a_set_holds_all_of_a_steps_scales_or_none():
 def test_the_stored_sets_name_whole_steps_and_a_source():
     groups = [{"name": "building", "collapsed": True}]
     assert set(drift_scales.SETS) == set(drift_scales.SOURCES)
-    for scales in drift_scales.SETS.values():
-        assert drift.held_steps(scales, groups) == {"noise", "cells", "tau"}
+    for key, scales in drift_scales.SETS.items():
+        # "-all" sets also hold the wave amplitudes and the segment GP scales.
+        extra = {"amp", "gp"} if key.endswith("-all") else set()
+        assert drift.held_steps(scales, groups) == {"noise", "cells", "tau"} | extra
         assert 0 < scales["building_ar_rho"] < 1
         assert all(np.all(np.asarray(v) > 0) for v in scales.values())
 

@@ -51,8 +51,8 @@ stood before 2026-11-10, with the Chelsea pilot's and the frontier line's items,
   full 13-year NYC `c2-monthly` from `$24.90` (`u5`) / `$11.67` (`c1`) → `$2.29` (Sprint 1) →
   **`$1.26`** (`pf2-c2mo-sub120`, `R=1.0077, ESS=551, ELPD 10,264.2, cov80 79.93%`, **`19.8×` cheaper**);
   reached **`$1.02`** warm-cache 4ch (`min ESS=638`, `3.2s` prep via `/vol/b0-design-cache`, `9.1s` compile),
-  **`$0.53`** 2ch `em_warm` exact Gibbs (`10,260.6` ELPD, new best `MAE 0.06689`, `80.10%` cov80, `47×` cheaper),
-  **`$0.45`** 4ch PASS `em_laplace` (`10,118.8` ELPD, `+77` vs `$2.04` `range-j`), and **`$4.04`** free-scales
+  **`$0.53`** 2ch `em_warm` held-scales Gibbs, gate FAILED R-hat 1.038 / ESS 87 (`10,260.6` ELPD, `MAE 0.06689`, `80.10%` cov80, `47×` cheaper),
+  **`$0.45`** `em_laplace` (Laplace draws, no convergence test) (`10,118.8` ELPD, `+77` vs `$2.04` `range-j`), and **`$4.04`** free-scales
   `c1-compact` via `fast_scales_p7` (`sv:m00` in collapsed `update_scales`) + 2-step Fisher-HMC
   (`min ESS=503`, `465/466` params `<=1.0081`, `2.9×` cheaper than `$11.67`).
 - [ ] **Fold remaining data-investigation findings directly into `c1-compact` and data rules**

@@ -992,7 +992,12 @@ def make_sampler(
     slow_gp_blocks = []
     if slow_gps and len(slow):
         for gk, (pos, xk, _, _) in enumerate(gps):
-            if all(int(p) in slow_pos for p in pos):
+            inside = [int(p) in slow_pos for p in pos]
+            # A block only partly in `slow` would lose its GP prior in both steps.
+            assert all(inside) or not any(inside), (
+                f"GP block {gk} is only partly among the slow columns"
+            )
+            if all(inside):
                 sub = np.array([slow_pos[int(p)] for p in pos], dtype=int)
                 slow_gp_blocks.append((gk, sub, xk))
     # Each block's part of every bucket. A unit's rows share a building, so a unit never

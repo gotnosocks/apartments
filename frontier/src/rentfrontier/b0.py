@@ -956,9 +956,10 @@ def main_run(
     priors = spec.Priors()
     started = time.time()
     t0 = time.perf_counter()
-    ds_path = Path(os.environ["FRONTIER_DATASET"])
-    ds_sha = json.loads((ds_path / "manifest.json").read_text())["rows_sha256"]
-    b0_cache_dir = os.environ.get("FRONTIER_B0_DESIGN_CACHE_DIR")
+    ds_env = os.environ.get("FRONTIER_DATASET")
+    ds_path = Path(ds_env) if ds_env else None
+    # The design cache needs the dataset's path up front; without it, prepare as before.
+    b0_cache_dir = os.environ.get("FRONTIER_B0_DESIGN_CACHE_DIR") if ds_path else None
     # Sampler-only ablate tokens that do not alter the prepared Design arrays.
     _SAMPLER_ONLY = frozenset(
         {
@@ -975,11 +976,14 @@ def main_run(
     )
     cache_path = None
     if b0_cache_dir:
+        ds_sha = json.loads((ds_path / "manifest.json").read_text())["rows_sha256"]
         raw_var = tuple(getattr(spec, "ACTIVE_VARIANT", ()) or ())
         design_var = tuple(t for t in raw_var if t not in _SAMPLER_ONLY)
         key_payload = json.dumps(
             {
-                "v": 1,
+                "v": 2,
+                "commit": commit,
+                "dirty": bool(dirty),
                 "ds_sha": ds_sha,
                 "split": args.split,
                 "split_seed": splits.SEED,
@@ -997,7 +1001,7 @@ def main_run(
                 loaded_cache = pickle.load(f)
         except Exception:
             loaded_cache = None
-    if loaded_cache is not None:
+    if loaded_cache is not None and not dirty:
         train, heldout, names, weeks, start, count, own_record = loaded_cache
         # Re-stamp current ACTIVE_VARIANT onto own_record if ablate model.
         if hasattr(spec, "ACTIVE_VARIANT") and "ablate_variant" in own_record:
@@ -1006,7 +1010,7 @@ def main_run(
         held_rows = int(np.count_nonzero(heldout))
         ds_str = str(ds_path)
     else:
-        frame = load_frame(ds_path)
+        frame = load_frame(ds_path) if ds_path else load_frame()
         ds_str = frame.attrs["dataset"]
         ds_sha = frame.attrs["source_sha256"]
         heldout = splits.SPLITS[args.split](frame)
