@@ -302,9 +302,12 @@ def _cautions(
     # apartment, the pieces of a split unit read together (`layout.changes`).
     marks = layout.changes(frame, ~np.asarray(held, bool))[eval_mask]
     more = (marks[:, MORE_ROOMS] > 0).any(axis=1)
+    inc_col = (
+        "income_restricted_v2" if "income_restricted_v2" in h else "income_restricted"
+    )
     flagged = (
-        h.income_restricted.fillna(False).astype(bool).to_numpy()
-        if "income_restricted" in h
+        h[inc_col].fillna(False).astype(bool).to_numpy()
+        if inc_col in h
         else np.zeros(len(h), bool)
     )
     off = (h.status.astype(str) == cautions_module.OFF_MARKET).to_numpy()

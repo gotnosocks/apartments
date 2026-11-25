@@ -3523,15 +3523,41 @@ def run(
         log(
             f"em_warm: {em_warm} deterministic EM steps in {time.perf_counter() - t_em:.1f}s"
         )
-        # Warm-start every chain's latent state at the EM mode while preserving scale inits.
-        for k_em in ("theta", "lev", "lam", "kap", "ukap"):
-            if k_em in st and k_em in st_map:
-                st = st | {k_em: jnp.broadcast_to(st_map[k_em][None], st[k_em].shape)}
+        # Warm-start chains in the EM basin with independent per-chain dispersion so R-hat
+        # reflects genuine multi-chain mixing rather than identical starting states.
+        key, k_disp = jax.random.split(key)
+        k_th, k_lv, k_ar, k_lm, k_kp, k_uk = jax.random.split(k_disp, 6)
+        if "theta" in st and "theta" in st_map:
+            st = st | {
+                "theta": st_map["theta"][None]
+                + jnp.asarray(0.02, dtype=st["theta"].dtype)
+                * jax.random.normal(k_th, st["theta"].shape, dtype=st["theta"].dtype)
+            }
+        if "lev" in st and "lev" in st_map:
+            st = st | {
+                "lev": st_map["lev"][None]
+                + jnp.asarray(0.05, dtype=st["lev"].dtype)
+                * jax.random.normal(k_lv, st["lev"].shape, dtype=st["lev"].dtype)
+            }
+        for k_pos, k_rng in (("lam", k_lm), ("kap", k_kp), ("ukap", k_uk)):
+            if k_pos in st and k_pos in st_map:
+                st = st | {
+                    k_pos: st_map[k_pos][None]
+                    * jnp.exp(
+                        jnp.asarray(0.15, dtype=st[k_pos].dtype)
+                        * jax.random.normal(
+                            k_rng, st[k_pos].shape, dtype=st[k_pos].dtype
+                        )
+                    )
+                }
         if "ar" in st and "ar" in st_map:
+            ar_keys = jax.random.split(k_ar, len(st["ar"]))
             st = st | {
                 "ar": tuple(
-                    jnp.broadcast_to(a[None], b.shape)
-                    for a, b in zip(st_map["ar"], st["ar"])
+                    a[None]
+                    + jnp.asarray(0.02, dtype=b.dtype)
+                    * jax.random.normal(ka, b.shape, dtype=b.dtype)
+                    for a, b, ka in zip(st_map["ar"], st["ar"], ar_keys)
                 )
             }
         t_first = time.perf_counter()

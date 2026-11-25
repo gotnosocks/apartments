@@ -684,3 +684,28 @@ def test_thin_level_reads_the_runs_levels_and_the_training_rows(tmp_path, monkey
     monkeypatch.setattr(drift_diagnostics, "levels", lambda *a: (None, "no order"))
     with pytest.raises(SystemExit, match="no thin_level caution for r: no order"):
         drift_deals._thin(run, frame, held)
+
+
+def test_income_restricted_v2_preferred_over_v1_for_unread_ads(tmp_path):
+    """For ads with no description text, `_cautions` prefers `income_restricted_v2`
+    when present and falls back to `income_restricted` otherwise."""
+
+    def add_v2(rows):
+        rows["income_restricted"] = [False, True, False, False, False, False]
+        rows["income_restricted_v2"] = [False, False, True, False, False, True]
+
+    run, ads, reg = _run(tmp_path / "v2", change=add_v2)
+    table = drift_deals.deals(run, ads, reg).set_index("listing_id")
+    # Held-out listings are 2, 3, 4, 6; only 3 and 6 are marked by income_restricted_v2.
+    assert "income" not in table.loc["2", "cautions"]
+    assert "income" in table.loc["3", "cautions"]
+    assert "income" not in table.loc["4", "cautions"]
+    assert "income" in table.loc["6", "cautions"]
+
+    def add_v1_only(rows):
+        rows["income_restricted"] = [False, True, False, False, False, False]
+
+    run1, ads1, reg1 = _run(tmp_path / "v1", change=add_v1_only)
+    table1 = drift_deals.deals(run1, ads1, reg1).set_index("listing_id")
+    assert "income" in table1.loc["2", "cautions"]
+    assert "income" not in table1.loc["3", "cautions"]

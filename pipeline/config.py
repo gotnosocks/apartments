@@ -29,9 +29,9 @@ its price changes count as stale, 7 unless set, as in latest-ask-v9. -1 drops ev
 the off-market day on, as latest-ask-v10 does. The build records the value in its catalog line.
 
 `PIPELINE_LABEL_RULE` picks the label rule for `analysis.label_units`: `unit-labels-v17` unless
-set, or `unit-labels-v18`, whose history layer joins two units only when their labels agree up
-to spelling. `models/analysis/label_units.py` explains both rules, and the build records the
-rule in its catalog line.
+set, `unit-labels-v18` (spelling-checked history layer), or `unit-labels-v19` (v18 plus trailing
+APT/UNIT and leading-zero penthouse normalization). `models/analysis/label_units.py` explains the
+rules, and the build records the rule in its catalog line.
 
 `PIPELINE_MEMORY` sets DuckDB's memory limit, 5GB unless set. The connection also turns off
 DuckDB's insertion order, so the rows of a table come out in no set order, and large queries
